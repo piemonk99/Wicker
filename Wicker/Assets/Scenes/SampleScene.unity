@@ -672,7 +672,7 @@ Camera:
   far clip plane: 1000
   field of view: 34
   orthographic: 1
-  orthographic size: 8
+  orthographic size: 15
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -1218,23 +1218,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GrappleSystem
   physicsConfig:
     maxDistance: 20
-    baseRopeStiffness: 20
+    baseRopeStiffness: 200
     ropeStiffnessExponent: 2
-    tangentConversionFactor: 0.7
+    tangentConversionFactor: 1
     ropeDamping: 0.1
-    swingFriction: 0.99
+    swingFriction: 1
+    boostMultiplier: 1.1
+    minBoostVelocity: 1
     grappleLayers:
       serializedVersion: 2
       m_Bits: 64
-    tangentConversionLoss: 0.25
-    angularFrictionFactor: 0
-    maxSwingHeightRatio: 100
   reelConfig:
     reelSpeed: 50
-    slackReelMultiplier: 3
+    slackReelMultiplier: 8
     minRopeLength: 1
-    boostMultiplier: 1.1
-    minBoostVelocity: 2
     reelSmoothness: 0.1
   grappleOrigin: {fileID: 960373647}
   grappleLine: {fileID: 960373650}

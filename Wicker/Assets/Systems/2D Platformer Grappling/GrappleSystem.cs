@@ -13,9 +13,11 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         public float tangentConversionFactor = 0.7f;
         public float ropeDamping = 0.1f;
         public float swingFriction = 0.99f;
-        public LayerMask grappleLayers;
 
-        public float tangentConversionLoss = 0.25f; // 25% energy loss on conversion (0-1)
+        public float boostMultiplier = 1.5f;
+        public float minBoostVelocity = 2f;
+        
+        public LayerMask grappleLayers;
     }
 
     [System.Serializable]
@@ -24,8 +26,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         public float reelSpeed = 10f;
         public float slackReelMultiplier = 3f; // Faster reeling when rope has slack
         public float minRopeLength = 1f;
-        public float boostMultiplier = 1.5f;
-        public float minBoostVelocity = 2f;
         public float reelSmoothness = 0.1f; // Smoothness when reeling
     }
 
@@ -196,6 +196,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         else if (type == "grapple_released" && isGrappling)
         {
             StopGrapple();
+            ApplyBoost();
         }
         else if (type == "jump_pressed")
         {
@@ -214,7 +215,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             {
                 if (isReeling)
                 {
-                    ApplyReelBoost();
                     StopReeling();
                 }
             }
@@ -282,16 +282,16 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         }
     }
 
-    private void ApplyReelBoost()
+    private void ApplyBoost()
     {
-        if (swingMomentum.magnitude < reelConfig.minBoostVelocity)
+        if (swingMomentum.magnitude < physicsConfig.minBoostVelocity)
         {
             return;
         }
 
         // Boost in the direction of swing momentum
         float momentumMagnitude = swingMomentum.magnitude;
-        float boostStrength = momentumMagnitude * (reelConfig.boostMultiplier - 1f);
+        float boostStrength = momentumMagnitude * (physicsConfig.boostMultiplier - 1f);
         Vector2 boostDirection = swingMomentum.normalized;
 
         movement.AddExternalVelocity(boostDirection * boostStrength);
@@ -478,6 +478,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
         Vector2 currentVelocity = rb.linearVelocity;
         Vector2 radialVelocity = Vector2.Dot(currentVelocity, radialDirection) * radialDirection;
+        Vector2 radialVelDir = radialVelocity.normalized;
 
         // Get both possible tangent directions
         Vector2 tangent1 = new Vector2(-radialDirection.y, radialDirection.x);
@@ -486,12 +487,21 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Find which tangent is closer to current velocity direction
         Vector2 closestTangent = GetClosestTangentDirection(currentVelocity, tangent1, tangent2);
 
-        // Calculate conversion factor based on angle difference
-        float angleDifference = Vector2.Angle(radialVelocity.normalized, closestTangent) / 180f;
-        float conversionFactor = physicsConfig.tangentConversionFactor * (1f - angleDifference);
+        // Calculate dot product (cosine of angle)
+        // 1.0 = same direction, 0.0 = perpendicular, -1.0 = opposite
+        float cosineAlignment = Vector2.Dot(radialVelDir, closestTangent);
 
-        // Apply energy loss during conversion (from config)
-        conversionFactor *= (1f - physicsConfig.tangentConversionLoss);
+        // Convert to 0-1 factor where:
+        // cosine=1.0 (0°) -> factor=1.0
+        // cosine=0.0 (90°) -> factor=0.0
+        // cosine=-1.0 (180°) -> factor=0.0
+        float alignmentFactor = Mathf.Max(0f, cosineAlignment);
+
+        // Add power for sharper falloff (optional)
+        alignmentFactor = Mathf.Pow(alignmentFactor, 2f);
+
+        // Base conversion factor
+        float conversionFactor = physicsConfig.tangentConversionFactor * alignmentFactor;
 
         // Convert radial momentum to tangent
         float momentumToConvert = radialSpeed * conversionFactor;
@@ -505,6 +515,12 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         {
             Debug.DrawRay(grappleOrigin.position, closestTangent * 3f, Color.green, 0.1f);
             Debug.DrawRay(grappleOrigin.position, tangentVelocity, Color.yellow, 0.1f);
+
+            float angle = Mathf.Acos(Mathf.Clamp(cosineAlignment, -1f, 1f)) * Mathf.Rad2Deg;
+            Debug.Log($"Tangent conversion: Angle={angle:F1}°, " +
+                     $"Cosine={cosineAlignment:F2}, " +
+                     $"Factor={alignmentFactor:F2}, " +
+                     $"Conversion={conversionFactor:P0}");
         }
     }
 
