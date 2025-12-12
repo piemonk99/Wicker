@@ -19,7 +19,9 @@ public class PlatformerMovement : MonoBehaviour, ICharacterComponent
         // Multipliers
         public float gravityMultiplier = 1f;
         public float accelerationMultiplier = 1f;
+        public float airAccelerationMultiplier = 1f;
         public float decelerationMultiplier = 1f;
+        public float airDecelerationMultiplier = 1f;
         public float jumpForceMultiplier = 1f;
         public float maxSpeedMultiplier = 1f;
 
@@ -32,7 +34,9 @@ public class PlatformerMovement : MonoBehaviour, ICharacterComponent
             bool canJump = true,
             float gravityMultiplier = 1f,
             float accelerationMultiplier = 1f,
+            float airAccelerationMultiplier = 1f,
             float decelerationMultiplier = 1f,
+            float airDecelerationMultiplier = 1f,
             float jumpForceMultiplier = 1f,
             float maxSpeedMultiplier = 1f
         )
@@ -44,7 +48,9 @@ public class PlatformerMovement : MonoBehaviour, ICharacterComponent
             this.canJump = canJump;
             this.gravityMultiplier = gravityMultiplier;
             this.accelerationMultiplier = accelerationMultiplier;
+            this.airAccelerationMultiplier = airAccelerationMultiplier;
             this.decelerationMultiplier = decelerationMultiplier;
+            this.airDecelerationMultiplier = airDecelerationMultiplier;
             this.jumpForceMultiplier = jumpForceMultiplier;
             this.maxSpeedMultiplier = maxSpeedMultiplier;
         }
@@ -76,7 +82,9 @@ public class PlatformerMovement : MonoBehaviour, ICharacterComponent
         canJump: true,
         gravityMultiplier: 1f,
         accelerationMultiplier: 1f,
+        airAccelerationMultiplier: 1f,
         decelerationMultiplier: 1f,
+        airDecelerationMultiplier: 1f,
         jumpForceMultiplier: 1f,
         maxSpeedMultiplier: 1f
     );
@@ -211,21 +219,62 @@ public class PlatformerMovement : MonoBehaviour, ICharacterComponent
         float targetSpeed = inputX * stateMaxSpeed;
         float speedDiff = targetSpeed - rb.linearVelocity.x;
 
-        // Use current state-appropriate deceleration with multiplier
-        float effectiveDeceleration = currentState.applyDeceleration ?
-            (IsGrounded() ? deceleration * currentState.decelerationMultiplier :
-             deceleration * airDecelerationMultiplier * currentState.decelerationMultiplier) :
-            0f;
+        // Use current state-appropriate acceleration and deceleration
+        float effectiveAcceleration = GetEffectiveAcceleration();
+        float effectiveDeceleration = GetEffectiveDeceleration();
 
-        // Apply acceleration multiplier
-        float effectiveAcceleration = IsGrounded() ?
-            acceleration * currentState.accelerationMultiplier :
-            acceleration * airAccelerationMultiplier * currentState.accelerationMultiplier;
+        // Determine acceleration rate based on situation
+        float accelRate;
 
-        float accelRate = Mathf.Abs(targetSpeed) > 0.01f ? effectiveAcceleration : effectiveDeceleration;
+        if (Mathf.Abs(inputX) > 0.01f)
+        {
+            // Player is trying to move
+            if (Mathf.Abs(rb.linearVelocity.x) < Mathf.Abs(stateMaxSpeed))
+            {
+                // Below max speed - accelerate normally
+                accelRate = effectiveAcceleration;
+            }
+            else if (Mathf.Sign(inputX) != Mathf.Sign(rb.linearVelocity.x))
+            {
+                // Trying to move opposite direction we are currently moving - add directionless deceleration with a negative acceleration
+                accelRate = effectiveDeceleration + effectiveAcceleration;
+            }
+            else
+            {
+                // Attempting to move in the same direction we are currently going above the max speed in, use directionless deceleration
+                accelRate = effectiveDeceleration;
+            }
+        }
+        else
+        {
+            // No input - decelerate
+            accelRate = effectiveDeceleration;
+        }
 
         float movement = Mathf.Pow(Mathf.Abs(speedDiff) * accelRate, 0.5f) * Mathf.Sign(speedDiff);
         rb.linearVelocity = new Vector2(rb.linearVelocity.x + movement * Time.fixedDeltaTime, rb.linearVelocity.y);
+    }
+
+    private float GetEffectiveAcceleration()
+    {
+        float baseAccel = IsGrounded() ? acceleration : acceleration * airAccelerationMultiplier;
+        float stateMultiplier = IsGrounded() ?
+            currentState.accelerationMultiplier :
+            currentState.accelerationMultiplier * currentState.airAccelerationMultiplier;
+
+        return baseAccel * stateMultiplier;
+    }
+
+    private float GetEffectiveDeceleration()
+    {
+        if (!currentState.applyDeceleration) return 0f;
+
+        float baseDecel = IsGrounded() ? deceleration : deceleration * airDecelerationMultiplier;
+        float stateMultiplier = IsGrounded() ?
+            currentState.decelerationMultiplier :
+            currentState.decelerationMultiplier * currentState.airDecelerationMultiplier;
+
+        return baseDecel * stateMultiplier;
     }
 
     // State management
@@ -278,7 +327,9 @@ public class PlatformerMovement : MonoBehaviour, ICharacterComponent
             canJump: false,
             gravityMultiplier: 0f,
             accelerationMultiplier: 0f,
+            airAccelerationMultiplier: 0f,
             decelerationMultiplier: 0f,
+            airDecelerationMultiplier: 0f,
             jumpForceMultiplier: 0f,
             maxSpeedMultiplier: 0f
         ));

@@ -16,6 +16,7 @@ public class PlayerInput : MonoBehaviour
     private InputAction attackAction;
     private InputAction grappleAction;
     private InputAction dashAction;
+    private InputAction downAction;
 
     void Start()
     {
@@ -49,6 +50,7 @@ public class PlayerInput : MonoBehaviour
         attackAction = FindAction(gameplayMap, new[] { "Attack", "Fire", "Primary" });
         grappleAction = FindAction(gameplayMap, new[] { "Grapple", "Hook", "Secondary" });
         dashAction = FindAction(gameplayMap, new[] { "Dash", "Roll", "Evade" });
+        downAction = FindAction(gameplayMap, new[] { "Down", "Lower" });
 
         EnableAllActions();
     }
@@ -70,6 +72,7 @@ public class PlayerInput : MonoBehaviour
         attackAction = new InputAction("Attack", InputActionType.Button, "<Keyboard>/leftCtrl");
         grappleAction = new InputAction("Grapple", InputActionType.Button, "<Keyboard>/rightCtrl");
         dashAction = new InputAction("Dash", InputActionType.Button, "<Keyboard>/leftShift");
+        downAction = new InputAction("Down", InputActionType.Button, "<Keyboard>/s");
 
         EnableAllActions();
     }
@@ -92,6 +95,7 @@ public class PlayerInput : MonoBehaviour
         attackAction?.Enable();
         grappleAction?.Enable();
         dashAction?.Enable();
+        downAction?.Enable();
     }
 
     void OnEnable() => EnableAllActions();
@@ -102,6 +106,7 @@ public class PlayerInput : MonoBehaviour
         attackAction?.Disable();
         grappleAction?.Disable();
         dashAction?.Disable();
+        downAction?.Disable();
     }
 
     void Update()
@@ -133,5 +138,11 @@ public class PlayerInput : MonoBehaviour
 
         if (dashAction?.WasPressedThisFrame() ?? false)
             character.RaiseEvent("dash_pressed");
+
+        if (downAction?.WasPressedThisFrame() ?? false)
+            character.RaiseEvent("down_pressed");
+
+        if (downAction?.WasReleasedThisFrame() ?? false)
+            character.RaiseEvent("down_released");
     }
 }

@@ -1,32 +1,89 @@
 using System.Collections;
-using UnityEngine.InputSystem; 
 using UnityEngine;
+using UnityEngine.InputSystem; 
+using static GrappleSystem;
 
 public class GrappleSystem : MonoBehaviour, ICharacterComponent
 {
     [System.Serializable]
+    public class GrappleMovementState
+    {
+        public string name = "Grappling";
+
+        // Input control
+        public bool allowMovement = true;
+
+        // Physics control
+        public bool applyGravity = true;
+        public bool applyDeceleration = true;
+        public bool canJump = false;
+
+        // Multipliers
+        public float gravityMultiplier = 1f;
+        public float accelerationMultiplier = 1f;
+        public float airAccelerationMultiplier = 0.025f;
+        public float decelerationMultiplier = 1f;
+        public float airDecelerationMultiplier = 0.025f;
+        public float jumpForceMultiplier = 0f;
+        public float maxSpeedMultiplier = 1f;
+
+        // Helper method to convert to MovementState
+        public PlatformerMovement.MovementState ToMovementState()
+        {
+            return new PlatformerMovement.MovementState(
+                name: name,
+                allowMovement: allowMovement,
+                applyGravity: applyGravity,
+                applyDeceleration: applyDeceleration,
+                canJump: canJump,
+                gravityMultiplier: gravityMultiplier,
+                accelerationMultiplier: accelerationMultiplier,
+                airAccelerationMultiplier: airAccelerationMultiplier,
+                decelerationMultiplier: decelerationMultiplier,
+                airDecelerationMultiplier: airDecelerationMultiplier,
+                jumpForceMultiplier: jumpForceMultiplier,
+                maxSpeedMultiplier: maxSpeedMultiplier
+            );
+        }
+    }
+
+    [System.Serializable]
     public class RopePhysicsConfig
     {
         public float maxDistance = 20f;
-        public float baseRopeStiffness = 20f;
-        public float ropeStiffnessExponent = 2f;
-        public float tangentConversionFactor = 0.7f;
         public float ropeDamping = 0.1f;
         public float swingFriction = 0.99f;
-
-        public float boostMultiplier = 1.5f;
+        public float boostMultiplier = 1.1f;
         public float minBoostVelocity = 2f;
-        
+
+        [Header("Stretch Physics (Outside Rope)")]
+        public bool enableStretch = true;
+        public float stretchStiffness = 200f;
+        public float stretchStiffnessExponent = 2f;
+        public float stretchToTangentConversion = 0.7f;
+
+        [Header("Squash Physics (Inside Rope)")]
+        public bool enableSquash = false;
+        public float squashStiffness = 50f;
+        public float squashStiffnessExponent = 2f;
+        public float squashToTangentConversion = 0.7f;
+
         public LayerMask grappleLayers;
     }
 
     [System.Serializable]
     public class ReelConfig
     {
-        public float reelSpeed = 10f;
+        [Header("Reeling In")]
+        public float reelSpeed = 50f;
         public float slackReelMultiplier = 3f; // Faster reeling when rope has slack
         public float minRopeLength = 1f;
         public float reelSmoothness = 0.1f; // Smoothness when reeling
+
+        [Header("Unreeling Out")]
+        public float unreelSpeed = 50f;
+        public float maxRopeLength = 20f;
+        public float unreelSmoothness = 0.1f;
     }
 
     [System.Serializable]
@@ -40,6 +97,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     }
 
     [Header("Configuration")]
+    public GrappleMovementState grappleMovementState;
     public RopePhysicsConfig physicsConfig;
     public ReelConfig reelConfig;
 
@@ -70,59 +128,29 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     private float currentRopeLength;
 
     // Physics state
-    private bool isReeling = false;
     private bool isJumpHeld = false;
+    private bool isDownHeld = false;
     private SwingArc swingArc;
     private Vector2 swingMomentum;
     private Vector2 previousVelocity;
     private float momentumCaptureTimer = 0f;
     private const float MOMENTUM_CAPTURE_RATE = 0.1f;
 
+    // Computed properties for reeling
+    private bool ShouldReel => isGrappling && isJumpHeld && !isDownHeld;
+    private bool ShouldUnreel => isGrappling && isDownHeld && !isJumpHeld;
+
     // Debug
     private Vector2 lastAimDirection;
     private float lastRaycastLength;
     private bool lastRaycastHit;
+    
 
-    // Helper: Calculate swing arc geometry
-    private SwingArc CalculateSwingArc(Vector2 playerPos, Vector2 grapplePos, float ropeLength)
-    {
-        SwingArc arc = new SwingArc();
-        arc.center = grapplePos;
-        arc.radius = ropeLength;
+    
 
-        Vector2 toPlayer = playerPos - grapplePos;
-        arc.currentAngle = Vector2.SignedAngle(Vector2.down, toPlayer) * Mathf.Deg2Rad;
-
-        // Radial direction (from grapple point to player)
-        arc.radialDirection = toPlayer.normalized;
-
-        // Tangent direction (perpendicular to radial, 90 degrees clockwise)
-        arc.tangentDirection = new Vector2(-arc.radialDirection.y, arc.radialDirection.x);
-
-        return arc;
-    }
-
-    // Helper: Get the closest tangent direction to a given velocity
-    private Vector2 GetClosestTangentDirection(Vector2 velocity, Vector2 tangent, Vector2 oppositeTangent)
-    {
-        float dotTangent = Vector2.Dot(velocity.normalized, tangent);
-        float dotOpposite = Vector2.Dot(velocity.normalized, oppositeTangent);
-
-        return dotTangent > dotOpposite ? tangent : oppositeTangent;
-    }
-
-    // Helper: Calculate how much rope is stretched beyond its natural length
-    private float CalculateStretchRatio(float currentDistance, float ropeLength)
-    {
-        if (currentDistance <= ropeLength) return 0f;
-        return (currentDistance - ropeLength) / ropeLength;
-    }
-
-    // Helper: Calculate exponential stiffness based on stretch
-    private float CalculateDynamicStiffness(float stretchRatio)
-    {
-        return physicsConfig.baseRopeStiffness * Mathf.Pow(1f + stretchRatio, physicsConfig.ropeStiffnessExponent);
-    }
+    //////////////////////  Macro and Grapple State Handling  ////////////////////////
+    
+    // Listeners and setup
 
     public void Initialize(CharacterCore core)
     {
@@ -169,9 +197,14 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
             UpdateSwingPhysics(fixedDeltaTime);
 
-            if (isReeling)
+            // Use computed properties instead of separate states
+            if (ShouldReel)
             {
                 UpdateReeling(fixedDeltaTime);
+            }
+            else if (ShouldUnreel)
+            {
+                UpdateUnreeling(fixedDeltaTime);
             }
 
             UpdateGrappleVisuals();
@@ -184,9 +217,11 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         {
             if (!isGrappling)
             {
-                // Check if we should start in reeling mode (jump is held)
-                bool shouldStartReeling = isJumpHeld;
-                TryStartGrapple(shouldStartReeling);
+                int initialReelDirection = 0;
+                if (isJumpHeld) initialReelDirection += 1;
+                if (isDownHeld) initialReelDirection -= 1;
+
+                TryStartGrapple(initialReelDirection);
             }
             else
             {
@@ -201,85 +236,105 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         else if (type == "jump_pressed")
         {
             isJumpHeld = true;
-
-            if (isGrappling)
-            {
-                StartReeling();
-            }
+            // No need to call StartReeling() - it's now computed
         }
         else if (type == "jump_released")
         {
             isJumpHeld = false;
-
-            if (isGrappling)
-            {
-                if (isReeling)
-                {
-                    StopReeling();
-                }
-            }
+            // No need to call StopReeling() - it's now computed
+        }
+        else if (type == "down_pressed")
+        {
+            isDownHeld = true;
+            // No need to call StartUnreeling() - it's now computed
+        }
+        else if (type == "down_released")
+        {
+            isDownHeld = false;
+            // No need to call StopUnreeling() - it's now computed
         }
     }
 
-    private void CaptureSwingMomentum()
+
+    // Grapple state handling
+
+    private void TryStartGrapple(int initialReelDirection = 0)
     {
-        Vector2 currentVelocity = rb.linearVelocity;
+        lastAimDirection = GetAimDirection();
+        grappleHit = Physics2D.Raycast(
+            grappleOrigin.position,
+            lastAimDirection,
+            physicsConfig.maxDistance,
+            physicsConfig.grappleLayers
+        );
 
-        if (currentVelocity.magnitude > 0.1f)
+        lastRaycastHit = grappleHit.collider != null;
+        lastRaycastLength = grappleHit.collider != null ? grappleHit.distance : physicsConfig.maxDistance;
+
+        if (showRaycastDebug)
         {
-            swingMomentum = Vector2.Lerp(swingMomentum, currentVelocity, 0.3f);
+            DrawRaycastDebug();
+        }
 
-            if (showPhysicsDebug)
-            {
-                Debug.DrawRay(transform.position, swingMomentum.normalized * 2f, Color.cyan, 0.2f);
-            }
+        if (grappleHit.collider != null)
+        {
+            StartGrapple(grappleHit.point, initialReelDirection);
+        }
+        else
+        {
+            Debug.Log("Grapple missed - no valid target");
         }
     }
 
-    private void StartReeling()
+    private void StartGrapple(Vector2 point, int initialReelDirection = 0)
     {
-        if (!isGrappling || isReeling) return;
+        isGrappling = true;
+        grapplePoint = point;
+        currentRopeLength = Vector2.Distance(grappleOrigin.position, point);
 
-        isReeling = true;
-        character.RaiseEvent("grapple_reel_started", null);
+        // Initialize swing arc
+        swingArc = CalculateSwingArc(grappleOrigin.position, point, currentRopeLength);
+
+        // Reset states
+        swingMomentum = Vector2.zero;
+        momentumCaptureTimer = 0f;
+        previousVelocity = rb.linearVelocity;
+
+        // Set movement state
+        var movementState = (grappleMovementState != null) ?
+            grappleMovementState.ToMovementState() :
+            new PlatformerMovement.MovementState(
+                name: "Grappling",
+                allowMovement: true,
+                applyGravity: true,
+                applyDeceleration: true,
+                canJump: false,
+                gravityMultiplier: 1f,
+                accelerationMultiplier: 1f,
+                airAccelerationMultiplier: 0.025f,
+                decelerationMultiplier: 1f,
+                airDecelerationMultiplier: 0.025f,
+                jumpForceMultiplier: 0f,
+                maxSpeedMultiplier: 1f
+            );
+
+        character.RaiseEvent("movement_override_start", movementState);
+        character.RaiseEvent("grapple_started", grapplePoint);
+
+        if (grappleLine != null)
+            grappleLine.enabled = true;
     }
 
-    private void UpdateReeling(float fixedDeltaTime)
+    private void StopGrapple()
     {
-        Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
-        float currentDistance = toGrapple.magnitude;
+        if (!isGrappling) return;
 
-        // Calculate effective reel speed based on slack
-        float effectiveReelSpeed = reelConfig.reelSpeed;
+        isGrappling = false;
+        character.RaiseEvent("movement_override_end", null);
+        character.RaiseEvent("grapple_ended", grapplePoint);
 
-        // Check if we have slack (player is inside the rope circle)
-        if (currentDistance < currentRopeLength)
-        {
-            // Calculate how much slack we have (0-1 where 1 = maximum slack)
-            float slackRatio = 1f - (currentDistance / currentRopeLength);
-
-            // Apply multiplier based on slack amount
-            effectiveReelSpeed *= Mathf.Lerp(1f, reelConfig.slackReelMultiplier, slackRatio);
-
-            if (showPhysicsDebug)
-            {
-                Debug.Log($"Reeling with slack: {slackRatio:P0} - Speed: {effectiveReelSpeed:F1}x");
-            }
-        }
-
-        // Smoothly shorten the rope with variable speed
-        float targetLength = Mathf.Max(reelConfig.minRopeLength,
-            currentRopeLength - effectiveReelSpeed * fixedDeltaTime);
-        currentRopeLength = Mathf.Lerp(currentRopeLength, targetLength, reelConfig.reelSmoothness);
-
-        // Apply stronger inward pull while actively reeling
-        if (currentDistance > currentRopeLength)
-        {
-            float overshoot = currentDistance - currentRopeLength;
-            float pullStrength = physicsConfig.baseRopeStiffness * overshoot;
-            Vector2 pullDirection = toGrapple.normalized;
-            rb.AddForce(pullDirection * pullStrength, ForceMode2D.Force);
-        }
+        if (grappleLine != null)
+            grappleLine.enabled = false;
     }
 
     private void ApplyBoost()
@@ -304,106 +359,11 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         });
     }
 
-    private void StopReeling()
-    {
-        if (!isReeling) return;
-        isReeling = false;
-        character.RaiseEvent("grapple_reel_ended", null);
-    }
 
-    private void TryStartGrapple(bool startReeling = false)
-    {
-        lastAimDirection = GetAimDirection();
-        grappleHit = Physics2D.Raycast(
-            grappleOrigin.position,
-            lastAimDirection,
-            physicsConfig.maxDistance,
-            physicsConfig.grappleLayers
-        );
 
-        lastRaycastHit = grappleHit.collider != null;
-        lastRaycastLength = grappleHit.collider != null ? grappleHit.distance : physicsConfig.maxDistance;
+    //////////////////////  Grapple Physics Handling  /////////////////////////
 
-        if (showRaycastDebug)
-        {
-            DrawRaycastDebug();
-        }
-
-        if (grappleHit.collider != null)
-        {
-            StartGrapple(grappleHit.point, startReeling);
-        }
-        else
-        {
-            // Could play "miss" sound/effect
-            Debug.Log("Grapple missed - no valid target");
-        }
-    }
-
-    private void StartGrapple(Vector2 point, bool startReeling = false)
-    {
-        isGrappling = true;
-        grapplePoint = point;
-        currentRopeLength = Vector2.Distance(grappleOrigin.position, point);
-
-        // Initialize swing arc
-        swingArc = CalculateSwingArc(grappleOrigin.position, point, currentRopeLength);
-
-        // Reset states
-        isReeling = false;
-        swingMomentum = Vector2.zero;
-        momentumCaptureTimer = 0f;
-        previousVelocity = rb.linearVelocity;
-
-        // Set movement state
-        var grappleState = new PlatformerMovement.MovementState(
-            name: "Grappling",
-            allowMovement: true,
-            applyGravity: true,
-            applyDeceleration: true,
-            canJump: false,
-            gravityMultiplier: 1f,
-            accelerationMultiplier: 0.05f,
-            decelerationMultiplier: 0.05f,
-            jumpForceMultiplier: 0f,
-            maxSpeedMultiplier: 1f
-        );
-
-        character.RaiseEvent("movement_override_start", grappleState);
-        character.RaiseEvent("grapple_started", grapplePoint);
-
-        // Start reeling immediately if jump is held
-        if (startReeling)
-        {
-            isReeling = true;
-            character.RaiseEvent("grapple_reel_started", null);
-        }
-        else
-        {
-            isReeling = false;
-        }
-
-        if (grappleLine != null)
-            grappleLine.enabled = true;
-    }
-
-    private void StopGrapple()
-    {
-        if (!isGrappling) return;
-
-        if (isReeling)
-        {
-            StopReeling();
-        }
-
-        isGrappling = false;
-        character.RaiseEvent("movement_override_end", null);
-        character.RaiseEvent("grapple_ended", grapplePoint);
-
-        if (grappleLine != null)
-            grappleLine.enabled = false;
-    }
-
+    // Swinging
     private void UpdateSwingPhysics(float fixedDeltaTime)
     {
         Vector2 playerPos = grappleOrigin.position;
@@ -413,23 +373,27 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Update swing arc
         swingArc = CalculateSwingArc(playerPos, grapplePoint, currentRopeLength);
 
-        // Calculate stretch
-        float stretchRatio = CalculateStretchRatio(currentDistance, currentRopeLength);
+        // Get rope state (stretch or squash)
+        var ropeState = GetRopeState(currentDistance, currentRopeLength);
 
-        // Apply swing physics based on stretch
-        if (stretchRatio > 0f)
+        // Check if rope is taut (either stretching or squashing)
+        bool isRopeTaut = ropeState.isStretch || ropeState.isSquash;
+
+        // Apply physics if we have stretch or squash
+        if (ropeState.ratio != 0f)
         {
-            ApplyStretchPhysics(stretchRatio, currentDistance, fixedDeltaTime);
+            ApplyRopePhysics(ropeState.ratio, ropeState.isStretch, currentDistance, fixedDeltaTime);
         }
 
-        // Always apply swing friction
+        // Only apply these forces when rope is taut
+        if (isRopeTaut)
+        {
+            ApplyTangentialMotion(currentDistance, fixedDeltaTime);
+            ApplyGravityAlongRope(fixedDeltaTime);
+        }
+
+        // Swing friction is general air resistance - apply always
         ApplySwingFriction(fixedDeltaTime);
-
-        // Apply tangential motion based on current velocity
-        ApplyTangentialMotion(currentDistance, fixedDeltaTime);
-
-        // Apply gravity component along the rope
-        ApplyGravityAlongRope(fixedDeltaTime);
 
         // Check for detachment
         if (currentDistance > physicsConfig.maxDistance * 1.5f)
@@ -438,43 +402,109 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             return;
         }
 
-        // Store previous velocity for next frame calculations
         previousVelocity = rb.linearVelocity;
     }
 
-    private void ApplyStretchPhysics(float stretchRatio, float currentDistance, float fixedDeltaTime)
+    private SwingArc CalculateSwingArc(Vector2 playerPos, Vector2 grapplePos, float ropeLength)
+    {
+        SwingArc arc = new SwingArc();
+        arc.center = grapplePos;
+        arc.radius = ropeLength;
+
+        Vector2 toPlayer = playerPos - grapplePos;
+        arc.currentAngle = Vector2.SignedAngle(Vector2.down, toPlayer) * Mathf.Deg2Rad;
+
+        // Radial direction (from grapple point to player)
+        arc.radialDirection = toPlayer.normalized;
+
+        // Tangent direction (perpendicular to radial, 90 degrees clockwise)
+        arc.tangentDirection = new Vector2(-arc.radialDirection.y, arc.radialDirection.x);
+
+        return arc;
+    }
+
+    private (float ratio, bool isStretch, bool isSquash) GetRopeState(float currentDistance, float ropeLength)
+    {
+        float slack = ropeLength - currentDistance;
+        float ratio = 0f;
+        bool isStretch = false;
+        bool isSquash = false;
+
+        // Check for stretch (outside rope circle)
+        if (currentDistance > ropeLength && physicsConfig.enableStretch)
+        {
+            isStretch = true;
+            ratio = (currentDistance - ropeLength) / ropeLength; // Positive
+        }
+        // Check for squash (inside rope circle beyond threshold)
+        else if (slack > 0.01f && physicsConfig.enableSquash)
+        {
+            isSquash = true;
+            ratio = -(slack - 0.01f) / ropeLength; // Negative
+        }
+
+        return (ratio, isStretch, isSquash);
+    }
+
+    private void ApplyRopePhysics(float ratio, bool isStretch, float currentDistance, float fixedDeltaTime)
     {
         Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
         Vector2 radialDirection = toGrapple.normalized;
 
-        // Calculate dynamic stiffness based on stretch
-        float dynamicStiffness = CalculateDynamicStiffness(stretchRatio);
+        // Calculate dynamic stiffness
+        float dynamicStiffness = CalculateDynamicStiffness(ratio, isStretch);
 
-        // Calculate restoring force (proportional to stretch, with exponential stiffness)
-        float stretchAmount = currentDistance - currentRopeLength;
-        float restoringForceMagnitude = dynamicStiffness * stretchAmount;
+        // Calculate displacement magnitude (always positive)
+        float displacement = Mathf.Abs(ratio) * currentRopeLength;
 
-        // Apply restoring force toward grapple point
-        Vector2 restoringForce = radialDirection * restoringForceMagnitude;
+        // Calculate restoring force magnitude
+        float restoringForceMagnitude = dynamicStiffness * displacement;
+
+        // Apply restoring force (direction depends on stretch/squash)
+        Vector2 restoringForce;
+        if (isStretch)
+        {
+            // Pull toward grapple point when stretching
+            restoringForce = radialDirection * restoringForceMagnitude;
+        }
+        else
+        {
+            // Push away from grapple point when squashing
+            restoringForce = -radialDirection * restoringForceMagnitude;
+        }
+
         rb.AddForce(restoringForce, ForceMode2D.Force);
 
         // Apply damping to prevent oscillations
         Vector2 radialVelocity = Vector2.Dot(rb.linearVelocity, radialDirection) * radialDirection;
         rb.AddForce(-radialVelocity * physicsConfig.ropeDamping * dynamicStiffness, ForceMode2D.Force);
 
-        // Momentum conversion to tangent
-        ConvertRadialMomentumToTangent(radialVelocity.magnitude, radialDirection);
+        // Convert radial momentum to tangent if applicable
+        ConvertRadialMomentumToTangent(radialVelocity.magnitude, radialDirection, ratio, isStretch);
 
         if (showPhysicsDebug)
         {
-            Debug.DrawRay(grappleOrigin.position, restoringForce.normalized * 2f, Color.red, fixedDeltaTime);
-            Debug.DrawRay(grappleOrigin.position, radialDirection * stretchAmount, Color.blue, fixedDeltaTime);
+            Color forceColor = isStretch ? Color.red : Color.blue;
+            string type = isStretch ? "Stretch" : "Squash";
+
+            Debug.DrawRay(grappleOrigin.position, restoringForce.normalized * 2f, forceColor, fixedDeltaTime);
+            Debug.DrawRay(grappleOrigin.position, radialDirection * displacement, forceColor * 0.5f, fixedDeltaTime);
         }
     }
 
-    private void ConvertRadialMomentumToTangent(float radialSpeed, Vector2 radialDirection)
+    private float CalculateDynamicStiffness(float ratio, bool isStretch)
     {
-        if (radialSpeed < 0.1f) return;
+        if (Mathf.Abs(ratio) < 0.0001f) return 0f;
+
+        if (isStretch)
+            return physicsConfig.stretchStiffness * Mathf.Pow(1f + ratio, physicsConfig.stretchStiffnessExponent);
+        else
+            return physicsConfig.squashStiffness * Mathf.Pow(1f + Mathf.Abs(ratio), physicsConfig.squashStiffnessExponent);
+    }
+
+    private void ConvertRadialMomentumToTangent(float radialSpeed, Vector2 radialDirection, float ratio, bool isStretch)
+    {
+        if (radialSpeed < 0.1f || Mathf.Abs(ratio) < 0.0001f) return;
 
         Vector2 currentVelocity = rb.linearVelocity;
         Vector2 radialVelocity = Vector2.Dot(currentVelocity, radialDirection) * radialDirection;
@@ -487,21 +517,26 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Find which tangent is closer to current velocity direction
         Vector2 closestTangent = GetClosestTangentDirection(currentVelocity, tangent1, tangent2);
 
-        // Calculate dot product (cosine of angle)
-        // 1.0 = same direction, 0.0 = perpendicular, -1.0 = opposite
-        float cosineAlignment = Vector2.Dot(radialVelDir, closestTangent);
+        // Calculate dot product for alignment
+        float cosineAlignment;
+        if (isStretch)
+        {
+            // For stretch: convert outward motion (away from center) to tangent
+            cosineAlignment = Vector2.Dot(radialVelDir, closestTangent);
+        }
+        else
+        {
+            // For squash: convert inward motion (toward center) to tangent
+            cosineAlignment = Vector2.Dot(radialVelDir, -closestTangent);
+        }
 
-        // Convert to 0-1 factor where:
-        // cosine=1.0 (0°) -> factor=1.0
-        // cosine=0.0 (90°) -> factor=0.0
-        // cosine=-1.0 (180°) -> factor=0.0
+        // Convert to 0-1 factor
         float alignmentFactor = Mathf.Max(0f, cosineAlignment);
-
-        // Add power for sharper falloff (optional)
         alignmentFactor = Mathf.Pow(alignmentFactor, 2f);
 
-        // Base conversion factor
-        float conversionFactor = physicsConfig.tangentConversionFactor * alignmentFactor;
+        // Get appropriate conversion factor
+        float baseConversionFactor = GetTangentConversionFactor(ratio, isStretch);
+        float conversionFactor = baseConversionFactor * alignmentFactor;
 
         // Convert radial momentum to tangent
         float momentumToConvert = radialSpeed * conversionFactor;
@@ -513,18 +548,30 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
         if (showPhysicsDebug)
         {
-            Debug.DrawRay(grappleOrigin.position, closestTangent * 3f, Color.green, 0.1f);
-            Debug.DrawRay(grappleOrigin.position, tangentVelocity, Color.yellow, 0.1f);
+            Color debugColor = isStretch ? Color.yellow : Color.magenta;
+            string type = isStretch ? "Stretch" : "Squash";
+
+            Debug.DrawRay(grappleOrigin.position, closestTangent * 3f, debugColor, 0.1f);
+            Debug.DrawRay(grappleOrigin.position, tangentVelocity, debugColor * 0.7f, 0.1f);
 
             float angle = Mathf.Acos(Mathf.Clamp(cosineAlignment, -1f, 1f)) * Mathf.Rad2Deg;
-            Debug.Log($"Tangent conversion: Angle={angle:F1}°, " +
-                     $"Cosine={cosineAlignment:F2}, " +
-                     $"Factor={alignmentFactor:F2}, " +
-                     $"Conversion={conversionFactor:P0}");
         }
     }
 
-    // Keep these the same as above (simple versions)
+    private Vector2 GetClosestTangentDirection(Vector2 velocity, Vector2 tangent, Vector2 oppositeTangent)
+    {
+        float dotTangent = Vector2.Dot(velocity.normalized, tangent);
+        float dotOpposite = Vector2.Dot(velocity.normalized, oppositeTangent);
+
+        return dotTangent > dotOpposite ? tangent : oppositeTangent;
+    }
+
+    private float GetTangentConversionFactor(float ratio, bool isStretch)
+    {
+        if (Mathf.Abs(ratio) < 0.0001f) return 0f;
+        return isStretch ? physicsConfig.stretchToTangentConversion : physicsConfig.squashToTangentConversion;
+    }
+
     private void ApplySwingFriction(float fixedDeltaTime)
     {
         // Apply air resistance/friction to swing
@@ -540,7 +587,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Get tangential component of velocity
         Vector2 tangentVelocity = rb.linearVelocity - Vector2.Dot(rb.linearVelocity, radialDirection) * radialDirection;
 
-        // Apply centripetal force to maintain circular motion
+        // Apply centripetal force to maintain circular motion (only called when rope is taut)
         if (tangentVelocity.magnitude > 0.1f && currentDistance > 0.1f)
         {
             float centripetalForce = tangentVelocity.sqrMagnitude / currentDistance;
@@ -570,6 +617,47 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         }
     }
 
+    // Reeling
+    private void UpdateReeling(float fixedDeltaTime)
+    {
+        Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
+        float currentDistance = toGrapple.magnitude;
+
+        // Calculate effective reel speed based on slack
+        float effectiveReelSpeed = reelConfig.reelSpeed;
+
+        // Check if we have slack (player is inside the rope circle)
+        if (currentDistance < currentRopeLength)
+        {
+            // Calculate how much slack we have (0-1 where 1 = maximum slack)
+            float slackRatio = 1f - (currentDistance / currentRopeLength);
+
+            // Apply multiplier based on slack amount
+            effectiveReelSpeed *= Mathf.Lerp(1f, reelConfig.slackReelMultiplier, slackRatio);
+        }
+
+        // Smoothly shorten the rope with variable speed
+        float targetLength = Mathf.Max(reelConfig.minRopeLength,
+            currentRopeLength - effectiveReelSpeed * fixedDeltaTime);
+        currentRopeLength = Mathf.Lerp(currentRopeLength, targetLength, reelConfig.reelSmoothness);
+    }
+
+    private void UpdateUnreeling(float fixedDeltaTime)
+    {
+        Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
+        float currentDistance = toGrapple.magnitude;
+
+        // Calculate target length (increase rope length)
+        float targetLength = Mathf.Min(reelConfig.maxRopeLength,
+            currentRopeLength + reelConfig.unreelSpeed * fixedDeltaTime);
+
+        // Smoothly lengthen the rope
+        currentRopeLength = Mathf.Lerp(currentRopeLength, targetLength, reelConfig.unreelSmoothness);
+    }
+
+    //////////////////////////  Debug Visuals  ///////////////////////////
+
+    // Draw debug
     private void UpdateGrappleVisuals()
     {
         if (grappleLine != null)
@@ -577,15 +665,43 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             grappleLine.SetPosition(0, grappleOrigin.position);
             grappleLine.SetPosition(1, grapplePoint);
 
-            // Visual feedback for reeling
-            if (isReeling)
+            // Calculate rope state for visual feedback
+            Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
+            float currentDistance = toGrapple.magnitude;
+            var ropeState = GetRopeState(currentDistance, currentRopeLength);
+
+            // Visual feedback - use computed properties
+            if (ShouldReel)
             {
                 grappleLine.startColor = Color.yellow;
                 grappleLine.endColor = Color.yellow;
                 grappleLine.widthMultiplier = 0.15f;
             }
+            else if (ShouldUnreel) // Use computed property
+            {
+                grappleLine.startColor = Color.green;
+                grappleLine.endColor = Color.green;
+                grappleLine.widthMultiplier = 0.15f;
+            }
+            else if (ropeState.isStretch && ropeState.ratio > 0)
+            {
+                // Stretching - red with intensity based on ratio
+                float intensity = Mathf.Clamp01(ropeState.ratio * 5f);
+                grappleLine.startColor = Color.Lerp(Color.white, Color.red, intensity);
+                grappleLine.endColor = Color.Lerp(Color.white, Color.red, intensity);
+                grappleLine.widthMultiplier = 0.1f + (0.1f * intensity);
+            }
+            else if (ropeState.isSquash)
+            {
+                // Squashing - blue with intensity based on ratio
+                float intensity = Mathf.Clamp01(Mathf.Abs(ropeState.ratio) * 5f);
+                grappleLine.startColor = Color.Lerp(Color.white, Color.blue, intensity);
+                grappleLine.endColor = Color.Lerp(Color.white, Color.blue, intensity);
+                grappleLine.widthMultiplier = 0.1f + (0.1f * intensity);
+            }
             else
             {
+                // Normal or no stretch/squash
                 grappleLine.startColor = Color.white;
                 grappleLine.endColor = Color.white;
                 grappleLine.widthMultiplier = 0.1f;
@@ -595,18 +711,12 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Physics debug visualization
         if (showPhysicsDebug && isGrappling)
         {
-            // Draw swing circle
             DrawSwingCircle();
 
-            // Draw tangent directions
             if (swingArc != null)
             {
                 Debug.DrawRay(grappleOrigin.position, swingArc.tangentDirection * 3f, Color.green);
                 Debug.DrawRay(grappleOrigin.position, -swingArc.tangentDirection * 3f, Color.green);
-
-                // Draw current angle indicator
-                Vector2 angleIndicator = Quaternion.Euler(0, 0, swingArc.currentAngle * Mathf.Rad2Deg) * Vector2.down * currentRopeLength;
-                Debug.DrawLine(grapplePoint, grapplePoint + angleIndicator, Color.cyan);
             }
         }
     }
@@ -659,6 +769,22 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         }
     }
 
+    // Helpers to get info for debug
+    private void CaptureSwingMomentum()
+    {
+        Vector2 currentVelocity = rb.linearVelocity;
+
+        if (currentVelocity.magnitude > 0.1f)
+        {
+            swingMomentum = Vector2.Lerp(swingMomentum, currentVelocity, 0.3f);
+
+            if (showPhysicsDebug)
+            {
+                Debug.DrawRay(transform.position, swingMomentum.normalized * 2f, Color.cyan, 0.2f);
+            }
+        }
+    }
+
     private Vector2 GetAimDirection()
     {
         // Try mouse first if enabled
@@ -685,7 +811,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             }
         }
 
-        // Default: aim up
+        // Default: aim up and to the right
         return Vector2.up + Vector2.right;
     }
 
@@ -708,20 +834,23 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
         if (showPhysicsDebug && isGrappling)
         {
+            Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
+            float currentDistance = toGrapple.magnitude;
+            var ropeState = GetRopeState(currentDistance, currentRopeLength);
+
             GUI.Label(new Rect(10, yPos, 400, 20), $"Grapple Point: {grapplePoint:F2}", style); yPos += 20;
             GUI.Label(new Rect(10, yPos, 400, 20), $"Rope Length: {currentRopeLength:F2}", style); yPos += 20;
-            GUI.Label(new Rect(10, yPos, 400, 20), $"Swing Angle: {swingArc.currentAngle * Mathf.Rad2Deg:F1}°", style); yPos += 20;
+            GUI.Label(new Rect(10, yPos, 400, 20), $"Current Dist: {currentDistance:F2}", style); yPos += 20;
+            GUI.Label(new Rect(10, yPos, 400, 20), $"State: {(ropeState.isStretch ? "Stretch" : ropeState.isSquash ? "Squash" : "Neutral")}", style); yPos += 20;
+            GUI.Label(new Rect(10, yPos, 400, 20), $"Ratio: {ropeState.ratio:P1}", style); yPos += 20;
+            GUI.Label(new Rect(10, yPos, 400, 20), $"Jump Held: {isJumpHeld}", style); yPos += 20;
+            GUI.Label(new Rect(10, yPos, 400, 20), $"Down Held: {isDownHeld}", style); yPos += 20;
+            GUI.Label(new Rect(10, yPos, 400, 20), $"Should Reel: {ShouldReel}", style); yPos += 20;
+            GUI.Label(new Rect(10, yPos, 400, 20), $"Should Unreel: {ShouldUnreel}", style); yPos += 20;
             GUI.Label(new Rect(10, yPos, 400, 20), $"Velocity: {rb.linearVelocity.magnitude:F2}", style); yPos += 20;
             GUI.Label(new Rect(10, yPos, 400, 20), $"Momentum: {swingMomentum.magnitude:F2}", style); yPos += 20;
-            GUI.Label(new Rect(10, yPos, 400, 20), $"Reeling: {isReeling}", style); yPos += 20;
         }
     }
-
-    // Public API
-    public bool IsGrappling() => isGrappling;
-    public Vector2 GetGrapplePoint() => grapplePoint;
-    public float GetRopeLength() => currentRopeLength;
-    public SwingArc GetSwingArc() => swingArc;
 
     void OnDrawGizmosSelected()
     {
@@ -742,6 +871,12 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             }
         }
     }
+
+    // Public API
+    public bool IsGrappling() => isGrappling;
+    public Vector2 GetGrapplePoint() => grapplePoint;
+    public float GetRopeLength() => currentRopeLength;
+    public SwingArc GetSwingArc() => swingArc; 
 }
 
 // Data structure for grapple boost events
