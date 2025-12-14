@@ -1234,9 +1234,10 @@ MonoBehaviour:
   physicsConfig:
     maxDistance: 20
     ropeDamping: 0.1
-    swingFriction: 0.998
+    swingFriction: 0.004
     boostMultiplier: 1.1
     minBoostVelocity: 1
+    enableStretch: 1
     stretchStiffness: 200
     stretchStiffnessExponent: 2
     stretchToTangentConversion: 0.7

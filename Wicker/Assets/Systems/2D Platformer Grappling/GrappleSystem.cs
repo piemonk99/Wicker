@@ -50,25 +50,26 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     [System.Serializable]
     public class RopePhysicsConfig
     {
-        public float maxDistance = 20f;
-        public float ropeDamping = 0.1f;
-        public float swingFriction = 0.99f;
-        public float boostMultiplier = 1.1f;
-        public float minBoostVelocity = 2f;
+        public float maxDistance = 20f; // Max distance the player can reach from to begin a grapple
+        public float ropeDamping = 0.1f; // Delays/smooths effect of rope on player - too low causes 'bouncing', and too high causes the player to reach farther outside the radius before being affected, so the stiffness exponent shoots them back (different kind of bouncing)
+        public float swingFriction = 0.004f; // Ratio of linear velocity lost every physics tick
+
+        public float boostMultiplier = 1.1f; // Multiplier for swing momentum when releasing the grappling hook
+        public float minBoostVelocity = 2f; // Minimum velocity to recieve the boost multiplier
 
         [Header("Stretch Physics (Outside Rope)")]
-        public bool enableStretch = true;
-        public float stretchStiffness = 200f;
-        public float stretchStiffnessExponent = 2f;
-        public float stretchToTangentConversion = 0.7f;
+        public bool enableStretch = true; // Whether the grapple should pull the player inward when too far
+        public float stretchStiffness = 200f; // Base strength of force pulling the player inward
+        public float stretchStiffnessExponent = 2f; // How quickly the inward force grows as the player goes further outside the current grapple radius
+        public float stretchToTangentConversion = 0.7f; // How much energy is conserved when converting/redirecting radial force to tangential when pulling  ///// CURRENTLY HAS NO EFFECT FOR SOME REASON //////
 
         [Header("Squash Physics (Inside Rope)")]
-        public bool enableSquash = false;
-        public float squashStiffness = 50f;
-        public float squashStiffnessExponent = 2f;
-        public float squashToTangentConversion = 0.7f;
+        public bool enableSquash = false; // Whether the grapple should push the player outward when too close
+        public float squashStiffness = 50f; // Base strength of force pushing the player outward
+        public float squashStiffnessExponent = 2f; // How quickly the outward force grows as the player goes further inside the current grapple radius
+        public float squashToTangentConversion = 0.7f; // How much energy is conserved when converting/redirecting radial force to tangential when pushing  ///// CURRENTLY HAS NO EFFECT FOR SOME REASON //////
 
-        public LayerMask grappleLayers;
+        public LayerMask grappleLayers; // All layers the grapple raycast can hit
     }
 
     [System.Serializable]
@@ -76,9 +77,9 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     {
         [Header("Reeling In")]
         public float reelSpeed = 50f;
-        public float slackReelMultiplier = 3f; // Faster reeling when rope has slack
+        public float slackReelMultiplier = 3f;
         public float minRopeLength = 1f;
-        public float reelSmoothness = 0.1f; // Smoothness when reeling
+        public float reelSmoothness = 0.1f;
 
         [Header("Unreeling Out")]
         public float unreelSpeed = 50f;
@@ -166,7 +167,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             grappleLine.positionCount = 2;
         }
 
-        // Just get the camera reference
         mainCamera = Camera.main;
 
         if (mainCamera == null)
@@ -575,7 +575,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     private void ApplySwingFriction(float fixedDeltaTime)
     {
         // Apply air resistance/friction to swing
-        rb.linearVelocity *= physicsConfig.swingFriction;
+        rb.linearVelocity *= 1 - physicsConfig.swingFriction;
     }
 
     private void ApplyTangentialMotion(float currentDistance, float fixedDeltaTime)
