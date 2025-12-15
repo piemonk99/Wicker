@@ -1,6 +1,8 @@
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.InputSystem; 
+using UnityEngine.InputSystem;
 using static GrappleSystem;
 
 public class GrappleSystem : MonoBehaviour, ICharacterComponent
@@ -50,26 +52,26 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     [System.Serializable]
     public class RopePhysicsConfig
     {
-        public float maxDistance = 20f; // Max distance the player can reach from to begin a grapple
-        public float ropeDamping = 0.1f; // Delays/smooths effect of rope on player - too low causes 'bouncing', and too high causes the player to reach farther outside the radius before being affected, so the stiffness exponent shoots them back (different kind of bouncing)
-        public float swingFriction = 0.004f; // Ratio of linear velocity lost every physics tick
+        public float maxDistance = 20f;
+        public float ropeDamping = 0.1f;
+        public float swingFriction = 0.004f;
 
-        public float boostMultiplier = 1.1f; // Multiplier for swing momentum when releasing the grappling hook
-        public float minBoostVelocity = 2f; // Minimum velocity to recieve the boost multiplier
+        public float boostMultiplier = 1.1f;
+        public float minBoostVelocity = 2f;
 
         [Header("Stretch Physics (Outside Rope)")]
-        public bool enableStretch = true; // Whether the grapple should pull the player inward when too far
-        public float stretchStiffness = 200f; // Base strength of force pulling the player inward
-        public float stretchStiffnessExponent = 2f; // How quickly the inward force grows as the player goes further outside the current grapple radius
-        public float stretchToTangentConversion = 0.7f; // How much energy is conserved when converting/redirecting radial force to tangential when pulling  ///// CURRENTLY HAS NO EFFECT FOR SOME REASON //////
+        public bool enableStretch = true;
+        public float stretchStiffness = 200f;
+        public float stretchStiffnessExponent = 2f;
+        public float stretchToTangentConversion = 0.7f;
 
         [Header("Squash Physics (Inside Rope)")]
-        public bool enableSquash = false; // Whether the grapple should push the player outward when too close
-        public float squashStiffness = 50f; // Base strength of force pushing the player outward
-        public float squashStiffnessExponent = 2f; // How quickly the outward force grows as the player goes further inside the current grapple radius
-        public float squashToTangentConversion = 0.7f; // How much energy is conserved when converting/redirecting radial force to tangential when pushing  ///// CURRENTLY HAS NO EFFECT FOR SOME REASON //////
+        public bool enableSquash = false;
+        public float squashStiffness = 50f;
+        public float squashStiffnessExponent = 2f;
+        public float squashToTangentConversion = 0.7f;
 
-        public LayerMask grappleLayers; // All layers the grapple raycast can hit
+        public LayerMask grappleLayers;
     }
 
     [System.Serializable]
@@ -87,12 +89,26 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         public float unreelSmoothness = 0.1f;
     }
 
+    // ADDED: Simple visual config struct
+    [System.Serializable]
+    public class GrappleVisualConfig
+    {
+        [Header("Hook Visual")]
+        public GameObject hookPrefab; // Prefab to instantiate at grapple point
+        public Vector2 hookScale = Vector2.one;
+
+        [Header("Rope Visual")]
+        public GameObject ropePrefab; // Complete rope prefab with two anchor points
+        public string ropeStartAnchorName = "StartAnchor"; // Anchor at player end
+        public string ropeEndAnchorName = "EndAnchor";     // Anchor at hook end
+    }
+
     [System.Serializable]
     public class SwingArc
     {
         public Vector2 center;
         public float radius;
-        public float currentAngle; // Angle from vertical (0 = straight down)
+        public float currentAngle;
         public Vector2 tangentDirection;
         public Vector2 radialDirection;
     }
@@ -101,6 +117,9 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     public GrappleMovementState grappleMovementState;
     public RopePhysicsConfig physicsConfig;
     public ReelConfig reelConfig;
+
+    // ADDED: Visual configuration
+    public GrappleVisualConfig visualConfig;
 
     [Header("References")]
     public Transform grappleOrigin;
@@ -128,6 +147,10 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     private RaycastHit2D grappleHit;
     private float currentRopeLength;
 
+    // ADDED: Visual instances
+    private GameObject currentHookInstance;
+    private GameObject currentRopeInstance;
+
     // Physics state
     private bool isJumpHeld = false;
     private bool isDownHeld = false;
@@ -145,12 +168,10 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     private Vector2 lastAimDirection;
     private float lastRaycastLength;
     private bool lastRaycastHit;
-    
 
-    
 
     //////////////////////  Macro and Grapple State Handling  ////////////////////////
-    
+
     // Listeners and setup
 
     public void Initialize(CharacterCore core)
@@ -197,7 +218,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
             UpdateSwingPhysics(fixedDeltaTime);
 
-            // Use computed properties instead of separate states
             if (ShouldReel)
             {
                 UpdateReeling(fixedDeltaTime);
@@ -236,22 +256,18 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         else if (type == "jump_pressed")
         {
             isJumpHeld = true;
-            // No need to call StartReeling() - it's now computed
         }
         else if (type == "jump_released")
         {
             isJumpHeld = false;
-            // No need to call StopReeling() - it's now computed
         }
         else if (type == "down_pressed")
         {
             isDownHeld = true;
-            // No need to call StartUnreeling() - it's now computed
         }
         else if (type == "down_released")
         {
             isDownHeld = false;
-            // No need to call StopUnreeling() - it's now computed
         }
     }
 
@@ -321,20 +337,44 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         character.RaiseEvent("movement_override_start", movementState);
         character.RaiseEvent("grapple_started", grapplePoint);
 
+        // ADDED: Instantiate visual elements
+        InstantiateGrappleVisuals(point);
+
         if (grappleLine != null)
             grappleLine.enabled = true;
     }
+
 
     private void StopGrapple()
     {
         if (!isGrappling) return;
 
         isGrappling = false;
+
+        // ADDED: Clean up visual elements
+        CleanupGrappleVisuals();
+
         character.RaiseEvent("movement_override_end", null);
         character.RaiseEvent("grapple_ended", grapplePoint);
 
         if (grappleLine != null)
             grappleLine.enabled = false;
+    }
+
+    // ADDED: Clean up visual elements
+    private void CleanupGrappleVisuals()
+    {
+        if (currentHookInstance != null)
+        {
+            Destroy(currentHookInstance);
+            currentHookInstance = null;
+        }
+
+        if (currentRopeInstance != null)
+        {
+            Destroy(currentRopeInstance);
+            currentRopeInstance = null;
+        }
     }
 
     private void ApplyBoost()
@@ -656,10 +696,164 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     }
 
     //////////////////////////  Debug Visuals  ///////////////////////////
+    private void InstantiateGrappleVisuals(Vector2 point)
+    {
+        // Clean up any existing visuals
+        CleanupGrappleVisuals();
 
-    // Draw debug
+        // Instantiate hook at grapple point
+        if (visualConfig.hookPrefab != null)
+        {
+            currentHookInstance = Instantiate(
+                visualConfig.hookPrefab,
+                point,
+                Quaternion.identity
+            );
+
+            currentHookInstance.transform.localScale = new Vector3(
+                visualConfig.hookScale.x,
+                visualConfig.hookScale.y,
+                1f
+            );
+        }
+
+        // Instantiate rope between grapple origin and hook
+        if (visualConfig.ropePrefab != null)
+        {
+            currentRopeInstance = Instantiate(
+                visualConfig.ropePrefab,
+                Vector3.zero,
+                Quaternion.identity
+            );
+
+            // Find and position all bones between the anchors
+            InitializeRopeBones(point);
+        }
+    }
+
+
+    private void InitializeRopeBones(Vector2 grapplePoint)
+    {
+        if (currentRopeInstance == null) return;
+
+        // Get ALL children (not just bones) for more flexibility
+        List<Transform> allChildren = new List<Transform>();
+        foreach (Transform child in currentRopeInstance.transform)
+        {
+            allChildren.Add(child);
+        }
+
+        // You might want to filter out anchors if they're also direct children
+        // Remove anchors by name if needed
+        allChildren.RemoveAll(child =>
+            child.name.Equals(visualConfig.ropeStartAnchorName, System.StringComparison.OrdinalIgnoreCase) ||
+            child.name.Equals(visualConfig.ropeEndAnchorName, System.StringComparison.OrdinalIgnoreCase));
+
+        if (allChildren.Count > 0)
+        {
+            Vector2 startPos = grappleOrigin.position; // Hook end
+            Vector2 endPos = grapplePoint; // Player end
+
+            Vector3 rotation = new Vector3(0f, 0f, Mathf.Atan2(endPos.y - startPos.y, endPos.x - startPos.x) * Mathf.Rad2Deg);
+
+            Debug.Log($"Start pos: {startPos}  End pos: {endPos}  Angle from end to start: {rotation}");
+
+            // With this proper numeric sorting:
+            allChildren.Sort((a, b) => {
+                int aNum = ExtractBoneNumber(a.name);
+                int bNum = ExtractBoneNumber(b.name);
+                return aNum.CompareTo(bNum);
+            });
+
+            for (int i = 0; i < allChildren.Count; i++)
+            {
+                float t = i / (float)(allChildren.Count - 1);
+                Vector2 bonePosition = Vector2.Lerp(startPos, endPos, t);
+                allChildren[i].position = bonePosition;
+                allChildren[i].eulerAngles = rotation;
+
+                Debug.Log($"Child named {allChildren[i].name} was set to position {allChildren[i].position} and rotation {allChildren[i].eulerAngles}");
+            }
+
+            Debug.Log($"Initialized {allChildren.Count} rope children between anchors");
+        }
+    }
+
+    // Make sure the ExtractBoneNumber method is robust:
+    private int ExtractBoneNumber(string boneName)
+    {
+        // Convert to lowercase for case-insensitive comparison
+        string lowerName = boneName.ToLower();
+
+        // Remove "bone_" prefix if present
+        if (lowerName.StartsWith("bone_"))
+        {
+            string numberPart = lowerName.Substring(5); // "bone_".Length = 5
+
+            if (int.TryParse(numberPart, out int result))
+            {
+                return result;
+            }
+        }
+
+        // Alternative: Look for any number in the name
+        string digits = "";
+        foreach (char c in boneName)
+        {
+            if (char.IsDigit(c))
+            {
+                digits += c;
+            }
+        }
+
+        if (int.TryParse(digits, out int digitResult))
+        {
+            return digitResult;
+        }
+
+        // If still no number found, return a large number so it sorts to the end
+        return 9999;
+    }
+
+
+    // Helper method to find transform by name in children
+    private Transform FindTransformInChildren(Transform parent, string name)
+    {
+        if (parent.name == name) return parent;
+
+        foreach (Transform child in parent)
+        {
+            Transform result = FindTransformInChildren(child, name);
+            if (result != null) return result;
+        }
+
+        return null;
+    }
+
     private void UpdateGrappleVisuals()
     {
+        if (!isGrappling) return;
+
+        // Update rope start anchor to follow player
+        if (currentRopeInstance != null)
+        {
+            // Find the start anchor (player side) by name
+            Transform startAnchor = FindTransformInChildren(currentRopeInstance.transform, visualConfig.ropeStartAnchorName);
+
+            if (startAnchor != null)
+            {
+                startAnchor.position = grappleOrigin.position;
+            }
+
+            // Update end anchor (hook side)
+            Transform endAnchor = FindTransformInChildren(currentRopeInstance.transform, visualConfig.ropeEndAnchorName);
+            if (endAnchor != null && currentHookInstance != null)
+            {
+                endAnchor.position = currentHookInstance.transform.position;
+            }
+        }
+
+        // Keep existing debug line functionality
         if (grappleLine != null)
         {
             grappleLine.SetPosition(0, grappleOrigin.position);
@@ -677,7 +871,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
                 grappleLine.endColor = Color.yellow;
                 grappleLine.widthMultiplier = 0.15f;
             }
-            else if (ShouldUnreel) // Use computed property
+            else if (ShouldUnreel)
             {
                 grappleLine.startColor = Color.green;
                 grappleLine.endColor = Color.green;
@@ -876,11 +1070,11 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     public bool IsGrappling() => isGrappling;
     public Vector2 GetGrapplePoint() => grapplePoint;
     public float GetRopeLength() => currentRopeLength;
-    public SwingArc GetSwingArc() => swingArc; 
+    public SwingArc GetSwingArc() => swingArc;
 }
 
-// Data structure for grapple boost events
-public struct GrappleBoostData
+    // Data structure for grapple boost events
+    public struct GrappleBoostData
 {
     public Vector2 direction;
     public float strength;
