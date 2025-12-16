@@ -1236,12 +1236,12 @@ MonoBehaviour:
     airDecelerationMultiplier: 0.025
     jumpForceMultiplier: 0
     maxSpeedMultiplier: 1
-  physicsConfig:
+  grapplePhysicsConfig:
     maxDistance: 20
     ropeDamping: 0.1
     swingFriction: 0.004
     boostMultiplier: 1.1
-    minBoostVelocity: 1
+    minBoostVelocity: 2
     enableStretch: 1
     stretchStiffness: 200
     stretchStiffnessExponent: 2
@@ -1253,9 +1253,9 @@ MonoBehaviour:
     grappleLayers:
       serializedVersion: 2
       m_Bits: 64
-  reelConfig:
+  grappleReelConfig:
     reelSpeed: 50
-    slackReelMultiplier: 20
+    slackReelMultiplier: 3
     minRopeLength: 1
     reelSmoothness: 0.1
     unreelSpeed: 50
