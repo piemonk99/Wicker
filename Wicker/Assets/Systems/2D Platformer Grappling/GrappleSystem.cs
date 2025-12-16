@@ -204,6 +204,8 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         }
 
         momentumCaptureTimer += deltaTime;
+
+        UpdateGrappleVisuals();
     }
 
     public void PhysicsTick(float fixedDeltaTime)
@@ -227,7 +229,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
                 UpdateUnreeling(fixedDeltaTime);
             }
 
-            UpdateGrappleVisuals();
+            
         }
     }
 
@@ -695,7 +697,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         currentRopeLength = Mathf.Lerp(currentRopeLength, targetLength, reelConfig.unreelSmoothness);
     }
 
-    //////////////////////////  Debug Visuals  ///////////////////////////
+    //////////////////////////  Visuals (debug and otherwise)  ///////////////////////////
     private void InstantiateGrappleVisuals(Vector2 point)
     {
         // Clean up any existing visuals
@@ -732,6 +734,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     }
 
 
+    // Update your InitializeRopeBones method to disable physics:
     private void InitializeRopeBones(Vector2 grapplePoint)
     {
         if (currentRopeInstance == null) return;
@@ -751,31 +754,51 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
         if (allChildren.Count > 0)
         {
-            Vector2 startPos = grappleOrigin.position; // Hook end
-            Vector2 endPos = grapplePoint; // Player end
+            Vector2 startPos = grappleOrigin.position; // Player position
+            Vector2 endPos = grapplePoint; // Hook position
 
-            Vector3 rotation = new Vector3(0f, 0f, Mathf.Atan2(endPos.y - startPos.y, endPos.x - startPos.x) * Mathf.Rad2Deg);
+            // Disable all physics components on bones
+            foreach (var child in allChildren)
+            {
+                Rigidbody2D rb = child.GetComponent<Rigidbody2D>();
+                if (rb != null)
+                {
+                    rb.simulated = false; // Disable physics simulation
+                    rb.isKinematic = true; // Make kinematic so we can move it manually
+                }
 
-            Debug.Log($"Start pos: {startPos}  End pos: {endPos}  Angle from end to start: {rotation}");
+                Collider2D col = child.GetComponent<Collider2D>();
+                if (col != null) col.enabled = false;
 
-            // With this proper numeric sorting:
+                Joint2D[] joints = child.GetComponents<Joint2D>();
+                foreach (var joint in joints) joint.enabled = false;
+            }
+
+            // Sort bones
             allChildren.Sort((a, b) => {
                 int aNum = ExtractBoneNumber(a.name);
                 int bNum = ExtractBoneNumber(b.name);
                 return aNum.CompareTo(bNum);
             });
 
+            // Initial positioning (straight line)
             for (int i = 0; i < allChildren.Count; i++)
             {
                 float t = i / (float)(allChildren.Count - 1);
                 Vector2 bonePosition = Vector2.Lerp(startPos, endPos, t);
                 allChildren[i].position = bonePosition;
-                allChildren[i].eulerAngles = rotation;
 
-                Debug.Log($"Child named {allChildren[i].name} was set to position {allChildren[i].position} and rotation {allChildren[i].eulerAngles}");
+                // Initial rotation
+                if (i < allChildren.Count - 1)
+                {
+                    Vector2 nextPos = Vector2.Lerp(startPos, endPos, (i + 1) / (float)(allChildren.Count - 1));
+                    Vector2 direction = (nextPos - bonePosition).normalized;
+                    float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                    allChildren[i].rotation = Quaternion.Euler(0, 0, angle);
+                }
             }
 
-            Debug.Log($"Initialized {allChildren.Count} rope children between anchors");
+            Debug.Log($"Initialized {allChildren.Count} rope bones (physics disabled)");
         }
     }
 
@@ -815,6 +838,8 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         return 9999;
     }
 
+    
+
 
     // Helper method to find transform by name in children
     private Transform FindTransformInChildren(Transform parent, string name)
@@ -851,6 +876,8 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             {
                 endAnchor.position = currentHookInstance.transform.position;
             }
+
+            UpdateRopeVisualsProcedural();
         }
 
         // Keep existing debug line functionality
@@ -913,6 +940,136 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
                 Debug.DrawRay(grappleOrigin.position, -swingArc.tangentDirection * 3f, Color.green);
             }
         }
+    }
+
+    // Update your UpdateRopeVisualsProcedural to use the new function:
+    private void UpdateRopeVisualsProcedural()
+    {
+        if (currentRopeInstance == null || !isGrappling) return;
+
+        // Get all bones
+        List<Transform> boneTransforms = new List<Transform>();
+        foreach (Transform child in currentRopeInstance.transform)
+        {
+            if (child.name.ToLower().Contains("bone"))
+            {
+                boneTransforms.Add(child);
+            }
+        }
+
+        if (boneTransforms.Count == 0) return;
+
+        // Sort bones numerically
+        boneTransforms.Sort((a, b) => {
+            int aNum = ExtractBoneNumber(a.name);
+            int bNum = ExtractBoneNumber(b.name);
+            return aNum.CompareTo(bNum);
+        });
+
+        Vector2 playerPos = grappleOrigin.position;
+        Vector2 hookPos = grapplePoint;
+        float currentDistance = Vector2.Distance(playerPos, hookPos);
+
+        // Calculate slack (positive when player is inside the rope circle)
+        float slack = Mathf.Max(0, currentRopeLength - currentDistance);
+
+        // Determine if rope should be straight
+        bool shouldBeStraight = slack < 0.01f || Mathf.Abs(currentDistance - currentRopeLength) < 0.05f;
+
+        // Position each bone
+        for (int i = 0; i < boneTransforms.Count; i++)
+        {
+            float t = i / (float)(boneTransforms.Count - 1);
+
+            Vector2 bonePosition;
+
+            if (shouldBeStraight)
+            {
+                // Straight line from player to hook
+                bonePosition = Vector2.Lerp(playerPos, hookPos, t);
+            }
+            else
+            {
+                // Use the gravity-based curve
+                bonePosition = CalculateSimpleGravitySag(playerPos, hookPos, t, slack);
+            }
+
+            // Set position
+            boneTransforms[i].position = bonePosition;
+
+            // Set rotation to point toward next bone
+            if (i < boneTransforms.Count - 1)
+            {
+                Vector2 nextPos;
+                if (shouldBeStraight)
+                {
+                    nextPos = Vector2.Lerp(playerPos, hookPos, (i + 1) / (float)(boneTransforms.Count - 1));
+                }
+                else
+                {
+                    nextPos = CalculateSimpleGravitySag(playerPos, hookPos, (i + 1) / (float)(boneTransforms.Count - 1), slack);
+                }
+
+                Vector2 direction = (nextPos - bonePosition).normalized;
+                float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                boneTransforms[i].rotation = Quaternion.Euler(0, 0, angle);
+            }
+            else
+            {
+                // Last bone points toward hook
+                Vector2 direction = (hookPos - bonePosition).normalized;
+                float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                boneTransforms[i].rotation = Quaternion.Euler(0, 0, angle);
+            }
+        }
+    }
+
+    // Even simpler: Just add gravity sag to a straight line
+    private Vector2 CalculateSimpleGravitySag(Vector2 start, Vector2 end, float t, float slack)
+    {
+        // Base straight line
+        Vector2 straightPos = Vector2.Lerp(start, end, t);
+
+        if (slack < 0.01f)
+        {
+            return straightPos;
+        }
+
+        float straightDistance = Vector2.Distance(start, end);
+
+        // Calculate how much to sag
+        // More slack = more sag, but also consider the horizontal distance
+        float sagFactor = slack / (straightDistance + slack);
+
+        // Create a sine wave that peaks in the middle
+        float wave = Mathf.Sin(t * Mathf.PI);
+
+        // Adjust wave based on which end is lower
+        float startHeight = start.y;
+        float endHeight = end.y;
+
+        // If start is lower, shift the peak toward start
+        // If end is lower, shift the peak toward end
+        float heightRatio = (startHeight - endHeight) / (Mathf.Abs(startHeight - endHeight) + 1f);
+        float peakShift = heightRatio * 0.3f; // Shift peak by up to 30%
+
+        // Adjust t for the wave calculation
+        float adjustedT = t;
+        if (peakShift != 0)
+        {
+            // Shift the peak
+            adjustedT = Mathf.Clamp01(t - peakShift * (1f - Mathf.Abs(2f * t - 1f)));
+        }
+
+        wave = Mathf.Sin(adjustedT * Mathf.PI);
+
+        // Sag amount
+        float sagAmount = wave * slack * 0.3f;
+
+        // Gravity direction (world down)
+        Vector2 gravityDir = Physics2D.gravity.normalized;
+
+        return straightPos + gravityDir * sagAmount;
     }
 
     private void DrawSwingCircle()
