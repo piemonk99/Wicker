@@ -991,7 +991,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             else
             {
                 // Use the gravity-based curve
-                bonePosition = CalculateSimpleGravitySag(playerPos, hookPos, t, slack);
+                bonePosition = CalculateProperSag(playerPos, hookPos, t, slack);
             }
 
             // Set position
@@ -1007,7 +1007,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
                 }
                 else
                 {
-                    nextPos = CalculateSimpleGravitySag(playerPos, hookPos, (i + 1) / (float)(boneTransforms.Count - 1), slack);
+                    nextPos = CalculateProperSag(playerPos, hookPos, (i + 1) / (float)(boneTransforms.Count - 1), slack);
                 }
 
                 Vector2 direction = (nextPos - bonePosition).normalized;
@@ -1024,52 +1024,77 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         }
     }
 
-    // Even simpler: Just add gravity sag to a straight line
-    private Vector2 CalculateSimpleGravitySag(Vector2 start, Vector2 end, float t, float slack)
+    private Vector2 CalculateProperSag(Vector2 start, Vector2 end, float t, float slack)
     {
-        // Base straight line
-        Vector2 straightPos = Vector2.Lerp(start, end, t);
-
+        // Straight line if no slack
         if (slack < 0.01f)
         {
-            return straightPos;
+            return Vector2.Lerp(start, end, t);
         }
 
-        float straightDistance = Vector2.Distance(start, end);
+        float D = Vector2.Distance(start, end);
 
-        // Calculate how much to sag
-        // More slack = more sag, but also consider the horizontal distance
-        float sagFactor = slack / (straightDistance + slack);
+        // Determine which point is lower
+        bool startIsLower = start.y < end.y;
+        float lowestT = startIsLower ? 0.25f : 0.75f;
 
-        // Create a sine wave that peaks in the middle
-        float wave = Mathf.Sin(t * Mathf.PI);
+        // Calculate sag height using V-shape physics
+        float a = D * lowestT;
+        float b = D * (1f - lowestT);
+        float L = D + slack;
 
-        // Adjust wave based on which end is lower
-        float startHeight = start.y;
-        float endHeight = end.y;
+        // Calculate sag height for V-shape (for rope length constraint)
+        float hSquared = ((L * L) - (a + b) * (a + b)) * ((L * L) - (a - b) * (a - b)) / (4f * L * L);
+        float h = Mathf.Sqrt(Mathf.Max(0f, hSquared));
 
-        // If start is lower, shift the peak toward start
-        // If end is lower, shift the peak toward end
-        float heightRatio = (startHeight - endHeight) / (Mathf.Abs(startHeight - endHeight) + 1f);
-        float peakShift = heightRatio * 0.3f; // Shift peak by up to 30%
+        // Now create a smooth curve using a cubic bezier
+        // We'll use 3 control points: start, lowest point (pulled down), end
+        // But to make it smooth, we'll use a quadratic bezier that curves toward the lowest point
 
-        // Adjust t for the wave calculation
-        float adjustedT = t;
-        if (peakShift != 0)
-        {
-            // Shift the peak
-            adjustedT = Mathf.Clamp01(t - peakShift * (1f - Mathf.Abs(2f * t - 1f)));
-        }
-
-        wave = Mathf.Sin(adjustedT * Mathf.PI);
-
-        // Sag amount
-        float sagAmount = wave * slack * 0.3f;
-
-        // Gravity direction (world down)
+        // Gravity direction
         Vector2 gravityDir = Physics2D.gravity.normalized;
 
-        return straightPos + gravityDir * sagAmount;
+        // Calculate the lowest point (where we want the maximum sag)
+        Vector2 lowestPointStraight = Vector2.Lerp(start, end, lowestT);
+        Vector2 lowestPoint = lowestPointStraight + gravityDir * h;
+
+        // Now create a smooth curve using piecewise quadratic bezier
+        // We'll use two quadratic curves that meet at the lowest point
+
+        if (t <= lowestT)
+        {
+            // First curve: start to lowest point
+            float segmentT = t / lowestT;
+
+            // Control point is halfway between, pulled down slightly
+            Vector2 midPoint = Vector2.Lerp(start, lowestPointStraight, 0.5f);
+            Vector2 controlPoint = midPoint + gravityDir * h * 0.7f;
+
+            // Quadratic bezier: (1-u)²*start + 2*(1-u)*u*control + u²*lowestPoint
+            float u = segmentT;
+            float oneMinusU = 1f - u;
+
+            return oneMinusU * oneMinusU * start +
+                   2f * oneMinusU * u * controlPoint +
+                   u * u * lowestPoint;
+        }
+        else
+        {
+            // Second curve: lowest point to end
+            float segmentT = (t - lowestT) / (1f - lowestT);
+
+            // Control point is halfway between, pulled down slightly
+            Vector2 midPoint = Vector2.Lerp(lowestPointStraight, end, 0.5f);
+            Vector2 controlPoint = midPoint + gravityDir * h * 0.7f;
+
+            // Quadratic bezier: (1-u)²*lowestPoint + 2*(1-u)*u*control + u²*end
+            float u = segmentT;
+            float oneMinusU = 1f - u;
+
+            return oneMinusU * oneMinusU * lowestPoint +
+                   2f * oneMinusU * u * controlPoint +
+                   u * u * end;
+        }
     }
 
     private void DrawSwingCircle()
@@ -1091,7 +1116,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
     private void DrawRaycastDebug()
     {
-        // ... (keep existing DrawRaycastDebug implementation)
         if (grappleOrigin == null) return;
 
         Vector2 aimDir = GetAimDirection();
