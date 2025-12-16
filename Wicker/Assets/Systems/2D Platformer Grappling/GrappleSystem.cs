@@ -53,7 +53,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     // Physics state
     private SwingArc swingArc;
     private Vector2 swingMomentum;
-    private Vector2 previousVelocity;
     private float momentumCaptureTimer = 0f;
     private const float MOMENTUM_CAPTURE_RATE = 0.1f;
 
@@ -61,18 +60,8 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     private bool ShouldReel => isGrappling && isJumpHeld && !isDownHeld;
     private bool ShouldUnreel => isGrappling && isDownHeld && !isJumpHeld;
 
-    // Debug state
-    private Vector2 lastAimDirection;
-    private float lastRaycastLength;
-    private bool lastRaycastHit;
-
     //////////////////////// Initialization ////////////////////////
 
-    /// <summary>
-    /// Initializes the grapple system with character core reference.
-    /// Sets up subsystem managers and registers for input events.
-    /// </summary>
-    /// <param name="core">CharacterCore component for event system integration.</param>
     public void Initialize(CharacterCore core)
     {
         character = core;
@@ -106,11 +95,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         }
     }
 
-    /// <summary>
-    /// Called every frame for visual updates and input processing.
-    /// Updates debug visuals and grapple momentum capture.
-    /// </summary>
-    /// <param name="deltaTime">Time since last frame in seconds.</param>
     public void Tick(float deltaTime)
     {
         // Draw raycast debug when not grappling
@@ -150,11 +134,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         }
     }
 
-    /// <summary>
-    /// Called at fixed time intervals for physics updates.
-    /// Handles swing physics, reeling, and momentum updates.
-    /// </summary>
-    /// <param name="fixedDeltaTime">Fixed time step for physics calculations.</param>
     public void PhysicsTick(float fixedDeltaTime)
     {
         if (isGrappling)
@@ -183,12 +162,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
     //////////////////////// Input Handling ////////////////////////
 
-    /// <summary>
-    /// Handles character events for grapple input and button states.
-    /// Processes grapple activation, reeling input, and button holds.
-    /// </summary>
-    /// <param name="type">Event type identifier.</param>
-    /// <param name="data">Event data payload.</param>
     private void HandleEvent(string type, object data)
     {
         if (type == grappleInput)
@@ -232,25 +205,17 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
     //////////////////////// Grapple Lifecycle ////////////////////////
 
-    /// <summary>
-    /// Attempts to start a grapple by casting a ray in the aim direction.
-    /// If a valid surface is hit, initiates grappling at the hit point.
-    /// </summary>
-    /// <param name="initialReelDirection">Initial reeling direction (-1: unreel, 0: none, 1: reel).</param>
     private void TryStartGrapple(int initialReelDirection = 0)
     {
-        lastAimDirection = GetAimDirection();
+        Vector2 aimDir = GetAimDirection();
 
         // Perform grapple raycast using physics calculator
         grappleHit = physicsCalculator.PerformGrappleRaycast(
             grappleOrigin.position,
-            lastAimDirection,
+            aimDir,
             grapplePhysicsConfig.grappleLayers,
             grapplePhysicsConfig.maxDistance
         );
-
-        lastRaycastHit = grappleHit.collider != null;
-        lastRaycastLength = grappleHit.collider != null ? grappleHit.distance : grapplePhysicsConfig.maxDistance;
 
         if (grappleHit.collider != null)
         {
@@ -262,12 +227,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         }
     }
 
-    /// <summary>
-    /// Starts grappling at the specified point.
-    /// Initializes rope length, swing arc, and visual elements.
-    /// </summary>
-    /// <param name="point">World position where grapple attaches.</param>
-    /// <param name="initialReelDirection">Initial reeling direction.</param>
     private void StartGrapple(Vector2 point, int initialReelDirection = 0)
     {
         isGrappling = true;
@@ -280,7 +239,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Reset physics state
         swingMomentum = Vector2.zero;
         momentumCaptureTimer = 0f;
-        previousVelocity = rb.linearVelocity;
 
         // Apply grapple movement state override
         var movementState = (grappleMovementState != null) ?
@@ -293,12 +251,12 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
         // Create visual elements
         visualManager.InstantiateGrappleVisuals(point);
+
+        // Play grapple sound
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlaySound("GrappleLaunch");
     }
 
-    /// <summary>
-    /// Stops grappling and cleans up all associated systems.
-    /// Removes visual elements and restores normal movement state.
-    /// </summary>
     private void StopGrapple()
     {
         if (!isGrappling) return;
@@ -313,11 +271,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         character.RaiseEvent("grapple_ended", grapplePoint);
     }
 
-    /// <summary>
-    /// Creates a default movement state for grappling.
-    /// Used when no custom grapple movement state is configured.
-    /// </summary>
-    /// <returns>Default PlatformerMovement.MovementState for grappling.</returns>
     private PlatformerMovement.MovementState CreateDefaultMovementState()
     {
         return new PlatformerMovement.MovementState(
@@ -338,11 +291,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
     //////////////////////// Swing Physics ////////////////////////
 
-    /// <summary>
-    /// Updates all swing physics calculations for the current frame.
-    /// Handles rope state, restoring forces, and circular motion.
-    /// </summary>
-    /// <param name="fixedDeltaTime">Fixed time step for physics calculations.</param>
     private void UpdateSwingPhysics(float fixedDeltaTime)
     {
         Vector2 playerPos = grappleOrigin.position;
@@ -355,19 +303,15 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Get current rope state (stretch/squash)
         RopeState ropeState = configManager.GetRopeState(currentDistance, currentRopeLength);
 
-        // Check if rope is taut (either stretching or squashing)
-        bool isRopeTaut = ropeState.isStretch || ropeState.isSquash;
-
         // Apply rope physics if stretching or squashing
         if (ropeState.ratio != 0f)
         {
             ApplyRopePhysics(ropeState.ratio, ropeState.isStretch, currentDistance, fixedDeltaTime);
         }
 
-        // Apply tangential motion and gravity only when rope is taut
-        if (isRopeTaut)
+        // Apply gravity along rope when rope is taut
+        if (ropeState.isStretch || ropeState.isSquash)
         {
-            ApplyTangentialMotion(currentDistance, fixedDeltaTime);
             ApplyGravityAlongRope(fixedDeltaTime);
         }
 
@@ -378,20 +322,9 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         if (currentDistance > grapplePhysicsConfig.maxDistance * 1.5f)
         {
             StopGrapple();
-            return;
         }
-
-        previousVelocity = rb.linearVelocity;
     }
 
-    /// <summary>
-    /// Applies rope physics forces based on stretch/squash state.
-    /// Calculates restoring forces and applies them to the rigidbody.
-    /// </summary>
-    /// <param name="ratio">Stretch/squash ratio.</param>
-    /// <param name="isStretch">Whether the rope is stretching (true) or squashing (false).</param>
-    /// <param name="currentDistance">Current distance to grapple point.</param>
-    /// <param name="fixedDeltaTime">Fixed time step for force application.</param>
     private void ApplyRopePhysics(float ratio, bool isStretch, float currentDistance, float fixedDeltaTime)
     {
         Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
@@ -415,9 +348,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         Vector2 radialVelocity = Vector2.Dot(rb.linearVelocity, radialDirection) * radialDirection;
         rb.AddForce(-radialVelocity * grapplePhysicsConfig.ropeDamping * dynamicStiffness, ForceMode2D.Force);
 
-        // Convert radial momentum to tangential motion
-        ConvertRadialMomentumToTangent(radialVelocity.magnitude, radialDirection, ratio, isStretch);
-
         // Debug visualization
         if (showPhysicsDebug)
         {
@@ -428,95 +358,66 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     }
 
     /// <summary>
-    /// Converts radial momentum to tangential motion for smoother swinging.
-    /// Helps maintain swing momentum when rope stretches or squashes.
-    /// </summary>
-    /// <param name="radialSpeed">Magnitude of radial velocity.</param>
-    /// <param name="radialDirection">Direction from player to grapple point.</param>
-    /// <param name="ratio">Stretch/squash ratio.</param>
-    /// <param name="isStretch">Whether rope is stretching.</param>
-    private void ConvertRadialMomentumToTangent(float radialSpeed, Vector2 radialDirection, float ratio, bool isStretch)
-    {
-        if (radialSpeed < 0.1f || Mathf.Abs(ratio) < 0.0001f) return;
-
-        Vector2 currentVelocity = rb.linearVelocity;
-        Vector2 radialVelocity = Vector2.Dot(currentVelocity, radialDirection) * radialDirection;
-        Vector2 radialVelDir = radialVelocity.normalized;
-
-        // Find closest tangent direction to current velocity
-        Vector2 closestTangent = physicsCalculator.GetClosestTangentDirection(currentVelocity, radialDirection);
-
-        // Calculate alignment between radial velocity and tangent
-        float cosineAlignment = isStretch ?
-            Vector2.Dot(radialVelDir, closestTangent) :      // Convert outward motion to tangent
-            Vector2.Dot(radialVelDir, -closestTangent);      // Convert inward motion to tangent
-
-        // Calculate conversion factor
-        float alignmentFactor = Mathf.Max(0f, cosineAlignment);
-        alignmentFactor = Mathf.Pow(alignmentFactor, 2f);
-        float baseConversionFactor = physicsCalculator.GetTangentConversionFactor(ratio, isStretch);
-        float conversionFactor = baseConversionFactor * alignmentFactor;
-
-        // Convert radial momentum to tangential velocity
-        float momentumToConvert = radialSpeed * conversionFactor;
-        Vector2 tangentVelocity = closestTangent * momentumToConvert;
-
-        // Apply velocity conversion
-        Vector2 newVelocity = currentVelocity - radialVelocity * conversionFactor + tangentVelocity;
-        rb.linearVelocity = newVelocity;
-
-        // Debug visualization
-        if (showPhysicsDebug)
-        {
-            Color debugColor = isStretch ? Color.yellow : Color.magenta;
-            Debug.DrawRay(grappleOrigin.position, closestTangent * 3f, debugColor, 0.1f);
-            Debug.DrawRay(grappleOrigin.position, tangentVelocity, debugColor * 0.7f, 0.1f);
-        }
-    }
-
-    /// <summary>
     /// Applies swing friction to simulate air resistance.
-    /// Gradually reduces velocity over time for more realistic swinging.
+    /// Applies two types of friction:
+    /// 1. General swing friction (affects all velocity)
+    /// 2. Tangential friction (only affects motion perpendicular to rope direction)
     /// </summary>
     /// <param name="fixedDeltaTime">Fixed time step for friction calculation.</param>
     private void ApplySwingFriction(float fixedDeltaTime)
     {
-        rb.linearVelocity *= 1 - grapplePhysicsConfig.swingFriction;
+        // Apply general swing friction (affects all velocity)
+        rb.linearVelocity *= 1 - grapplePhysicsConfig.friction;
+
+        // Apply tangential friction (only affects motion perpendicular to rope)
+        ApplyTangentialFriction(fixedDeltaTime);
     }
 
     /// <summary>
-    /// Applies tangential motion forces for circular swing behavior.
-    /// Maintains centripetal force for pendulum-like motion.
+    /// Applies friction only to the tangential component of velocity.
+    /// This allows controlling swinging motion independently from radial motion.
     /// </summary>
-    /// <param name="currentDistance">Current distance to grapple point.</param>
-    /// <param name="fixedDeltaTime">Fixed time step for force calculation.</param>
-    private void ApplyTangentialMotion(float currentDistance, float fixedDeltaTime)
+    /// <param name="fixedDeltaTime">Fixed time step for friction calculation.</param>
+    private void ApplyTangentialFriction(float fixedDeltaTime)
     {
+        // Early return if tangential friction is effectively zero
+        if (grapplePhysicsConfig.tangentialFriction < 0.001f) return;
+
         Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
+
+        // Don't apply if we're very close to the grapple point
+        if (toGrapple.magnitude < 0.1f) return;
+
         Vector2 radialDirection = toGrapple.normalized;
-        Vector2 tangentDirection = new Vector2(-radialDirection.y, radialDirection.x);
 
-        // Calculate tangential velocity component
-        Vector2 tangentVelocity = rb.linearVelocity - Vector2.Dot(rb.linearVelocity, radialDirection) * radialDirection;
+        // Calculate tangential component of velocity
+        // This is velocity perpendicular to the rope direction
+        float radialSpeed = Vector2.Dot(rb.linearVelocity, radialDirection);
+        Vector2 radialVelocity = radialDirection * radialSpeed;
+        Vector2 tangentialVelocity = rb.linearVelocity - radialVelocity;
 
-        // Apply centripetal force to maintain circular motion
-        if (tangentVelocity.magnitude > 0.1f && currentDistance > 0.1f)
+        // Only apply friction if we have significant tangential motion
+        if (tangentialVelocity.magnitude > 0.1f)
         {
-            float centripetalForce = tangentVelocity.sqrMagnitude / currentDistance;
-            rb.AddForce(radialDirection * centripetalForce, ForceMode2D.Force);
+            // Apply tangential friction (only reduces tangential component)
+            Vector2 newTangentialVelocity = tangentialVelocity * (1 - grapplePhysicsConfig.tangentialFriction);
 
-            if (showPhysicsDebug)
+            // Recombine: radial velocity stays the same, tangential gets friction
+            rb.linearVelocity = radialVelocity + newTangentialVelocity;
+
+            // Debug visualization
+            if (showPhysicsDebug && grapplePhysicsConfig.tangentialFriction > 0.01f)
             {
-                Debug.DrawRay(grappleOrigin.position, radialDirection * centripetalForce * 0.1f, Color.magenta, fixedDeltaTime);
+                // Show tangential velocity direction
+                Debug.DrawRay(grappleOrigin.position, tangentialVelocity.normalized * 2f, Color.cyan, fixedDeltaTime);
+
+                // Show friction force (opposite to tangential velocity)
+                Debug.DrawRay(grappleOrigin.position, -tangentialVelocity.normalized * grapplePhysicsConfig.tangentialFriction * 3f,
+                             new Color(1f, 0.5f, 0f), fixedDeltaTime); // Orange color
             }
         }
     }
 
-    /// <summary>
-    /// Applies gravity component along the rope direction.
-    /// Only applies gravity that pulls away from the grapple point.
-    /// </summary>
-    /// <param name="fixedDeltaTime">Fixed time step for force calculation.</param>
     private void ApplyGravityAlongRope(float fixedDeltaTime)
     {
         Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
@@ -534,10 +435,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         }
     }
 
-    /// <summary>
-    /// Applies a boost in the direction of swing momentum when grapple is released.
-    /// Momentum must exceed minimum velocity threshold for boost to apply.
-    /// </summary>
     private void ApplyBoost()
     {
         if (swingMomentum.magnitude < grapplePhysicsConfig.minBoostVelocity)
@@ -564,11 +461,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
     //////////////////////// Reeling System ////////////////////////
 
-    /// <summary>
-    /// Updates reeling-in logic to shorten the rope.
-    /// Applies variable speed based on slack amount.
-    /// </summary>
-    /// <param name="fixedDeltaTime">Fixed time step for length adjustment.</param>
     private void UpdateReeling(float fixedDeltaTime)
     {
         Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
@@ -590,11 +482,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         currentRopeLength = Mathf.Lerp(currentRopeLength, targetLength, grappleReelConfig.reelSmoothness);
     }
 
-    /// <summary>
-    /// Updates unreeling-out logic to lengthen the rope.
-    /// Smoothly increases rope length up to maximum.
-    /// </summary>
-    /// <param name="fixedDeltaTime">Fixed time step for length adjustment.</param>
     private void UpdateUnreeling(float fixedDeltaTime)
     {
         Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
@@ -608,10 +495,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
     //////////////////////// Helper Methods ////////////////////////
 
-    /// <summary>
-    /// Captures swing momentum for boost calculations.
-    /// Smoothly updates swingMomentum based on current velocity.
-    /// </summary>
     private void CaptureSwingMomentum()
     {
         Vector2 currentVelocity = rb.linearVelocity;
@@ -627,11 +510,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         }
     }
 
-    /// <summary>
-    /// Gets the current aim direction based on input method.
-    /// Prioritizes mouse aiming, falls back to default direction.
-    /// </summary>
-    /// <returns>Normalized aim direction vector.</returns>
     private Vector2 GetAimDirection()
     {
         // Try mouse aiming first
@@ -661,96 +539,10 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         return (Vector2.up + Vector2.right).normalized;
     }
 
-    //////////////////////// Debug & Gizmos ////////////////////////
-
-    /// <summary>
-    /// Unity GUI callback for debug information display.
-    /// Shows grapple state, physics values, and input status.
-    /// </summary>
-    void OnGUI()
-    {
-        if (!showRaycastDebug && !showPhysicsDebug) return;
-
-        GUIStyle style = new GUIStyle(GUI.skin.label);
-        style.fontSize = 12;
-        style.normal.textColor = Color.white;
-
-        int yPos = 300;
-
-        if (showRaycastDebug)
-        {
-            GUI.Label(new Rect(10, yPos, 400, 20), $"Grapple Ready: {!isGrappling}", style); yPos += 20;
-            GUI.Label(new Rect(10, yPos, 400, 20), $"Aim Direction: {GetAimDirection()}", style); yPos += 20;
-            GUI.Label(new Rect(10, yPos, 400, 20), $"Max Distance: {grapplePhysicsConfig.maxDistance}", style); yPos += 20;
-        }
-
-        if (showPhysicsDebug && isGrappling)
-        {
-            Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
-            float currentDistance = toGrapple.magnitude;
-            RopeState ropeState = configManager.GetRopeState(currentDistance, currentRopeLength);
-
-            GUI.Label(new Rect(10, yPos, 400, 20), $"Grapple Point: {grapplePoint:F2}", style); yPos += 20;
-            GUI.Label(new Rect(10, yPos, 400, 20), $"Rope Length: {currentRopeLength:F2}", style); yPos += 20;
-            GUI.Label(new Rect(10, yPos, 400, 20), $"Current Dist: {currentDistance:F2}", style); yPos += 20;
-            GUI.Label(new Rect(10, yPos, 400, 20), $"State: {(ropeState.isStretch ? "Stretch" : ropeState.isSquash ? "Squash" : "Neutral")}", style); yPos += 20;
-            GUI.Label(new Rect(10, yPos, 400, 20), $"Ratio: {ropeState.ratio:P1}", style); yPos += 20;
-            GUI.Label(new Rect(10, yPos, 400, 20), $"Jump Held: {isJumpHeld}", style); yPos += 20;
-            GUI.Label(new Rect(10, yPos, 400, 20), $"Down Held: {isDownHeld}", style); yPos += 20;
-            GUI.Label(new Rect(10, yPos, 400, 20), $"Should Reel: {ShouldReel}", style); yPos += 20;
-            GUI.Label(new Rect(10, yPos, 400, 20), $"Should Unreel: {ShouldUnreel}", style); yPos += 20;
-            GUI.Label(new Rect(10, yPos, 400, 20), $"Velocity: {rb.linearVelocity.magnitude:F2}", style); yPos += 20;
-            GUI.Label(new Rect(10, yPos, 400, 20), $"Momentum: {swingMomentum.magnitude:F2}", style); yPos += 20;
-        }
-    }
-
-    /// <summary>
-    /// Unity Gizmos callback for editor visualization.
-    /// Draws grapple range and active grapple visualization.
-    /// </summary>
-    void OnDrawGizmosSelected()
-    {
-        if (!showRaycastDebug && !showPhysicsDebug) return;
-
-        if (grappleOrigin != null)
-        {
-            // Draw grapple range sphere
-            Gizmos.color = new Color(0, 1, 0, 0.1f);
-            Gizmos.DrawWireSphere(grappleOrigin.position, grapplePhysicsConfig.maxDistance);
-
-            // Draw current grapple if active during play mode
-            if (Application.isPlaying && isGrappling)
-            {
-                Gizmos.color = Color.red;
-                Gizmos.DrawWireSphere(grapplePoint, 0.3f);
-                Gizmos.DrawLine(grappleOrigin.position, grapplePoint);
-            }
-        }
-    }
-
     //////////////////////// Public API ////////////////////////
 
-    /// <summary>
-    /// Gets whether the grapple is currently active.
-    /// </summary>
-    /// <returns>True if grappling is active, false otherwise.</returns>
     public bool IsGrappling() => isGrappling;
-
-    /// <summary>
-    /// Gets the current grapple point position.
-    /// </summary>
-    /// <returns>World position of the grapple attachment point.</returns>
     public Vector2 GetGrapplePoint() => grapplePoint;
-
-    /// <summary>
-    /// Gets the current rope length.
-    /// </summary>
-    /// <returns>Current configured rope length in world units.</returns>
     public float GetRopeLength() => currentRopeLength;
-
-    /// <summary>
-    /// Gets the current swing arc data.
-    /// </summary>
-    /// <returns>SwingArc object containing swing geometry information.</returns>
     public SwingArc GetSwingArc() => swingArc;
 }

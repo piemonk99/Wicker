@@ -59,7 +59,14 @@ public class GrappleSwingPhysicsConfig
 {
     public float maxDistance = 20f;
     public float ropeDamping = 0.1f;
-    public float swingFriction = 0.004f;
+
+    [Tooltip("Friction applied to all velocity. Higher values = less movement.")]
+    [Range(0f, 1f)]
+    public float friction = 0f;
+
+    [Tooltip("Friction applied only to motion perpendicular to the rope direction. Higher values = less swinging.")]
+    [Range(0f, 1f)]
+    public float tangentialFriction = 0.005f;
 
     public float boostMultiplier = 1.1f;
     public float minBoostVelocity = 2f;
@@ -68,13 +75,11 @@ public class GrappleSwingPhysicsConfig
     public bool enableStretch = true;
     public float stretchStiffness = 200f;
     public float stretchStiffnessExponent = 2f;
-    public float stretchToTangentConversion = 0.7f;
 
     [Header("Squash Physics (Inside Rope)")]
     public bool enableSquash = false;
     public float squashStiffness = 50f;
     public float squashStiffnessExponent = 2f;
-    public float squashToTangentConversion = 0.7f;
 
     public LayerMask grappleLayers;
 }
@@ -88,7 +93,7 @@ public class GrappleReelConfig
 {
     [Header("Reeling In")]
     public float reelSpeed = 50f;
-    public float slackReelMultiplier = 3f;
+    public float slackReelMultiplier = 10f;
     public float minRopeLength = 1f;
     public float reelSmoothness = 0.1f;
 
