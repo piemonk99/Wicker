@@ -252,9 +252,13 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Create visual elements
         visualManager.InstantiateGrappleVisuals(point);
 
-        // Play grapple sound
+        //Play grapple sound
         if (AudioManager.Instance != null)
-            AudioManager.Instance.PlaySound("GrappleLaunch");
+        {
+            AudioManager.Instance.PlaySoundByPath("Root/Game/Player/Grapple/Rope/Launch");
+            AudioManager.Instance.GetNode("Root").PrintBasicTree();
+        }
+            
     }
 
     private void StopGrapple()
@@ -356,13 +360,8 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Only apply damping when either:
         // 1. We have high angular velocity (swinging fast)
         // 2. Radial motion is increasing displacement
-
         bool shouldApplyDamping = false;
-
-        // Check for swinging (high angular velocity)
         bool isSwinging = angularVelocity > 0.3f; // ~17 degrees per second
-
-        // Check if radial motion is problematic
         bool isProblematicRadialMotion = false;
         if (isStretch) // Stretching
         {
@@ -372,10 +371,9 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         {
             isProblematicRadialMotion = radialSpeed > 0.01f; // Moving outward
         }
+        shouldApplyDamping = isSwinging || isProblematicRadialMotion;
 
-        // Apply damping if: swinging OR (problematic radial motion with some swing)
-        shouldApplyDamping = isSwinging || (isProblematicRadialMotion && tangentSpeed > 0.5f);
-
+        // Apply damping
         if (shouldApplyDamping && radialVelocity.magnitude > 0.1f)
         {
             Vector2 dampingForce = -radialVelocity.normalized *

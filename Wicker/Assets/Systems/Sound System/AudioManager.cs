@@ -1,19 +1,10 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
-public enum SoundCategory { Master, BGM, SFX, Ambient, UI, Voice }
-
-[System.Serializable]
-public class GameSound
-{
-    public string name;
-    public AudioClip clip;
-    public SoundCategory category = SoundCategory.SFX;
-    [Range(0f, 1f)] public float baseVolume = 1f;
-    [Range(0.1f, 3f)] public float pitch = 1f;
-    public bool loop = false;
-}
+public enum SoundCategory { Master, BGM, SFX, Ambient }
 
 public class AudioManager : MonoBehaviour
 {
@@ -36,32 +27,40 @@ public class AudioManager : MonoBehaviour
         }
     }
 
+    [Header("Sound System")]
+    [SerializeField] private SoundNode rootSoundNode;
+
     [Header("Volume Settings")]
     [SerializeField, Range(0f, 1f)] private float masterVolume = 1f;
     [SerializeField, Range(0f, 1f)] private float bgmVolume = 1f;
     [SerializeField, Range(0f, 1f)] private float sfxVolume = 1f;
     [SerializeField, Range(0f, 1f)] private float ambientVolume = 1f;
 
-    [Header("Sound Library")]
-    [SerializeField] private List<GameSound> soundLibrary = new List<GameSound>();
-
-    // Event for volume changes
     public event Action<SoundCategory> OnVolumeChanged;
 
-    // AudioSource for BGM (music)
     private AudioSource bgmSource;
-
-    // Pool for SFX
     private Queue<AudioSource> sfxPool = new Queue<AudioSource>();
-    private List<AudioSource> activeSfxSources = new List<AudioSource>();
+    private List<ActiveAudioSource> activeSfxSources = new List<ActiveAudioSource>();
     private int poolSize = 10;
+    private Dictionary<string, SoundNode> nodePathCache = new Dictionary<string, SoundNode>();
 
-    // Dictionary for sound lookup
-    private Dictionary<string, GameSound> soundDictionary = new Dictionary<string, GameSound>();
+    private List<AudioSource> sourcesToRemove = new List<AudioSource>();
+
+    // Helper struct to track audio source info
+    private struct ActiveAudioSource
+    {
+        public AudioSource source;
+        public SoundCategory category;
+
+        public ActiveAudioSource(AudioSource source, SoundCategory category)
+        {
+            this.source = source;
+            this.category = category;
+        }
+    }
 
     private void Awake()
     {
-        // Singleton setup
         if (_instance != null && _instance != this)
         {
             Destroy(gameObject);
@@ -72,42 +71,239 @@ public class AudioManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
 
         InitializeAudioSources();
-        BuildSoundDictionary();
+
+        if (rootSoundNode != null)
+        {
+            rootSoundNode.Initialize();
+            BuildPathCache(rootSoundNode, "");
+        }
+
         LoadVolumeSettings();
     }
 
-    private void InitializeAudioSources()
-    {
-        // Create BGM source
-        bgmSource = gameObject.AddComponent<AudioSource>();
-        bgmSource.loop = true;
-        bgmSource.playOnAwake = false;
+    // ========== PATH CACHE SYSTEM ==========
 
-        // Create SFX pool
-        for (int i = 0; i < poolSize; i++)
+    private void BuildPathCache(SoundNode node, string currentPath)
+    {
+        if (node == null) return;
+
+        string nodePath = string.IsNullOrEmpty(currentPath) ? node.nodeID : currentPath + "/" + node.nodeID;
+
+        if (!string.IsNullOrEmpty(node.nodeID))
         {
-            AudioSource source = gameObject.AddComponent<AudioSource>();
-            source.playOnAwake = false;
-            sfxPool.Enqueue(source);
+            nodePathCache[nodePath] = node;
         }
-    }
 
-    private void BuildSoundDictionary()
-    {
-        soundDictionary.Clear();
-        foreach (GameSound sound in soundLibrary)
+        if (node.nodeType == SoundNodeType.Container)
         {
-            if (!string.IsNullOrEmpty(sound.name) && sound.clip != null)
+            foreach (var child in node.childNodes)
             {
-                if (!soundDictionary.ContainsKey(sound.name))
+                if (child != null)
                 {
-                    soundDictionary.Add(sound.name, sound);
+                    BuildPathCache(child, nodePath);
                 }
             }
         }
     }
 
-    // ========== VOLUME CONTROL ==========
+    // ========== NODE LOOKUP METHODS ==========
+
+    public SoundNode GetNode(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return null;
+
+        // Check path cache first
+        if (nodePathCache.TryGetValue(path, out var cachedNode))
+        {
+            return cachedNode;
+        }
+
+        // Try to find by traversing the tree
+        return FindNodeByPath(rootSoundNode, path);
+    }
+
+    private SoundNode FindNodeByPath(SoundNode currentNode, string path)
+    {
+        if (currentNode == null || string.IsNullOrEmpty(path)) return null;
+
+        string[] pathSegments = path.Split('/');
+        return FindNodeRecursive(currentNode, pathSegments, 0);
+    }
+
+    private SoundNode FindNodeRecursive(SoundNode currentNode, string[] pathSegments, int currentIndex)
+    {
+        if (currentNode == null || currentIndex >= pathSegments.Length) return null;
+
+        string targetID = pathSegments[currentIndex];
+
+        // Check if current node matches
+        if (currentNode.nodeID == targetID)
+        {
+            // If this is the last segment, we found it!
+            if (currentIndex == pathSegments.Length - 1)
+            {
+                return currentNode;
+            }
+
+            // Otherwise, search children
+            if (currentNode.nodeType == SoundNodeType.Container)
+            {
+                foreach (var child in currentNode.childNodes)
+                {
+                    var found = FindNodeRecursive(child, pathSegments, currentIndex + 1);
+                    if (found != null) return found;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // ========== SOUND PLAYBACK METHODS ==========
+
+    public AudioSource PlaySoundByPath(string path)
+    {
+        var node = GetNode(path);
+        if (node != null)
+        {
+            return PlaySoundNode(node);
+        }
+
+        Debug.LogWarning($"Sound node not found at path: {path}");
+        return null;
+    }
+
+    public AudioSource PlaySoundNode(SoundNode node)
+    {
+        if (node == null) return null;
+
+        // If it's a container, get the next sound from it
+        if (node.nodeType == SoundNodeType.Container)
+        {
+            var soundNode = node.GetNextNode();
+            if (soundNode != null)
+            {
+                return PlaySoundNode(soundNode);
+            }
+            return null;
+        }
+
+        // It's a sound node - play it
+        return PlaySoundData(node);
+    }
+
+    public AudioSource PlaySoundData(SoundNode soundNode)
+    {
+        return PlaySoundData(soundNode, Vector3.zero);
+    }
+
+    public AudioSource PlaySoundData(SoundNode soundNode, Vector3 position)
+    {
+        if (soundNode == null || soundNode.clip == null) return null;
+
+        float finalVolume = soundNode.baseVolume * GetEffectiveVolume(soundNode.category);
+        float finalPitch = soundNode.pitch;
+
+        // Apply variations
+        if (soundNode.volumeVariation > 0)
+        {
+            finalVolume *= (1f + UnityEngine.Random.Range(-soundNode.volumeVariation, soundNode.volumeVariation));
+        }
+
+        if (soundNode.pitchVariation > 0)
+        {
+            finalPitch += UnityEngine.Random.Range(-soundNode.pitchVariation, soundNode.pitchVariation);
+        }
+
+        if (soundNode.category == SoundCategory.BGM)
+        {
+            return PlayBGMInternal(soundNode, finalVolume, finalPitch);
+        }
+        else
+        {
+            return PlaySFXInternal(soundNode, finalVolume, finalPitch, position);
+        }
+    }
+
+    private AudioSource PlayBGMInternal(SoundNode soundNode, float volume, float pitch)
+    {
+        bgmSource.clip = soundNode.clip;
+        bgmSource.volume = volume;
+        bgmSource.pitch = pitch;
+        bgmSource.loop = soundNode.loop;
+        bgmSource.Play();
+        return bgmSource;
+    }
+
+    private AudioSource PlaySFXInternal(SoundNode soundNode, float volume, float pitch, Vector3 position)
+    {
+        AudioSource source = GetAvailableSfxSource();
+        if (source == null) return null;
+
+        source.clip = soundNode.clip;
+        source.volume = volume;
+        source.pitch = pitch;
+        source.loop = soundNode.loop;
+
+        if (position != Vector3.zero)
+        {
+            source.transform.position = position;
+            source.spatialBlend = 1f; // 3D sound
+        }
+        else
+        {
+            source.spatialBlend = 0f; // 2D sound
+        }
+
+        source.Play();
+
+        // Track this source with its category
+        activeSfxSources.Add(new ActiveAudioSource(source, soundNode.category));
+
+        if (!soundNode.loop)
+        {
+            StartCoroutine(ReturnToPoolWhenFinished(source));
+        }
+
+        return source;
+    }
+
+    // ========== BGM CONTROL METHODS ==========
+
+    public void PlayBGM(string bgmPath)
+    {
+        var node = GetNode(bgmPath);
+        if (node != null && node.nodeType == SoundNodeType.Sound)
+        {
+            PlaySoundNode(node);
+        }
+    }
+
+    public void StopBGM()
+    {
+        if (bgmSource != null) bgmSource.Stop();
+    }
+
+    public void PauseBGM()
+    {
+        if (bgmSource != null) bgmSource.Pause();
+    }
+
+    public void ResumeBGM()
+    {
+        if (bgmSource != null) bgmSource.UnPause();
+    }
+
+    public void SetBGMVolume(float volume)
+    {
+        if (bgmSource != null)
+        {
+            bgmSource.volume = volume * bgmVolume * masterVolume;
+        }
+    }
+
+    // ========== VOLUME CONTROL METHODS ==========
+
     public float GetVolume(SoundCategory category)
     {
         switch (category)
@@ -137,68 +333,71 @@ public class AudioManager : MonoBehaviour
         SaveVolumeSettings();
     }
 
+    private float GetEffectiveVolume(SoundCategory category)
+    {
+        float master = GetVolume(SoundCategory.Master);
+
+        switch (category)
+        {
+            case SoundCategory.BGM: return master * GetVolume(SoundCategory.BGM);
+            case SoundCategory.SFX: return master * GetVolume(SoundCategory.SFX);
+            case SoundCategory.Ambient: return master * GetVolume(SoundCategory.Ambient);
+            default: return master;
+        }
+    }
+
     private void UpdateAllVolumes()
     {
+        // Clear any pending removals
+        if (sourcesToRemove.Count > 0)
+        {
+            foreach (var source in sourcesToRemove)
+            {
+                ReturnSourceToPool(source);
+            }
+            sourcesToRemove.Clear();
+        }
+
         // Update BGM source
         if (bgmSource != null && bgmSource.isPlaying)
         {
-            bgmSource.volume = masterVolume * bgmVolume;
+            bgmSource.volume = GetEffectiveVolume(SoundCategory.BGM);
         }
 
         // Update all active SFX sources
-        foreach (AudioSource source in activeSfxSources)
+        for (int i = activeSfxSources.Count - 1; i >= 0; i--)
         {
-            if (source != null)
+            var activeSource = activeSfxSources[i];
+            if (activeSource.source == null || !activeSource.source.isPlaying)
             {
-                source.volume = masterVolume * sfxVolume;
+                // Mark for removal instead of removing immediately
+                if (activeSource.source != null)
+                {
+                    sourcesToRemove.Add(activeSource.source);
+                }
+                // Remove from active list now
+                activeSfxSources.RemoveAt(i);
+                continue;
             }
+
+            activeSource.source.volume = GetEffectiveVolume(activeSource.category);
         }
     }
 
-    // ========== SOUND PLAYBACK ==========
-    public AudioSource PlaySound(string soundName)
+    // ========== AUDIO SOURCE MANAGEMENT ==========
+
+    private void InitializeAudioSources()
     {
-        if (soundDictionary.TryGetValue(soundName, out GameSound sound))
+        bgmSource = gameObject.AddComponent<AudioSource>();
+        bgmSource.loop = true;
+        bgmSource.playOnAwake = false;
+        bgmSource.spatialBlend = 0f; // 2D sound
+
+        for (int i = 0; i < poolSize; i++)
         {
-            return PlaySound(sound);
-        }
-
-        Debug.LogWarning($"Sound not found: {soundName}");
-        return null;
-    }
-
-    public AudioSource PlaySound(GameSound sound)
-    {
-        if (sound == null || sound.clip == null) return null;
-
-        if (sound.category == SoundCategory.BGM)
-        {
-            // Play as BGM
-            bgmSource.clip = sound.clip;
-            bgmSource.volume = masterVolume * bgmVolume * sound.baseVolume;
-            bgmSource.pitch = sound.pitch;
-            bgmSource.loop = sound.loop;
-            bgmSource.Play();
-            return bgmSource;
-        }
-        else
-        {
-            // Play as SFX (or other category)
-            AudioSource source = GetAvailableSfxSource();
-            if (source == null) return null;
-
-            source.clip = sound.clip;
-            source.volume = masterVolume * sfxVolume * sound.baseVolume;
-            source.pitch = sound.pitch;
-            source.loop = sound.loop;
-            source.Play();
-
-            if (!sound.loop)
-            {
-                StartCoroutine(ReturnToPoolWhenFinished(source));
-            }
-
-            return source;
+            AudioSource source = gameObject.AddComponent<AudioSource>();
+            source.playOnAwake = false;
+            sfxPool.Enqueue(source);
         }
     }
 
@@ -206,63 +405,46 @@ public class AudioManager : MonoBehaviour
     {
         if (sfxPool.Count > 0)
         {
-            AudioSource source = sfxPool.Dequeue();
-            activeSfxSources.Add(source);
-            return source;
+            return sfxPool.Dequeue();
         }
 
         // Create new source if pool is empty
         AudioSource newSource = gameObject.AddComponent<AudioSource>();
-        activeSfxSources.Add(newSource);
+        newSource.playOnAwake = false;
         return newSource;
     }
 
-    private System.Collections.IEnumerator ReturnToPoolWhenFinished(AudioSource source)
+    private void ReturnSourceToPool(AudioSource source)
     {
-        yield return new WaitForSeconds(source.clip.length / source.pitch + 0.1f);
+        if (source == null) return;
 
-        if (source != null && activeSfxSources.Contains(source))
+        source.Stop();
+        source.clip = null;
+        source.spatialBlend = 0f;
+        source.transform.localPosition = Vector3.zero;
+
+        // Don't add back if already in pool
+        if (!sfxPool.Contains(source))
         {
-            activeSfxSources.Remove(source);
-            source.Stop();
-            source.clip = null;
             sfxPool.Enqueue(source);
         }
     }
 
-    // ========== BGM CONTROL ==========
-    public void PlayBGM(string bgmName)
+    private IEnumerator ReturnToPoolWhenFinished(AudioSource source)
     {
-        if (soundDictionary.TryGetValue(bgmName, out GameSound sound))
+        if (source == null || source.clip == null) yield break;
+
+        float duration = source.clip.length / source.pitch;
+        yield return new WaitForSeconds(duration + 0.1f);
+
+        if (source != null && source.isPlaying == false)
         {
-            PlayBGM(sound);
+            ReturnSourceToPool(source);
         }
     }
 
-    public void PlayBGM(GameSound bgmSound)
-    {
-        if (bgmSound == null) return;
-        bgmSound.category = SoundCategory.BGM;
-        bgmSound.loop = true;
-        PlaySound(bgmSound);
-    }
+    // ========== SAVE/LOAD SYSTEM ==========
 
-    public void StopBGM()
-    {
-        if (bgmSource != null) bgmSource.Stop();
-    }
-
-    public void PauseBGM()
-    {
-        if (bgmSource != null) bgmSource.Pause();
-    }
-
-    public void ResumeBGM()
-    {
-        if (bgmSource != null) bgmSource.UnPause();
-    }
-
-    // ========== SAVE/LOAD ==========
     private void SaveVolumeSettings()
     {
         PlayerPrefs.SetFloat("MasterVolume", masterVolume);
@@ -278,12 +460,139 @@ public class AudioManager : MonoBehaviour
         bgmVolume = PlayerPrefs.GetFloat("BGMVolume", 1f);
         sfxVolume = PlayerPrefs.GetFloat("SFXVolume", 1f);
         ambientVolume = PlayerPrefs.GetFloat("AmbientVolume", 1f);
+
         UpdateAllVolumes();
     }
 
+    // ========== PUBLIC UTILITY METHODS ==========
+
+    public void StopAllSFX()
+    {
+        for (int i = activeSfxSources.Count - 1; i >= 0; i--)
+        {
+            var activeSource = activeSfxSources[i];
+            if (activeSource.source != null)
+            {
+                ReturnSourceToPool(activeSource.source);
+            }
+        }
+        activeSfxSources.Clear();
+    }
+
+    public void StopSFXByCategory(SoundCategory category)
+    {
+        for (int i = activeSfxSources.Count - 1; i >= 0; i--)
+        {
+            var activeSource = activeSfxSources[i];
+            if (activeSource.category == category && activeSource.source != null)
+            {
+                ReturnSourceToPool(activeSource.source);
+                activeSfxSources.RemoveAt(i);
+            }
+        }
+    }
+
+    public void FadeOutBGM(float duration)
+    {
+        if (bgmSource != null && bgmSource.isPlaying)
+        {
+            StartCoroutine(FadeOutBGMCoroutine(duration));
+        }
+    }
+
+    public void FadeInBGM(string bgmPath, float duration)
+    {
+        StopAllCoroutines();
+        StartCoroutine(FadeInBGMCoroutine(bgmPath, duration));
+    }
+
+    private IEnumerator FadeOutBGMCoroutine(float duration)
+    {
+        float startVolume = bgmSource.volume;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            bgmSource.volume = Mathf.Lerp(startVolume, 0f, elapsed / duration);
+            yield return null;
+        }
+
+        bgmSource.Stop();
+        bgmSource.volume = startVolume;
+    }
+
+    private IEnumerator FadeInBGMCoroutine(string bgmPath, float duration)
+    {
+        PlayBGM(bgmPath);
+        float targetVolume = GetEffectiveVolume(SoundCategory.BGM);
+
+        bgmSource.volume = 0f;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            bgmSource.volume = Mathf.Lerp(0f, targetVolume, elapsed / duration);
+            yield return null;
+        }
+
+        bgmSource.volume = targetVolume;
+    }
+
+    // ========== DEBUG/EDITOR METHODS ==========
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        // Update volumes in editor when changed
+        UpdateAllVolumes();
+    }
+    
+    public void PrintSoundTree()
+    {
+        if (rootSoundNode == null)
+        {
+            Debug.Log("No root sound node assigned.");
+            return;
+        }
+        
+        Debug.Log("=== Sound Tree Structure ===");
+        PrintNodeRecursive(rootSoundNode, 0);
+    }
+    
+    private void PrintNodeRecursive(SoundNode node, int indent)
+    {
+        string indentStr = new string(' ', indent * 2);
+        string nodeType = node.nodeType == SoundNodeType.Container ? "[Container]" : "[Sound]";
+        
+        Debug.Log($"{indentStr}{nodeType} {node.nodeID} {(node.nodeType == SoundNodeType.Sound ? $"(Clip: {node.clip?.name})" : "")}");
+        
+        if (node.nodeType == SoundNodeType.Container)
+        {
+            foreach (var child in node.childNodes)
+            {
+                if (child != null)
+                {
+                    PrintNodeRecursive(child, indent + 1);
+                }
+            }
+        }
+    }
+#endif
+
     private void Start()
     {
-        // Ensure volumes are applied
+        // Ensure volumes are applied on start
         UpdateAllVolumes();
+    }
+
+    private void Update()
+    {
+        // Periodically clean up finished audio sources
+        if (Time.frameCount % 60 == 0) // Every 60 frames
+        {
+            UpdateAllVolumes();
+        }
     }
 }

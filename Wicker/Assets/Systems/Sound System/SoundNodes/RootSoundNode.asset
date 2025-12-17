@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e4b6304a05b355042ae0f364c528dc4f, type: 3}
+  m_Name: RootSoundNode
+  m_EditorClassIdentifier: Assembly-CSharp::SoundNode
+  nodeID: Root
+  nodeType: 1
+  clip: {fileID: 0}
+  baseVolume: 1
+  pitch: 1
+  pitchVariation: 0
+  volumeVariation: 0
+  loop: 0
+  category: 2
+  weight: 1
+  playMode: 0
+  childNodes:
+  - {fileID: 11400000, guid: 3d11fda99d9d2f34f8b6c68d5ddab433, type: 2}
+  - {fileID: 11400000, guid: 91579b8665d4caf48bc6219b1ce90f8e, type: 2}

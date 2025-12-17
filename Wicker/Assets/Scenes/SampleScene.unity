@@ -2088,17 +2088,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6391d8bf06d80904ea914ba21c57dc79, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioManager
+  rootSoundNode: {fileID: 11400000, guid: 6e3f6ee53dcc6a843ba1b399395f3853, type: 2}
   masterVolume: 1
   bgmVolume: 1
   sfxVolume: 1
   ambientVolume: 1
-  soundLibrary:
-  - name: GrappleLaunch
-    clip: {fileID: 8300000, guid: afb8ff89ef8ae604898f93ab3eef88e7, type: 3}
-    category: 2
-    baseVolume: 1
-    pitch: 1
-    loop: 0
 --- !u!4 &1646635554
 Transform:
   m_ObjectHideFlags: 0
