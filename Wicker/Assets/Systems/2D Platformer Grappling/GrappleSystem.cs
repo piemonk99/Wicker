@@ -312,7 +312,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Apply gravity along rope when rope is taut
         if (ropeState.isStretch || ropeState.isSquash)
         {
-            ApplyGravityAlongRope(fixedDeltaTime);
+            //ApplyGravityAlongRope(fixedDeltaTime);
         }
 
         // Apply swing friction (always active)
@@ -329,6 +329,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     {
         Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
         Vector2 radialDirection = toGrapple.normalized;
+        Vector2 tangentDirection = new Vector2(-radialDirection.y, radialDirection.x);
 
         // Calculate dynamic stiffness based on displacement
         float dynamicStiffness = physicsCalculator.CalculateDynamicStiffness(ratio, isStretch);
@@ -344,17 +345,59 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
         rb.AddForce(restoringForce, ForceMode2D.Force);
 
-        // Apply damping to prevent oscillations
+        // Calculate velocity components
         Vector2 radialVelocity = Vector2.Dot(rb.linearVelocity, radialDirection) * radialDirection;
-        rb.AddForce(-radialVelocity * grapplePhysicsConfig.ropeDamping * dynamicStiffness, ForceMode2D.Force);
+        Vector2 tangentVelocity = Vector2.Dot(rb.linearVelocity, tangentDirection) * tangentDirection;
 
-        // Debug visualization
-        if (showPhysicsDebug)
+        float radialSpeed = Vector2.Dot(rb.linearVelocity, radialDirection);
+        float tangentSpeed = tangentVelocity.magnitude;
+
+        // Calculate angular velocity
+        float angularVelocity = 0f;
+        if (currentRopeLength > 0.1f)
         {
-            Color forceColor = isStretch ? Color.red : Color.blue;
-            Debug.DrawRay(grappleOrigin.position, restoringForce.normalized * 2f, forceColor, fixedDeltaTime);
-            Debug.DrawRay(grappleOrigin.position, radialDirection * displacement, forceColor * 0.5f, fixedDeltaTime);
+            angularVelocity = tangentSpeed / currentRopeLength;
         }
+
+        // SIMPLIFIED DAMPING LOGIC:
+        // Only apply damping when EITHER:
+        // 1. We have high angular velocity (swinging fast)
+        // 2. Radial motion is increasing displacement
+
+        bool shouldApplyDamping = false;
+
+        // Check for swinging (high angular velocity)
+        bool isSwinging = angularVelocity > 0.3f; // ~17 degrees per second
+
+        // Check if radial motion is problematic
+        bool isProblematicRadialMotion = false;
+        if (isStretch) // Stretching
+        {
+            isProblematicRadialMotion = radialSpeed < -0.01f; // Moving inward
+        }
+        else // Squashing
+        {
+            isProblematicRadialMotion = radialSpeed > 0.01f; // Moving outward
+        }
+
+        // Apply damping if: swinging OR (problematic radial motion with some swing)
+        shouldApplyDamping = isSwinging || (isProblematicRadialMotion && tangentSpeed > 0.5f);
+
+        // Special case: If we're swinging REALLY fast, always dampen
+        if (angularVelocity > 1.0f) // ~57 degrees per second
+        {
+            shouldApplyDamping = true;
+        }
+
+        if (shouldApplyDamping && radialVelocity.magnitude > 0.1f)
+        {
+            Vector2 dampingForce = -radialVelocity.normalized *
+                                  (radialVelocity.magnitude * grapplePhysicsConfig.ropeDamping * dynamicStiffness);
+            rb.AddForce(dampingForce, ForceMode2D.Force);
+        }
+
+        // Debug info
+        Debug.Log($"Swinging: {isSwinging}, AngVel: {angularVelocity:F3}, ShouldDamp: {shouldApplyDamping}");
     }
 
     /// <summary>
@@ -418,7 +461,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         }
     }
 
-    private void ApplyGravityAlongRope(float fixedDeltaTime)
+    /*private void ApplyGravityAlongRope(float fixedDeltaTime)
     {
         Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
         if (toGrapple.magnitude < 0.1f) return;
@@ -433,7 +476,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         {
             rb.AddForce(radialDirection * gravityAlongRope * rb.mass, ForceMode2D.Force);
         }
-    }
+    }*/
 
     private void ApplyBoost()
     {

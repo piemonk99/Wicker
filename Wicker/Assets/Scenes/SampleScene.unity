@@ -1239,17 +1239,16 @@ MonoBehaviour:
   grapplePhysicsConfig:
     maxDistance: 20
     ropeDamping: 0.1
-    swingFriction: 0.004
+    friction: 0.004
+    tangentialFriction: 0
     boostMultiplier: 1.1
     minBoostVelocity: 2
     enableStretch: 1
     stretchStiffness: 200
     stretchStiffnessExponent: 2
-    stretchToTangentConversion: 0.7
     enableSquash: 0
     squashStiffness: 50
     squashStiffnessExponent: 2
-    squashToTangentConversion: 0.7
     grappleLayers:
       serializedVersion: 2
       m_Bits: 64
