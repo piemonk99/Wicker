@@ -1266,6 +1266,12 @@ MonoBehaviour:
     ropePrefab: {fileID: 2943785764128368089, guid: 4dfc0e3eb19dc524b80310fdcdf20e93, type: 3}
     ropeStartAnchorName: StartAnchor
     ropeEndAnchorName: EndAnchor
+  soundConfig:
+    grappleSoundSet: {fileID: 11400000, guid: 625adaf350404074f859ef3a52404131, type: 2}
+    creakMinVolume: 0
+    creakMaxVolume: 0.5
+    creakMinForce: 30
+    creakMaxForce: 200
   grappleOrigin: {fileID: 960373647}
   grappleLine: {fileID: 960373650}
   grappleInput: grapple_pressed

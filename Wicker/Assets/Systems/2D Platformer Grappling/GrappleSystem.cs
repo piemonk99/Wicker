@@ -14,6 +14,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     public GrappleSwingPhysicsConfig grapplePhysicsConfig;
     public GrappleReelConfig grappleReelConfig;
     public GrappleVisualConfig visualConfig;
+    public GrappleSoundConfig soundConfig;
 
     [Header("References")]
     public Transform grappleOrigin;
@@ -33,6 +34,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     private GrappleConfigManager configManager;
     private GrapplePhysicsCalculator physicsCalculator;
     private GrappleVisualManager visualManager;
+    private GrappleSoundManager soundManager;
 
     // Input references
     private Camera mainCamera;
@@ -73,7 +75,8 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             grappleMovementState,
             grapplePhysicsConfig,
             grappleReelConfig,
-            visualConfig
+            visualConfig,
+            soundConfig
         );
 
         physicsCalculator = new GrapplePhysicsCalculator(grapplePhysicsConfig);
@@ -83,6 +86,8 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             grappleLine,
             showPhysicsDebug
         );
+
+        soundManager = new GrappleSoundManager(soundConfig, this);
 
         // Register for character events
         character.OnEvent += HandleEvent;
@@ -252,13 +257,12 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Create visual elements
         visualManager.InstantiateGrappleVisuals(point);
 
-        //Play grapple sound
-        if (AudioManager.Instance != null)
+        if (soundManager != null)
         {
-            AudioManager.Instance.PlaySoundByPath("Root/Game/Player/Grapple/Rope/Launch");
-            AudioManager.Instance.GetNode("Root").PrintBasicTree();
+            soundManager.PlayLaunchSound();
+            soundManager.StartCreakSounds();
         }
-            
+
     }
 
     private void StopGrapple()
@@ -269,6 +273,12 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
         // Clean up visual elements
         visualManager.CleanupGrappleVisuals();
+
+        // Stop creak sounds
+        if (soundManager != null)
+        {
+            soundManager.StopCreakSounds();
+        }
 
         // Notify other systems about grapple end
         character.RaiseEvent("movement_override_end", null);
@@ -293,7 +303,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         );
     }
 
-    //////////////////////// Swing Physics ////////////////////////
+    //////////////////////// Swing Physics //////////////////////////
 
     private void UpdateSwingPhysics(float fixedDeltaTime)
     {
@@ -342,6 +352,16 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             -radialDirection * restoringForceMagnitude;     // Push away from grapple point
 
         rb.AddForce(restoringForce, ForceMode2D.Force);
+
+        // Update creak volume with simple call
+        if (soundManager != null && soundConfig != null)
+        {
+            soundManager.UpdateCreakVolume(
+                restoringForceMagnitude,
+                soundConfig.creakMinForce,
+                soundConfig.creakMaxForce
+            );
+        }
 
         // Calculate velocity components
         Vector2 radialVelocity = Vector2.Dot(rb.linearVelocity, radialDirection) * radialDirection;
@@ -553,4 +573,13 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     public Vector2 GetGrapplePoint() => grapplePoint;
     public float GetRopeLength() => currentRopeLength;
     public SwingArc GetSwingArc() => swingArc;
+
+    //////////////////////// Cleanup ///////////////////////////
+    private void OnDestroy()
+    {
+        if (soundManager != null)
+        {
+            soundManager.Cleanup();
+        }
+    }
 }

@@ -121,6 +121,33 @@ public class GrappleVisualConfig
 }
 
 /// <summary>
+/// Configuration for grapple sound behavior.
+/// Contains references to sound nodes and audio parameters.
+/// </summary>
+[System.Serializable]
+public class GrappleSoundConfig
+{
+    [Header("Sound References")]
+    [Tooltip("Root SoundNode container for this grapple type (e.g., Rope, Metal, Energy)")]
+    public SoundNode grappleSoundSet;
+
+    [Header("Creak Sounds")]
+    [Tooltip("Minimum volume when rope is loose")]
+    [Range(0f, 0.3f)]
+    public float creakMinVolume = 0.05f;
+
+    [Tooltip("Maximum volume when rope is taut")]
+    [Range(0.3f, 1f)]
+    public float creakMaxVolume = 0.5f;
+
+    [Tooltip("Force at which minimum creaking volume is reached")]
+    public float creakMinForce = 2f;
+
+    [Tooltip("Force at which maximum creaking volume is reached")]
+    public float creakMaxForce = 10f;
+}
+
+/// <summary>
 /// Data structure representing the swing arc of a grapple.
 /// Contains information about the circular motion around the grapple point.
 /// </summary>
@@ -173,6 +200,7 @@ public class GrappleConfigManager
     public GrappleSwingPhysicsConfig physicsConfig;
     public GrappleReelConfig reelConfig;
     public GrappleVisualConfig visualConfig;
+    public GrappleSoundConfig soundConfig;
 
     /// <summary>
     /// Initializes a new instance of GrappleConfigManager with the provided configurations.
@@ -185,12 +213,14 @@ public class GrappleConfigManager
         GrappleMovementState movementState,
         GrappleSwingPhysicsConfig physicsConfig,
         GrappleReelConfig reelConfig,
-        GrappleVisualConfig visualConfig)
+        GrappleVisualConfig visualConfig, 
+        GrappleSoundConfig soundConfig)
     {
         this.movementState = movementState;
         this.physicsConfig = physicsConfig;
         this.reelConfig = reelConfig;
         this.visualConfig = visualConfig;
+        this.soundConfig = soundConfig;
     }
 
     /// <summary>

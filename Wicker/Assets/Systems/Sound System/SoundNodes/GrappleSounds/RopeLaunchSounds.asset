@@ -23,4 +23,5 @@ MonoBehaviour:
   category: 2
   weight: 1
   playMode: 0
-  childNodes: []
+  childNodes:
+  - {fileID: 11400000, guid: 9bbbd61056311954883d3f47f2aa9aee, type: 2}
