@@ -306,17 +306,11 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Apply rope physics if stretching or squashing
         if (ropeState.ratio != 0f)
         {
-            ApplyRopePhysics(ropeState.ratio, ropeState.isStretch, currentDistance, fixedDeltaTime);
+            ApplySwingPhysics(ropeState.ratio, ropeState.isStretch, currentDistance, fixedDeltaTime);
         }
 
-        // Apply gravity along rope when rope is taut
-        if (ropeState.isStretch || ropeState.isSquash)
-        {
-            //ApplyGravityAlongRope(fixedDeltaTime);
-        }
-
-        // Apply swing friction (always active)
-        ApplySwingFriction(fixedDeltaTime);
+        // Apply friction (always active)
+        ApplyFriction(fixedDeltaTime);
 
         // Check for detachment (rope too long)
         if (currentDistance > grapplePhysicsConfig.maxDistance * 1.5f)
@@ -325,7 +319,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         }
     }
 
-    private void ApplyRopePhysics(float ratio, bool isStretch, float currentDistance, float fixedDeltaTime)
+    private void ApplySwingPhysics(float ratio, bool isStretch, float currentDistance, float fixedDeltaTime)
     {
         Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
         Vector2 radialDirection = toGrapple.normalized;
@@ -359,8 +353,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             angularVelocity = tangentSpeed / currentRopeLength;
         }
 
-        // SIMPLIFIED DAMPING LOGIC:
-        // Only apply damping when EITHER:
+        // Only apply damping when either:
         // 1. We have high angular velocity (swinging fast)
         // 2. Radial motion is increasing displacement
 
@@ -383,21 +376,12 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Apply damping if: swinging OR (problematic radial motion with some swing)
         shouldApplyDamping = isSwinging || (isProblematicRadialMotion && tangentSpeed > 0.5f);
 
-        // Special case: If we're swinging REALLY fast, always dampen
-        if (angularVelocity > 1.0f) // ~57 degrees per second
-        {
-            shouldApplyDamping = true;
-        }
-
         if (shouldApplyDamping && radialVelocity.magnitude > 0.1f)
         {
             Vector2 dampingForce = -radialVelocity.normalized *
                                   (radialVelocity.magnitude * grapplePhysicsConfig.ropeDamping * dynamicStiffness);
             rb.AddForce(dampingForce, ForceMode2D.Force);
         }
-
-        // Debug info
-        Debug.Log($"Swinging: {isSwinging}, AngVel: {angularVelocity:F3}, ShouldDamp: {shouldApplyDamping}");
     }
 
     /// <summary>
@@ -407,7 +391,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     /// 2. Tangential friction (only affects motion perpendicular to rope direction)
     /// </summary>
     /// <param name="fixedDeltaTime">Fixed time step for friction calculation.</param>
-    private void ApplySwingFriction(float fixedDeltaTime)
+    private void ApplyFriction(float fixedDeltaTime)
     {
         // Apply general swing friction (affects all velocity)
         rb.linearVelocity *= 1 - grapplePhysicsConfig.friction;
@@ -460,23 +444,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             }
         }
     }
-
-    /*private void ApplyGravityAlongRope(float fixedDeltaTime)
-    {
-        Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
-        if (toGrapple.magnitude < 0.1f) return;
-
-        Vector2 radialDirection = toGrapple.normalized;
-
-        // Project gravity onto radial direction
-        float gravityAlongRope = Vector2.Dot(Physics2D.gravity, radialDirection);
-
-        // Only apply gravity that pulls away from grapple point
-        if (gravityAlongRope > 0)
-        {
-            rb.AddForce(radialDirection * gravityAlongRope * rb.mass, ForceMode2D.Force);
-        }
-    }*/
 
     private void ApplyBoost()
     {
