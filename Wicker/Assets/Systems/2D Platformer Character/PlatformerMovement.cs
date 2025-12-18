@@ -301,7 +301,7 @@ public class PlatformerMovement : MonoBehaviour, ICharacterComponent
 
     public MovementState GetCurrentState() => currentState;
 
-    // External control (for grapple system)
+    // External control
     public void ApplyExternalForce(Vector2 force)
     {
         rb.AddForce(force, ForceMode2D.Force);

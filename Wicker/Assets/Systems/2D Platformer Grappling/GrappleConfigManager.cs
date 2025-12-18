@@ -141,7 +141,7 @@ public class GrappleSoundConfig
     public float creakMaxVolume = 0.5f;
 
     [Tooltip("Force at which minimum creaking volume is reached")]
-    public float creakMinForce = 25f;
+    public float creakMinForce = 30f;
 
     [Tooltip("Force at which maximum creaking volume is reached")]
     public float creakMaxForce = 100f;
