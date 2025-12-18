@@ -50,6 +50,24 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "Dash",
+                    "type": "Button",
+                    "id": "c0b84942-475d-4182-9ac2-fcdcd43b82ae",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Lunge",
+                    "type": "Button",
+                    "id": "effb0dfc-0e6b-4a38-8aa5-b08ae0d5fa05",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -76,9 +94,9 @@
                     "isPartOfComposite": false
                 },
                 {
-                    "name": "2D Vector",
+                    "name": "1D Axis",
                     "id": "2be53fa1-c535-41e1-93bd-8c5b7b8d6237",
-                    "path": "2DVector",
+                    "path": "1DAxis",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
@@ -87,30 +105,8 @@
                     "isPartOfComposite": false
                 },
                 {
-                    "name": "Up",
+                    "name": "Negative",
                     "id": "7783ca35-935d-4ac4-aee7-b9917a717bd1",
-                    "path": "<Keyboard>/w",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Move",
-                    "isComposite": false,
-                    "isPartOfComposite": true
-                },
-                {
-                    "name": "Down",
-                    "id": "098006b6-be8c-4f20-a1e7-258249f9bcbb",
-                    "path": "<Keyboard>/s",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Move",
-                    "isComposite": false,
-                    "isPartOfComposite": true
-                },
-                {
-                    "name": "Left",
-                    "id": "52b180c7-4d4b-4bc7-b5ca-f1b716206ff9",
                     "path": "<Keyboard>/a",
                     "interactions": "",
                     "processors": "",
@@ -120,8 +116,8 @@
                     "isPartOfComposite": true
                 },
                 {
-                    "name": "Right",
-                    "id": "a56141ba-2e9e-4c4b-b0af-22517709e1ec",
+                    "name": "Positive",
+                    "id": "098006b6-be8c-4f20-a1e7-258249f9bcbb",
                     "path": "<Keyboard>/d",
                     "interactions": "",
                     "processors": "",
@@ -149,6 +145,28 @@
                     "processors": "",
                     "groups": "",
                     "action": "Down",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "036efb0e-f471-4877-8bb5-1fc2f50d4ff4",
+                    "path": "<Keyboard>/x",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Dash",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "9ed9db50-54ce-4a32-a4c7-f6d7b59e3906",
+                    "path": "<Keyboard>/c",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Lunge",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

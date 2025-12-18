@@ -167,12 +167,10 @@ public class PlatformerMovement : MonoBehaviour, ICharacterComponent
     {
         switch (type)
         {
+            // Player input events
             case "move_input":
-                if (currentState.allowMovement)
-                {
-                    Vector2 input = (Vector2)data;
-                    HandleHorizontalMovement(input.x);
-                }
+                Vector2 input = (Vector2)data;
+                HandleHorizontalMovement(input.x);
                 break;
 
             case "jump_pressed":
@@ -362,4 +360,11 @@ public class PlatformerMovement : MonoBehaviour, ICharacterComponent
     {
         return CheckGround() || coyoteTimer > 0;
     }
+
+    // External references
+    public Vector2 GetVelocity() => rb.linearVelocity;
+    public float GetHorizontalVelocity() => rb.linearVelocity.x;
+    public float GetVerticalVelocity() => rb.linearVelocity.y;
+    public float GetCurrentXDirection() => Mathf.Sign(rb.linearVelocity.x);
+    public bool IsMoving() => Mathf.Abs(rb.linearVelocity.x) > 0.1f;
 }
