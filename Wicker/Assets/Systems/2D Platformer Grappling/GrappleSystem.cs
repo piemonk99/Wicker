@@ -136,6 +136,12 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
                 ropeState,
                 swingArc
             );
+
+            // Update sound position if grappling
+            if (soundManager != null)
+            {
+                soundManager.UpdateCreakPosition(grappleOrigin.position, grapplePoint);
+            }
         }
     }
 

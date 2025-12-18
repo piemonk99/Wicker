@@ -145,6 +145,9 @@ public class GrappleSoundConfig
 
     [Tooltip("Force at which maximum creaking volume is reached")]
     public float creakMaxForce = 10f;
+
+    [Tooltip("Percentage of creak sound made in world vs 2D")]
+    public float creakSpatialBlend = .8f;
 }
 
 /// <summary>

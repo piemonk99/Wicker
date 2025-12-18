@@ -540,6 +540,79 @@ public class AudioManager : MonoBehaviour
         bgmSource.volume = targetVolume;
     }
 
+    ///////////////////////// Audio Source Borrowing //////////////////////////
+    
+    // Borrowing system
+    public AudioSource BorrowAudioSource()
+    {
+        AudioSource source = GetAvailableSfxSource();
+        if (source != null)
+        {
+            // Remove from auto-cleanup systems since we're managing it manually
+            var activeSource = activeSfxSources.Find(x => x.source == source);
+            if (activeSource.source != null)
+            {
+                activeSfxSources.Remove(activeSource);
+            }
+        }
+        return source;
+    }
+
+    public void ReturnAudioSource(AudioSource source)
+    {
+        if (source == null) return;
+
+        // Reset to default state
+        source.Stop();
+        source.clip = null;
+        source.volume = 1f;
+        source.pitch = 1f;
+        source.loop = false;
+        source.spatialBlend = 0f; // Reset to 2D
+        source.transform.localPosition = Vector3.zero;
+
+        // Return to pool
+        if (!sfxPool.Contains(source))
+        {
+            sfxPool.Enqueue(source);
+        }
+    }
+
+    // Play sound with borrowed source
+    public AudioSource PlaySoundWithBorrowedSource(SoundNode node, Vector3 position)
+    {
+        AudioSource source = BorrowAudioSource();
+        if (source == null) return null;
+
+        // Configure source
+        source.clip = node.clip;
+        source.volume = node.baseVolume * GetEffectiveVolume(node.category);
+        source.pitch = node.pitch;
+        source.loop = node.loop;
+
+        if (position != Vector3.zero)
+        {
+            source.transform.position = position;
+            source.spatialBlend = 1f;
+        }
+
+        source.Play();
+
+        // Auto-return if not looped
+        if (!node.loop)
+        {
+            StartCoroutine(ReturnBorrowedSourceWhenFinished(source, node.clip.length / node.pitch));
+        }
+
+        return source;
+    }
+
+    private IEnumerator ReturnBorrowedSourceWhenFinished(AudioSource source, float duration)
+    {
+        yield return new WaitForSeconds(duration + 0.1f);
+        ReturnAudioSource(source);
+    }
+
     // ========== DEBUG/EDITOR METHODS ==========
 
 #if UNITY_EDITOR
