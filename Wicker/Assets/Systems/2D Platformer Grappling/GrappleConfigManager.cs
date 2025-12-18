@@ -134,17 +134,17 @@ public class GrappleSoundConfig
     [Header("Creak Sounds")]
     [Tooltip("Minimum volume when rope is loose")]
     [Range(0f, 0.3f)]
-    public float creakMinVolume = 0.05f;
+    public float creakMinVolume = 0f;
 
     [Tooltip("Maximum volume when rope is taut")]
     [Range(0.3f, 1f)]
     public float creakMaxVolume = 0.5f;
 
     [Tooltip("Force at which minimum creaking volume is reached")]
-    public float creakMinForce = 2f;
+    public float creakMinForce = 25f;
 
     [Tooltip("Force at which maximum creaking volume is reached")]
-    public float creakMaxForce = 10f;
+    public float creakMaxForce = 100f;
 
     [Tooltip("Percentage of creak sound made in world vs 2D")]
     public float creakSpatialBlend = .8f;
@@ -195,64 +195,35 @@ public struct RopeState
 
 /// <summary>
 /// Manages all grapple configuration data and provides helper methods.
-/// Centralizes configuration access and rope state calculations.
+/// Now works with GrappleConfig ScriptableObject.
 /// </summary>
 public class GrappleConfigManager
 {
-    public GrappleMovementState movementState;
-    public GrappleSwingPhysicsConfig physicsConfig;
-    public GrappleReelConfig reelConfig;
-    public GrappleVisualConfig visualConfig;
-    public GrappleSoundConfig soundConfig;
+    private GrappleConfig config;
 
     /// <summary>
-    /// Initializes a new instance of GrappleConfigManager with the provided configurations.
+    /// Initializes a new instance of GrappleConfigManager with a GrappleConfig ScriptableObject.
     /// </summary>
-    /// <param name="movementState">Movement state configuration for grappling.</param>
-    /// <param name="physicsConfig">Physics configuration for swing behavior.</param>
-    /// <param name="reelConfig">Reeling configuration for rope length adjustment.</param>
-    /// <param name="visualConfig">Visual configuration for hook and rope rendering.</param>
-    public GrappleConfigManager(
-        GrappleMovementState movementState,
-        GrappleSwingPhysicsConfig physicsConfig,
-        GrappleReelConfig reelConfig,
-        GrappleVisualConfig visualConfig, 
-        GrappleSoundConfig soundConfig)
+    /// <param name="config">The grapple configuration ScriptableObject.</param>
+    public GrappleConfigManager(GrappleConfig config)
     {
-        this.movementState = movementState;
-        this.physicsConfig = physicsConfig;
-        this.reelConfig = reelConfig;
-        this.visualConfig = visualConfig;
-        this.soundConfig = soundConfig;
+        this.config = config ?? CreateDefaultConfig();
     }
 
     /// <summary>
-    /// Calculates the current rope state based on distance and rope length.
-    /// Determines if the rope is stretching, squashing, or neutral.
+    /// Creates a default configuration for safety.
     /// </summary>
-    /// <param name="currentDistance">Current distance between player and grapple point.</param>
-    /// <param name="ropeLength">Current configured rope length.</param>
-    /// <returns>A RopeState containing stretch/squash information and ratio.</returns>
-    public RopeState GetRopeState(float currentDistance, float ropeLength)
+    private GrappleConfig CreateDefaultConfig()
     {
-        float slack = ropeLength - currentDistance;
-        float ratio = 0f;
-        bool isStretch = false;
-        bool isSquash = false;
+        Debug.LogWarning("No grapple config provided, using defaults");
+        return ScriptableObject.CreateInstance<GrappleConfig>();
+    }
 
-        // Check for stretch (outside rope circle)
-        if (currentDistance > ropeLength && physicsConfig.enableStretch)
-        {
-            isStretch = true;
-            ratio = (currentDistance - ropeLength) / ropeLength; // Positive
-        }
-        // Check for squash (inside rope circle beyond threshold)
-        else if (slack > 0.01f && physicsConfig.enableSquash)
-        {
-            isSquash = true;
-            ratio = -(slack - 0.01f) / ropeLength; // Negative
-        }
-
-        return new RopeState(ratio, isStretch, isSquash);
+    /// <summary>
+    /// Gets the grapple name for UI or debugging.
+    /// </summary>
+    public string GetGrappleName()
+    {
+        return config.GrappleName;
     }
 }

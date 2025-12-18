@@ -9,12 +9,8 @@ using UnityEngine.InputSystem;
 /// </summary>
 public class GrappleSystem : MonoBehaviour, ICharacterComponent
 {
-    [Header("Configuration")]
-    public GrappleMovementState grappleMovementState;
-    public GrappleSwingPhysicsConfig grapplePhysicsConfig;
-    public GrappleReelConfig grappleReelConfig;
-    public GrappleVisualConfig visualConfig;
-    public GrappleSoundConfig soundConfig;
+    [Header("Grapple Configuration")]
+    [SerializeField] private GrappleConfig grappleConfig;
 
     [Header("References")]
     public Transform grappleOrigin;
@@ -70,24 +66,23 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         movement = character.GetComponent<PlatformerMovement>();
         rb = character.gameObject.GetComponent<Rigidbody2D>();
 
-        // Initialize subsystem managers
-        configManager = new GrappleConfigManager(
-            grappleMovementState,
-            grapplePhysicsConfig,
-            grappleReelConfig,
-            visualConfig,
-            soundConfig
-        );
+        // Initialize config manager with ScriptableObject
+        configManager = new GrappleConfigManager(grappleConfig);
 
-        physicsCalculator = new GrapplePhysicsCalculator(grapplePhysicsConfig);
+        // Initialize subsystem managers
+        physicsCalculator = new GrapplePhysicsCalculator(grappleConfig.physicsConfig);
         visualManager = new GrappleVisualManager(
-            visualConfig,
+            grappleConfig.visualConfig,
             grappleOrigin,
             grappleLine,
             showPhysicsDebug
         );
 
-        soundManager = new GrappleSoundManager(soundConfig, this);
+        // Initialize sound manager
+        soundManager = new GrappleSoundManager(
+            grappleConfig.soundConfig,
+            this
+        );
 
         // Register for character events
         character.OnEvent += HandleEvent;
@@ -109,8 +104,8 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             visualManager.DrawRaycastDebug(
                 grappleOrigin.position,
                 aimDir,
-                grapplePhysicsConfig.grappleLayers,
-                grapplePhysicsConfig.maxDistance,
+                grappleConfig.physicsConfig.grappleLayers,
+                grappleConfig.physicsConfig.maxDistance,
                 raycastHitColor,
                 raycastMissColor
             );
@@ -122,7 +117,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Update visual elements if grappling
         if (isGrappling)
         {
-            RopeState ropeState = configManager.GetRopeState(
+            RopeState ropeState = physicsCalculator.GetRopeState(
                 Vector2.Distance(grappleOrigin.position, grapplePoint),
                 currentRopeLength
             );
@@ -224,8 +219,8 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         grappleHit = physicsCalculator.PerformGrappleRaycast(
             grappleOrigin.position,
             aimDir,
-            grapplePhysicsConfig.grappleLayers,
-            grapplePhysicsConfig.maxDistance
+            grappleConfig.physicsConfig.grappleLayers,
+            grappleConfig.physicsConfig.maxDistance
         );
 
         if (grappleHit.collider != null)
@@ -252,9 +247,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         momentumCaptureTimer = 0f;
 
         // Apply grapple movement state override
-        var movementState = (grappleMovementState != null) ?
-            grappleMovementState.ToMovementState() :
-            CreateDefaultMovementState();
+        var movementState = grappleConfig.movementState.ToMovementState();
 
         // Notify other systems about grapple start
         character.RaiseEvent("movement_override_start", movementState);
@@ -268,7 +261,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             soundManager.PlayLaunchSound();
             soundManager.StartCreakSounds();
         }
-
     }
 
     private void StopGrapple()
@@ -291,23 +283,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         character.RaiseEvent("grapple_ended", grapplePoint);
     }
 
-    private PlatformerMovement.MovementState CreateDefaultMovementState()
-    {
-        return new PlatformerMovement.MovementState(
-            name: "Grappling",
-            allowMovement: true,
-            applyGravity: true,
-            applyDeceleration: true,
-            canJump: false,
-            gravityMultiplier: 1f,
-            accelerationMultiplier: 1f,
-            airAccelerationMultiplier: 0.025f,
-            decelerationMultiplier: 1f,
-            airDecelerationMultiplier: 0.025f,
-            jumpForceMultiplier: 0f,
-            maxSpeedMultiplier: 1f
-        );
-    }
 
     //////////////////////// Swing Physics //////////////////////////
 
@@ -321,7 +296,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         swingArc = physicsCalculator.CalculateSwingArc(playerPos, grapplePoint, currentRopeLength);
 
         // Get current rope state (stretch/squash)
-        RopeState ropeState = configManager.GetRopeState(currentDistance, currentRopeLength);
+        RopeState ropeState = physicsCalculator.GetRopeState(currentDistance, currentRopeLength);
 
         // Apply rope physics if stretching or squashing
         if (ropeState.ratio != 0f)
@@ -333,7 +308,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         ApplyFriction(fixedDeltaTime);
 
         // Check for detachment (rope too long)
-        if (currentDistance > grapplePhysicsConfig.maxDistance * 1.5f)
+        if (currentDistance > grappleConfig.physicsConfig.maxDistance * 1.5f)
         {
             StopGrapple();
         }
@@ -360,12 +335,12 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         rb.AddForce(restoringForce, ForceMode2D.Force);
 
         // Update creak volume with simple call
-        if (soundManager != null && soundConfig != null)
+        if (soundManager != null && grappleConfig.soundConfig != null)
         {
             soundManager.UpdateCreakVolume(
                 restoringForceMagnitude,
-                soundConfig.creakMinForce,
-                soundConfig.creakMaxForce
+                grappleConfig.soundConfig.creakMinForce,
+                grappleConfig.soundConfig.creakMaxForce
             );
         }
 
@@ -403,7 +378,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         if (shouldApplyDamping && radialVelocity.magnitude > 0.1f)
         {
             Vector2 dampingForce = -radialVelocity.normalized *
-                                  (radialVelocity.magnitude * grapplePhysicsConfig.ropeDamping * dynamicStiffness);
+                                  (radialVelocity.magnitude * grappleConfig.physicsConfig.ropeDamping * dynamicStiffness);
             rb.AddForce(dampingForce, ForceMode2D.Force);
         }
     }
@@ -418,7 +393,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     private void ApplyFriction(float fixedDeltaTime)
     {
         // Apply general swing friction (affects all velocity)
-        rb.linearVelocity *= 1 - grapplePhysicsConfig.friction;
+        rb.linearVelocity *= 1 - grappleConfig.physicsConfig.friction;
 
         // Apply tangential friction (only affects motion perpendicular to rope)
         ApplyTangentialFriction(fixedDeltaTime);
@@ -432,7 +407,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     private void ApplyTangentialFriction(float fixedDeltaTime)
     {
         // Early return if tangential friction is effectively zero
-        if (grapplePhysicsConfig.tangentialFriction < 0.001f) return;
+        if (grappleConfig.physicsConfig.tangentialFriction < 0.001f) return;
 
         Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
 
@@ -451,19 +426,19 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         if (tangentialVelocity.magnitude > 0.1f)
         {
             // Apply tangential friction (only reduces tangential component)
-            Vector2 newTangentialVelocity = tangentialVelocity * (1 - grapplePhysicsConfig.tangentialFriction);
+            Vector2 newTangentialVelocity = tangentialVelocity * (1 - grappleConfig.physicsConfig.tangentialFriction);
 
             // Recombine: radial velocity stays the same, tangential gets friction
             rb.linearVelocity = radialVelocity + newTangentialVelocity;
 
             // Debug visualization
-            if (showPhysicsDebug && grapplePhysicsConfig.tangentialFriction > 0.01f)
+            if (showPhysicsDebug && grappleConfig.physicsConfig.tangentialFriction > 0.01f)
             {
                 // Show tangential velocity direction
                 Debug.DrawRay(grappleOrigin.position, tangentialVelocity.normalized * 2f, Color.cyan, fixedDeltaTime);
 
                 // Show friction force (opposite to tangential velocity)
-                Debug.DrawRay(grappleOrigin.position, -tangentialVelocity.normalized * grapplePhysicsConfig.tangentialFriction * 3f,
+                Debug.DrawRay(grappleOrigin.position, -tangentialVelocity.normalized * grappleConfig.physicsConfig.tangentialFriction * 3f,
                              new Color(1f, 0.5f, 0f), fixedDeltaTime); // Orange color
             }
         }
@@ -471,14 +446,14 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
     private void ApplyBoost()
     {
-        if (swingMomentum.magnitude < grapplePhysicsConfig.minBoostVelocity)
+        if (swingMomentum.magnitude < grappleConfig.physicsConfig.minBoostVelocity)
         {
             return;
         }
 
         // Calculate boost strength based on captured momentum
         float momentumMagnitude = swingMomentum.magnitude;
-        float boostStrength = momentumMagnitude * (grapplePhysicsConfig.boostMultiplier - 1f);
+        float boostStrength = momentumMagnitude * (grappleConfig.physicsConfig.boostMultiplier - 1f);
         Vector2 boostDirection = swingMomentum.normalized;
 
         // Apply boost to movement system
@@ -501,19 +476,19 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         float currentDistance = toGrapple.magnitude;
 
         // Base reel speed
-        float effectiveReelSpeed = grappleReelConfig.reelSpeed;
+        float effectiveReelSpeed = grappleConfig.reelConfig.reelSpeed;
 
         // Increase reel speed when there's slack
         if (currentDistance < currentRopeLength)
         {
             float slackRatio = 1f - (currentDistance / currentRopeLength);
-            effectiveReelSpeed *= Mathf.Lerp(1f, grappleReelConfig.slackReelMultiplier, slackRatio);
+            effectiveReelSpeed *= Mathf.Lerp(1f, grappleConfig.reelConfig.slackReelMultiplier, slackRatio);
         }
 
         // Calculate and apply new rope length
-        float targetLength = Mathf.Max(grappleReelConfig.minRopeLength,
+        float targetLength = Mathf.Max(grappleConfig.reelConfig.minRopeLength,
             currentRopeLength - effectiveReelSpeed * fixedDeltaTime);
-        currentRopeLength = Mathf.Lerp(currentRopeLength, targetLength, grappleReelConfig.reelSmoothness);
+        currentRopeLength = Mathf.Lerp(currentRopeLength, targetLength, grappleConfig.reelConfig.reelSmoothness);
     }
 
     private void UpdateUnreeling(float fixedDeltaTime)
@@ -522,9 +497,9 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         float currentDistance = toGrapple.magnitude;
 
         // Calculate and apply new rope length
-        float targetLength = Mathf.Min(grappleReelConfig.maxRopeLength,
-            currentRopeLength + grappleReelConfig.unreelSpeed * fixedDeltaTime);
-        currentRopeLength = Mathf.Lerp(currentRopeLength, targetLength, grappleReelConfig.unreelSmoothness);
+        float targetLength = Mathf.Min(grappleConfig.reelConfig.maxRopeLength,
+            currentRopeLength + grappleConfig.reelConfig.unreelSpeed * fixedDeltaTime);
+        currentRopeLength = Mathf.Lerp(currentRopeLength, targetLength, grappleConfig.reelConfig.unreelSmoothness);
     }
 
     //////////////////////// Helper Methods ////////////////////////
@@ -579,6 +554,47 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     public Vector2 GetGrapplePoint() => grapplePoint;
     public float GetRopeLength() => currentRopeLength;
     public SwingArc GetSwingArc() => swingArc;
+
+    /// <summary>
+    /// Switch to a different grapple configuration at runtime.
+    /// </summary>
+    public void SwitchGrappleConfig(GrappleConfig newConfig)
+    {
+        if (newConfig == null) return;
+
+        // Stop current grapple if active
+        if (isGrappling)
+        {
+            StopGrapple();
+        }
+
+        // Update configuration
+        grappleConfig = newConfig;
+
+        // Reinitialize physics calculator with new config
+        physicsCalculator = new GrapplePhysicsCalculator(grappleConfig.physicsConfig);
+
+        // Reinitialize visual manager
+        visualManager = new GrappleVisualManager(
+            grappleConfig.visualConfig,
+            grappleOrigin,
+            grappleLine,
+            showPhysicsDebug
+        );
+
+        // Clean up old sound manager and create new one
+        if (soundManager != null)
+        {
+            soundManager.Cleanup();
+        }
+
+        soundManager = new GrappleSoundManager(
+            grappleConfig.soundConfig,
+            this
+        );
+
+        Debug.Log($"Switched to {grappleConfig.movementState.name} grapple configuration");
+    }
 
     //////////////////////// Cleanup ///////////////////////////
     private void OnDestroy()

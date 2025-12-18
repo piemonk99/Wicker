@@ -50,4 +50,30 @@ public class GrapplePhysicsCalculator
     {
         return Physics2D.Raycast(origin, direction, maxDistance, layers);
     }
+
+    /// <summary>
+    /// Calculates the current rope state based on distance and rope length.
+    /// </summary>
+    public RopeState GetRopeState(float currentDistance, float ropeLength)
+    {
+        float slack = ropeLength - currentDistance;
+        float ratio = 0f;
+        bool isStretch = false;
+        bool isSquash = false;
+
+        // Check for stretch (outside rope circle)
+        if (currentDistance > ropeLength && physicsConfig.enableStretch)
+        {
+            isStretch = true;
+            ratio = (currentDistance - ropeLength) / ropeLength;
+        }
+        // Check for squash (inside rope circle beyond threshold)
+        else if (slack > 0.01f && physicsConfig.enableSquash)
+        {
+            isSquash = true;
+            ratio = -(slack - 0.01f) / ropeLength;
+        }
+
+        return new RopeState(ratio, isStretch, isSquash);
+    }
 }

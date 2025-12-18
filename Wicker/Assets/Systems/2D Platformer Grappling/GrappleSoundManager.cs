@@ -113,7 +113,7 @@ public class GrappleSoundManager
 
         // Calculate and set volume
         float targetVolume = Mathf.Lerp(config.creakMinVolume, config.creakMaxVolume, currentNormalizedForce);
-        borrowedCreakSource.volume = Mathf.Lerp(borrowedCreakSource.volume, targetVolume, 0.2f);
+        borrowedCreakSource.volume = Mathf.Lerp(borrowedCreakSource.volume, targetVolume, 0.8f);
     }
 
     /// <summary>

@@ -1223,55 +1223,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 514fe05ee16d31148b027ab926f6035c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GrappleSystem
-  grappleMovementState:
-    name: Grappling
-    allowMovement: 1
-    applyGravity: 1
-    applyDeceleration: 1
-    canJump: 0
-    gravityMultiplier: 1
-    accelerationMultiplier: 1
-    airAccelerationMultiplier: 0.025
-    decelerationMultiplier: 1
-    airDecelerationMultiplier: 0.025
-    jumpForceMultiplier: 0
-    maxSpeedMultiplier: 1
-  grapplePhysicsConfig:
-    maxDistance: 20
-    ropeDamping: 0.1
-    friction: 0.004
-    tangentialFriction: 0
-    boostMultiplier: 1.1
-    minBoostVelocity: 2
-    enableStretch: 1
-    stretchStiffness: 200
-    stretchStiffnessExponent: 2
-    enableSquash: 0
-    squashStiffness: 50
-    squashStiffnessExponent: 2
-    grappleLayers:
-      serializedVersion: 2
-      m_Bits: 64
-  grappleReelConfig:
-    reelSpeed: 50
-    slackReelMultiplier: 10
-    minRopeLength: 1
-    reelSmoothness: 0.1
-    unreelSpeed: 50
-    maxRopeLength: 20
-    unreelSmoothness: 0.1
-  visualConfig:
-    hookPrefab: {fileID: 2969384245091862940, guid: b2f7f180506c83e43995e3e28207fcdb, type: 3}
-    hookScale: {x: 1, y: 1}
-    ropePrefab: {fileID: 2943785764128368089, guid: 4dfc0e3eb19dc524b80310fdcdf20e93, type: 3}
-    ropeStartAnchorName: StartAnchor
-    ropeEndAnchorName: EndAnchor
-  soundConfig:
-    grappleSoundSet: {fileID: 11400000, guid: 625adaf350404074f859ef3a52404131, type: 2}
-    creakMinVolume: 0
-    creakMaxVolume: 0.5
-    creakMinForce: 30
-    creakMaxForce: 200
+  grappleConfig: {fileID: 11400000, guid: 408ed55ff57e2524c9f798632511e0e0, type: 2}
   grappleOrigin: {fileID: 960373647}
   grappleLine: {fileID: 960373650}
   grappleInput: grapple_pressed
