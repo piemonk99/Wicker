@@ -322,9 +322,27 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
     public MovementState GetCurrentState() => currentState;
 
     // External control
-    public void ApplyExternalForce(Vector2 force)
+    // Add these methods to CharacterMovement.cs
+
+    public void ApplyExternalForce(Vector2 force, ForceMode2DExtended forceMode = ForceMode2DExtended.Force)
     {
-        rb.AddForce(force, ForceMode2D.Force);
+        if (rb == null) return;
+
+        switch (forceMode)
+        {
+            case ForceMode2DExtended.Force:
+                rb.AddForce(force, ForceMode2D.Force);
+                break;
+            case ForceMode2DExtended.Impulse:
+                rb.AddForce(force, ForceMode2D.Impulse);
+                break;
+            case ForceMode2DExtended.VelocityChange:
+                rb.AddForce(force / rb.mass, ForceMode2D.Impulse); // VelocityChange is mass-independent
+                break;
+            case ForceMode2DExtended.Acceleration:
+                rb.AddForce(force * rb.mass, ForceMode2D.Force); // Acceleration is mass-independent
+                break;
+        }
     }
 
     public void SetExternalVelocity(Vector2 velocity)
@@ -406,4 +424,12 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
             );
         }
     }
+}
+
+public enum ForceMode2DExtended
+{
+    Force,          // mass-dependent continuous force
+    Impulse,        // mass-dependent instant force
+    VelocityChange, // mass-independent instant velocity change
+    Acceleration    // mass-independent continuous acceleration
 }

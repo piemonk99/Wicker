@@ -5,16 +5,16 @@ using System;
 public class CharacterConfig : ScriptableObject
 {
     [Header("Movement Settings")]
-    public float maxSpeed = 6f;
-    public float acceleration = 20f;
-    public float deceleration = 15f;
-    public float jumpForce = 13f;
+    public float maxSpeed = 15f;
+    public float acceleration = 2f;
+    public float deceleration = .4f;
+    public float jumpForce = 20f;
     public float gravity = 30f;
     public float coyoteTime = 0.1f;
-    public float jumpBufferTime = 0.1f;
+    public float jumpBufferTime = 0.05f;
 
     [Header("Air Control")]
-    [Range(0f, 1f)] public float airDecelerationMultiplier = 0.5f;
+    [Range(0f, 1f)] public float airDecelerationMultiplier = 0.1f;
     [Range(0f, 1f)] public float airAccelerationMultiplier = 0.8f;
 
     [Header("Variable Jump Height")]
@@ -45,10 +45,26 @@ public class AttackConfig
 public class DashConfig
 {
     public bool isEnabled = false;
+
+    [Header("Force Settings")]
     public float force = 25f;
     public float duration = 0.2f;
     public float cooldown = 1f;
-    public bool preserveVerticalVelocity = true;
+
+    [Header("Force Application")]
+    public bool applyInstantForce = true;
+    public bool applyContinuousForce = false;
+    public float continuousForceMultiplier = 1f;
+    public bool massDependent = false;
+
+    [Header("Velocity Preservation")]
+    [Range(0f, 1f)] public float preserveHorizontalVelocity = 1f;
+    [Range(0f, 1f)] public float preserveVerticalVelocity = 1f;
+
+    [Header("Post-Dash Effects")]
+    public bool applyPostDashDeceleration = false;
+    public float postDashDecelerationForce = 10f;
+    public float postDashDecelerationDuration = 0.3f;
 
     [Header("Visual Feedback")]
     public GameObject trailPrefab;
