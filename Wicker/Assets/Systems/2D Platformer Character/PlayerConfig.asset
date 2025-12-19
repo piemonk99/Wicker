@@ -12,14 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a88b4f26568c6b4da648d249d7a3ec0, type: 3}
   m_Name: PlayerConfig
   m_EditorClassIdentifier: Assembly-CSharp::CharacterConfig
-  maxSpeed: 20
-  acceleration: 20
-  deceleration: 15
-  jumpForce: 13
+  maxSpeed: 15
+  acceleration: 2
+  deceleration: 0.4
+  jumpForce: 20
   gravity: 30
   coyoteTime: 0.1
-  jumpBufferTime: 0.1
-  airDecelerationMultiplier: 0.5
+  jumpBufferTime: 0.05
+  airDecelerationMultiplier: 0.1
   airAccelerationMultiplier: 0.8
   enableVariableJump: 1
   jumpCutMultiplier: 0.5
@@ -38,7 +38,15 @@ MonoBehaviour:
     force: 50
     duration: 0.2
     cooldown: 1
+    applyInstantForce: 1
+    applyContinuousForce: 1
+    continuousForceMultiplier: 0.1
+    massDependent: 0
+    preserveHorizontalVelocity: 1
     preserveVerticalVelocity: 1
+    applyPostDashDeceleration: 0
+    postDashDecelerationForce: 10
+    postDashDecelerationDuration: 0.3
     trailPrefab: {fileID: 0}
     sound: {fileID: 0}
   lunge:
