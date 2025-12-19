@@ -1026,35 +1026,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 359bd360e2a5a7c459dbef1e7549f88a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlatformerMovement
-  maxSpeed: 15
-  acceleration: 2
-  deceleration: 0.4
-  jumpForce: 20
-  gravity: 30
-  coyoteTime: 0.1
-  jumpBufferTime: 0.05
-  airDecelerationMultiplier: 0.1
-  airAccelerationMultiplier: 0.8
-  enableVariableJump: 1
-  jumpCutMultiplier: 0.5
-  defaultState:
-    name: Default
-    allowMovement: 1
-    applyGravity: 1
-    applyDeceleration: 1
-    canJump: 1
-    gravityMultiplier: 1
-    accelerationMultiplier: 1
-    airAccelerationMultiplier: 1
-    decelerationMultiplier: 1
-    airDecelerationMultiplier: 1
-    jumpForceMultiplier: 1
-    maxSpeedMultiplier: 1
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 64
   groundCheck: {fileID: 449028902}
-  groundCheckRadius: 0.2
 --- !u!114 &960373644
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1067,6 +1039,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 55545cdbc9083984d8faed6cc6c4cbf4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CharacterCore
+  config: {fileID: 11400000, guid: 49f774656b5f7aa4a86457da19bb2f0d, type: 2}
 --- !u!61 &960373645
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -1248,30 +1221,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e10fa7c133734b7488896257a785e292, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CharacterAbilities
-  lunge:
-    canLunge: 1
-    lungeHorizontalForce: 15
-    lungeVerticalForce: 5
-    lungeDuration: 0.3
-    lungeCooldown: 2
-    cancelVerticalVelocity: 1
-    lungeParticles: {fileID: 0}
-    lungeSound: {fileID: 0}
-  dash:
-    canDash: 1
-    dashForce: 20
-    dashDuration: 0.2
-    dashCooldown: 1
-    preserveVerticalVelocity: 1
-    dashTrail: {fileID: 0}
-    dashSound: {fileID: 0}
-  attack:
-    canAttack: 1
-    attackDamage: 1
-    attackRange: 1
-    attackCooldown: 0.5
-    attackHitboxPrefab: {fileID: 0}
-    attackAnimation: {fileID: 0}
 --- !u!1 &1108525854
 GameObject:
   m_ObjectHideFlags: 0
@@ -1385,7 +1334,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1140701397
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1417,30 +1366,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e10fa7c133734b7488896257a785e292, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CharacterAbilities
-  lunge:
-    canLunge: 1
-    lungeHorizontalForce: 15
-    lungeVerticalForce: 5
-    lungeDuration: 0.3
-    lungeCooldown: 2
-    cancelVerticalVelocity: 1
-    lungeParticles: {fileID: 0}
-    lungeSound: {fileID: 0}
-  dash:
-    canDash: 1
-    dashForce: 20
-    dashDuration: 0.2
-    dashCooldown: 1
-    preserveVerticalVelocity: 1
-    dashTrail: {fileID: 0}
-    dashSound: {fileID: 0}
-  attack:
-    canAttack: 1
-    attackDamage: 1
-    attackRange: 1
-    attackCooldown: 0.5
-    attackHitboxPrefab: {fileID: 0}
-    attackAnimation: {fileID: 0}
 --- !u!114 &1140701399
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1453,35 +1378,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 359bd360e2a5a7c459dbef1e7549f88a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlatformerMovement
-  maxSpeed: 15
-  acceleration: 2
-  deceleration: 0.4
-  jumpForce: 20
-  gravity: 30
-  coyoteTime: 0.1
-  jumpBufferTime: 0.05
-  airDecelerationMultiplier: 0.1
-  airAccelerationMultiplier: 0.8
-  enableVariableJump: 1
-  jumpCutMultiplier: 0.5
-  defaultState:
-    name: Default
-    allowMovement: 1
-    applyGravity: 1
-    applyDeceleration: 1
-    canJump: 1
-    gravityMultiplier: 1
-    accelerationMultiplier: 1
-    airAccelerationMultiplier: 1
-    decelerationMultiplier: 1
-    airDecelerationMultiplier: 1
-    jumpForceMultiplier: 1
-    maxSpeedMultiplier: 1
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 64
   groundCheck: {fileID: 1587671672}
-  groundCheckRadius: 0.2
 --- !u!114 &1140701400
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1494,6 +1391,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 55545cdbc9083984d8faed6cc6c4cbf4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CharacterCore
+  config: {fileID: 0}
 --- !u!61 &1140701401
 BoxCollider2D:
   m_ObjectHideFlags: 0

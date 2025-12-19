@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-public class PlatformerMovement : MonoBehaviour, ICharacterComponent
+public class CharacterMovement : MonoBehaviour, ICharacterComponent
 {
     [System.Serializable]
     public class MovementState
@@ -25,7 +25,7 @@ public class PlatformerMovement : MonoBehaviour, ICharacterComponent
         public float jumpForceMultiplier = 1f;
         public float maxSpeedMultiplier = 1f;
 
-        // Constructor for easier initialization
+        // Constructor
         public MovementState(
             string name = "Unnamed State",
             bool allowMovement = true,
@@ -56,43 +56,23 @@ public class PlatformerMovement : MonoBehaviour, ICharacterComponent
         }
     }
 
-    [Header("Movement Settings")]
-    public float maxSpeed = 6f;
-    public float acceleration = 20f;
-    public float deceleration = 15f;
-    public float jumpForce = 13f;
-    public float gravity = 30f;
-    public float coyoteTime = 0.1f;
-    public float jumpBufferTime = 0.1f;
+    // Config values (loaded from CharacterConfig)
+    private float maxSpeed;
+    private float acceleration;
+    private float deceleration;
+    private float jumpForce;
+    private float gravity;
+    private float coyoteTime;
+    private float jumpBufferTime;
+    private float airDecelerationMultiplier;
+    private float airAccelerationMultiplier;
+    private bool enableVariableJump;
+    private float jumpCutMultiplier;
+    private LayerMask groundLayer;
+    private float groundCheckRadius;
 
-    [Header("Air Control")]
-    [Range(0f, 1f)] public float airDecelerationMultiplier = 0.5f;
-    [Range(0f, 1f)] public float airAccelerationMultiplier = 0.8f;
-
-    [Header("Variable Jump Height")]
-    public bool enableVariableJump = true;
-    [Range(0.1f, 1f)] public float jumpCutMultiplier = 0.5f;
-
-    [Header("Movement States")]
-    public MovementState defaultState = new MovementState(
-        name: "Default",
-        allowMovement: true,
-        applyGravity: true,
-        applyDeceleration: true,
-        canJump: true,
-        gravityMultiplier: 1f,
-        accelerationMultiplier: 1f,
-        airAccelerationMultiplier: 1f,
-        decelerationMultiplier: 1f,
-        airDecelerationMultiplier: 1f,
-        jumpForceMultiplier: 1f,
-        maxSpeedMultiplier: 1f
-    );
-
-    [Header("Ground Check")]
-    public LayerMask groundLayer;
-    public Transform groundCheck;
-    public float groundCheckRadius = 0.2f;
+    [Header("Ground Check Reference")]
+    public Transform groundCheck; // Still needs to be set in inspector
 
     // State
     private CharacterCore character;
@@ -111,16 +91,51 @@ public class PlatformerMovement : MonoBehaviour, ICharacterComponent
     private float currentDeceleration;
     private float currentAcceleration;
 
+    // Default state
+    private MovementState defaultState = new MovementState("Default");
+
     public void Initialize(CharacterCore core)
     {
         character = core;
         rb = GetComponent<Rigidbody2D>();
+
+        // Load config from CharacterCore
+        LoadConfig(core.GetConfig());
+
         character.OnEvent += HandleEvent;
 
         // Initialize with default state
         currentState = defaultState;
         currentDeceleration = deceleration;
         currentAcceleration = acceleration;
+
+        Debug.Log($"CharacterMovement initialized with config from {core.name}");
+    }
+
+    private void LoadConfig(CharacterConfig config)
+    {
+        if (config == null)
+        {
+            Debug.LogError("No CharacterConfig found!");
+            return;
+        }
+
+        // Load movement settings
+        maxSpeed = config.maxSpeed;
+        acceleration = config.acceleration;
+        deceleration = config.deceleration;
+        jumpForce = config.jumpForce;
+        gravity = config.gravity;
+        coyoteTime = config.coyoteTime;
+        jumpBufferTime = config.jumpBufferTime;
+        airDecelerationMultiplier = config.airDecelerationMultiplier;
+        airAccelerationMultiplier = config.airAccelerationMultiplier;
+        enableVariableJump = config.enableVariableJump;
+        jumpCutMultiplier = config.jumpCutMultiplier;
+        groundLayer = config.groundLayer;
+        groundCheckRadius = config.groundCheckRadius;
+
+        Debug.Log($"Loaded movement config: MaxSpeed={maxSpeed}, JumpForce={jumpForce}");
     }
 
     public void Tick(float deltaTime)
@@ -167,10 +182,12 @@ public class PlatformerMovement : MonoBehaviour, ICharacterComponent
     {
         switch (type)
         {
-            // Player input events
             case "move_input":
-                Vector2 input = (Vector2)data;
-                HandleHorizontalMovement(input.x);
+                if (currentState.allowMovement)
+                {
+                    Vector2 input = (Vector2)data;
+                    HandleHorizontalMovement(input.x);
+                }
                 break;
 
             case "jump_pressed":
@@ -207,6 +224,11 @@ public class PlatformerMovement : MonoBehaviour, ICharacterComponent
                 Vector2 velocity = (Vector2)data;
                 SetExternalVelocity(velocity);
                 break;
+
+            case "config_changed":
+                // Reload config if it changes at runtime
+                LoadConfig((CharacterConfig)data);
+                break;
         }
     }
 
@@ -234,12 +256,12 @@ public class PlatformerMovement : MonoBehaviour, ICharacterComponent
             }
             else if (Mathf.Sign(inputX) != Mathf.Sign(rb.linearVelocity.x))
             {
-                // Trying to move opposite direction we are currently moving - add directionless deceleration with a negative acceleration
+                // Trying to move opposite direction we are currently moving
                 accelRate = effectiveDeceleration + effectiveAcceleration;
             }
             else
             {
-                // Attempting to move in the same direction we are currently going above the max speed in, use directionless deceleration
+                // Attempting to move in the same direction above max speed
                 accelRate = effectiveDeceleration;
             }
         }
@@ -361,10 +383,26 @@ public class PlatformerMovement : MonoBehaviour, ICharacterComponent
         return CheckGround() || coyoteTimer > 0;
     }
 
-    // External references
+    // Public getters
     public Vector2 GetVelocity() => rb.linearVelocity;
     public float GetHorizontalVelocity() => rb.linearVelocity.x;
     public float GetVerticalVelocity() => rb.linearVelocity.y;
-    public float GetCurrentXDirection() => Mathf.Sign(rb.linearVelocity.x);
     public bool IsMoving() => Mathf.Abs(rb.linearVelocity.x) > 0.1f;
+
+    public Vector2 GetFacingDirection()
+    {
+        return new Vector2(Mathf.Sign(transform.localScale.x), 0);
+    }
+
+    public void SetFacingDirection(float direction)
+    {
+        if (Mathf.Abs(direction) > 0.01f)
+        {
+            transform.localScale = new Vector3(
+                Mathf.Sign(direction) * Mathf.Abs(transform.localScale.x),
+                transform.localScale.y,
+                transform.localScale.z
+            );
+        }
+    }
 }

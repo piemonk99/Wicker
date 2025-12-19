@@ -1,351 +1,108 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class CharacterAbilities : MonoBehaviour, ICharacterComponent
 {
-    [System.Serializable]
-    public class LungeSettings
-    {
-        public bool canLunge = false;
-        public float lungeHorizontalForce = 20f;
-        public float lungeVerticalForce = 5f;
-        public float lungeDuration = 0.3f;
-        public float lungeCooldown = 2f;
-        public bool cancelVerticalVelocity = true;
+    [Header("Abilities")]
+    public AttackAbility attack = new AttackAbility();
+    public DashAbility dash = new DashAbility();
+    public LungeAbility lunge = new LungeAbility();
 
-        [Header("Visual Feedback")]
-        public ParticleSystem lungeParticles;
-        public AudioClip lungeSound;
-    }
+    // List to easily iterate through all abilities
+    private List<CharacterAbility> allAbilities = new List<CharacterAbility>();
 
-    [System.Serializable]
-    public class DashSettings
-    {
-        public bool canDash = false;
-        public float dashForce = 25f;
-        public float dashDuration = 0.2f;
-        public float dashCooldown = 1f;
-        public bool preserveVerticalVelocity = true;
-
-        [Header("Visual Feedback")]
-        public GameObject dashTrail;
-        public AudioClip dashSound;
-    }
-
-    [System.Serializable]
-    public class AttackSettings
-    {
-        public bool canAttack = false;
-        public float attackDamage = 1f;
-        public float attackRange = 1f;
-        public float attackCooldown = 0.5f;
-
-        [Header("Visual Feedback")]
-        public GameObject attackHitboxPrefab;
-        public AnimationClip attackAnimation;
-    }
-
-    [Header("Ability Settings")]
-    public LungeSettings lunge = new LungeSettings();
-    public DashSettings dash = new DashSettings();
-    public AttackSettings attack = new AttackSettings();
-
-    // References
     private CharacterCore character;
-    private PlatformerMovement movement;
-    private Rigidbody2D rb;
-
-    // State
-    private bool isLunging = false;
-    private float lungeTimer = 0f;
-    private float lungeCooldownTimer = 0f;
-
-    private bool isDashing = false;
-    private float dashTimer = 0f;
-    private float dashCooldownTimer = 0f;
-
-    private float attackTimer = 0f;
 
     public void Initialize(CharacterCore core)
     {
         character = core;
 
-        // Get references to other components
-        rb = GetComponent<Rigidbody2D>();
-        movement = GetComponent<PlatformerMovement>();
+        // Initialize all abilities (they will load their own config)
+        attack.Initialize(core);
+        dash.Initialize(core);
+        lunge.Initialize(core);
 
-        // Subscribe to events
-        character.OnEvent += HandleEvent;
+        // Add enabled abilities to the list for updating
+        if (attack.IsEnabled) allAbilities.Add(attack);
+        if (dash.IsEnabled) allAbilities.Add(dash);
+        if (lunge.IsEnabled) allAbilities.Add(lunge);
+
+        Debug.Log($"CharacterAbilities initialized with {allAbilities.Count} enabled abilities");
     }
 
     public void Tick(float deltaTime)
     {
-        UpdateLunge(deltaTime);
-        UpdateDash(deltaTime);
-        UpdateAttack(deltaTime);
-        UpdateCooldowns(deltaTime);
+        // Update all enabled abilities
+        foreach (var ability in allAbilities)
+        {
+            ability.Tick(deltaTime);
+        }
     }
 
     public void PhysicsTick(float fixedDeltaTime)
     {
-        // Physics updates for abilities
-        if (isLunging)
+        // Physics update for all enabled abilities
+        foreach (var ability in allAbilities)
         {
-            ApplyLungePhysics(fixedDeltaTime);
+            ability.PhysicsTick(fixedDeltaTime);
         }
     }
 
-    private void HandleEvent(string type, object data)
+    // Helper methods
+    public bool CanUseAbility(string abilityName)
     {
-        switch (type)
+        return abilityName.ToLower() switch
         {
-            case "lunge_pressed":
-                if (lunge.canLunge && lungeCooldownTimer <= 0)
-                {
-                    StartLunge();
-                }
+            "lunge" => lunge.CanActivate(),
+            "dash" => dash.CanActivate(),
+            "attack" => attack.CanActivate(),
+            _ => false
+        };
+    }
+
+    public void UseAbility(string abilityName)
+    {
+        switch (abilityName.ToLower())
+        {
+            case "lunge":
+                lunge.Activate();
                 break;
-
-            case "dash_pressed":
-                if (dash.canDash && dashCooldownTimer <= 0)
-                {
-                    StartDash();
-                }
+            case "dash":
+                dash.Activate();
                 break;
-
-            case "attack_pressed":
-                if (attack.canAttack && attackTimer <= 0)
-                {
-                    PerformAttack();
-                }
+            case "attack":
+                attack.Activate();
                 break;
         }
     }
 
-    #region Lunge Ability
-    private void StartLunge()
+    public bool IsAbilityActive(string abilityName)
     {
-        if (!lunge.canLunge) return;
-
-        isLunging = true;
-        lungeTimer = lunge.lungeDuration;
-        lungeCooldownTimer = lunge.lungeCooldown;
-
-        // Get current facing direction
-        float facingDirection = movement.GetCurrentXDirection();
-
-        // Calculate lunge force
-        Vector2 lungeForce = new Vector2(
-            facingDirection * lunge.lungeHorizontalForce,
-            lunge.lungeVerticalForce
-        );
-
-        // Cancel vertical velocity if configured
-        if (lunge.cancelVerticalVelocity && rb != null)
+        return abilityName.ToLower() switch
         {
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);
-        }
-
-        // Apply lunge force
-        if (rb != null)
-        {
-            rb.AddForce(lungeForce, ForceMode2D.Impulse);
-        }
-
-        // Apply lunge movement state override
-        if (movement != null)
-        {
-            var lungeState = new PlatformerMovement.MovementState(
-                name: "Lunging",
-                allowMovement: false, // No control during lunge
-                applyGravity: true,
-                applyDeceleration: false,
-                canJump: false,
-                gravityMultiplier: 1f,
-                accelerationMultiplier: 0f,
-                airAccelerationMultiplier: 0f,
-                decelerationMultiplier: 0f,
-                airDecelerationMultiplier: 0f,
-                jumpForceMultiplier: 0f,
-                maxSpeedMultiplier: 1f
-            );
-
-            character.RaiseEvent("movement_override_start", lungeState);
-        }
-
-        // Visual/audio feedback
-        if (lunge.lungeParticles != null)
-            lunge.lungeParticles.Play();
-
-        if (lunge.lungeSound != null)
-            AudioSource.PlayClipAtPoint(lunge.lungeSound, transform.position);
-
-        character.RaiseEvent("ability_used", "lunge");
-        Debug.Log($"Lunge performed! Force: {lungeForce}");
+            "lunge" => lunge.IsActive,
+            "dash" => dash.IsActive,
+            "attack" => attack.IsActive,
+            _ => false
+        };
     }
 
-    private void UpdateLunge(float deltaTime)
+    public float GetAbilityCooldownPercent(string abilityName)
     {
-        if (!isLunging) return;
-
-        lungeTimer -= deltaTime;
-        if (lungeTimer <= 0)
+        return abilityName.ToLower() switch
         {
-            EndLunge();
-        }
+            "lunge" => lunge.GetCooldownPercent(),
+            "dash" => dash.GetCooldownPercent(),
+            "attack" => attack.GetCooldownPercent(),
+            _ => 0f
+        };
     }
 
-    private void ApplyLungePhysics(float fixedDeltaTime)
-    {
-        // During lunge, we can apply slight directional control if needed
-        // For now, just let physics handle it
-    }
+    // Public getters for UI
+    public bool CanLunge() => lunge.CanActivate();
+    public bool CanDash() => dash.CanActivate();
+    public bool CanAttack() => attack.CanActivate();
 
-    private void EndLunge()
-    {
-        isLunging = false;
-
-        // Restore previous movement state
-        if (movement != null)
-        {
-            character.RaiseEvent("movement_override_end", null);
-        }
-
-        character.RaiseEvent("ability_ended", "lunge");
-        Debug.Log("Lunge ended");
-    }
-    #endregion
-
-    #region Dash Ability
-    private void StartDash()
-    {
-        if (!dash.canDash) return;
-
-        isDashing = true;
-        dashTimer = dash.dashDuration;
-        dashCooldownTimer = dash.dashCooldown;
-
-        // Get current facing direction
-        float facingDirection = movement.GetCurrentXDirection();
-
-        // Calculate dash force
-        Vector2 dashForce = new Vector2(facingDirection * dash.dashForce, 5f);
-
-        // Preserve vertical velocity if configured
-        float preservedVerticalVelocity = dash.preserveVerticalVelocity ? rb.linearVelocity.y : 0f;
-
-        // Apply dash force
-        if (rb != null)
-        {
-            // Clear horizontal velocity for crisp dash
-            rb.linearVelocity = new Vector2(0, preservedVerticalVelocity);
-            rb.AddForce(dashForce, ForceMode2D.Impulse);
-        }
-
-        // Apply dash movement state override
-        if (movement != null)
-        {
-            var dashState = new PlatformerMovement.MovementState(
-                name: "Dashing",
-                allowMovement: false, // No control during dash
-                applyGravity: true,
-                applyDeceleration: false,
-                canJump: false,
-                gravityMultiplier: 1f,
-                accelerationMultiplier: 0f,
-                airAccelerationMultiplier: 0f,
-                decelerationMultiplier: 0f,
-                airDecelerationMultiplier: 0f,
-                jumpForceMultiplier: 0f,
-                maxSpeedMultiplier: 1f
-            );
-
-            character.RaiseEvent("movement_override_start", dashState);
-        }
-
-        // Visual feedback
-        if (dash.dashTrail != null)
-            Instantiate(dash.dashTrail, transform.position, Quaternion.identity);
-
-        if (dash.dashSound != null)
-            AudioSource.PlayClipAtPoint(dash.dashSound, transform.position);
-
-        character.RaiseEvent("ability_used", "dash");
-        Debug.Log($"Dash performed! Force: {dashForce}");
-    }
-
-    private void UpdateDash(float deltaTime)
-    {
-        if (!isDashing) return;
-
-        dashTimer -= deltaTime;
-        if (dashTimer <= 0)
-        {
-            EndDash();
-        }
-    }
-
-    private void EndDash()
-    {
-        isDashing = false;
-
-        // Restore previous movement state
-        if (movement != null)
-        {
-            character.RaiseEvent("movement_override_end", null);
-        }
-
-        character.RaiseEvent("ability_ended", "dash");
-        Debug.Log("Dash ended");
-    }
-    #endregion
-
-    #region Attack Ability
-    private void PerformAttack()
-    {
-        attackTimer = attack.attackCooldown;
-
-        // Spawn attack hitbox in facing direction
-        if (attack.attackHitboxPrefab != null)
-        {
-            float facingDirection = movement.GetCurrentXDirection();
-            Vector3 spawnPosition = transform.position +
-                new Vector3(attack.attackRange * facingDirection, 0.5f, 0);
-
-            GameObject hitbox = Instantiate(attack.attackHitboxPrefab, spawnPosition, Quaternion.identity);
-
-            // Configure hitbox
-            var hitboxComponent = hitbox.GetComponent<DamageHitbox>();
-            if (hitboxComponent != null)
-            {
-                hitboxComponent.SetDamage((int)attack.attackDamage);
-                hitboxComponent.SetOwner(gameObject);
-            }
-
-            Destroy(hitbox, 0.2f);
-        }
-
-        character.RaiseEvent("ability_used", "attack");
-        Debug.Log("Attack performed!");
-    }
-
-    private void UpdateAttack(float deltaTime)
-    {
-        if (attackTimer > 0)
-            attackTimer -= deltaTime;
-    }
-    #endregion
-
-    private void UpdateCooldowns(float deltaTime)
-    {
-        if (lungeCooldownTimer > 0) lungeCooldownTimer -= deltaTime;
-        if (dashCooldownTimer > 0) dashCooldownTimer -= deltaTime;
-    }
-
-    // Public API for other systems
-    public bool CanLunge() => lunge.canLunge && lungeCooldownTimer <= 0;
-    public bool CanDash() => dash.canDash && dashCooldownTimer <= 0;
-    public bool CanAttack() => attack.canAttack && attackTimer <= 0;
-
-    public bool IsLunging() => isLunging;
-    public bool IsDashing() => isDashing;
+    public bool IsLunging() => lunge.IsActive;
+    public bool IsDashing() => dash.IsActive;
 }

@@ -37,7 +37,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
     // State variables
     private CharacterCore character;
-    private PlatformerMovement movement;
+    private CharacterMovement movement;
     private Rigidbody2D rb;
     private bool isGrappling = false;
     private Vector2 grapplePoint;
@@ -63,7 +63,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     public void Initialize(CharacterCore core)
     {
         character = core;
-        movement = character.GetComponent<PlatformerMovement>();
+        movement = character.GetComponent<CharacterMovement>();
         rb = character.gameObject.GetComponent<Rigidbody2D>();
 
         // Initialize config manager with ScriptableObject

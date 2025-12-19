@@ -4,14 +4,36 @@ using UnityEngine;
 
 public class CharacterCore : MonoBehaviour
 {
+    // Config
+    [Header("Character Configuration")]
+    [SerializeField] private CharacterConfig config;
+
     // Simple event system - ALL communication goes through this
     public event Action<string, object> OnEvent;
 
     // Component management
     private List<ICharacterComponent> components = new();
 
+    // Public getter for config
+    public CharacterConfig GetConfig() => config;
+
+    // Public setter for runtime config changes
+    public void SetConfig(CharacterConfig newConfig)
+    {
+        config = newConfig;
+        // Notify components that config changed
+        RaiseEvent("config_changed", newConfig);
+    }
+
     void Awake()
     {
+        // Create default config if none assigned
+        if (config == null)
+        {
+            config = CreateDefaultConfig();
+            Debug.LogWarning($"No CharacterConfig assigned to {gameObject.name}. Created default config.");
+        }
+
         // Find and initialize all components
         var found = GetComponents<ICharacterComponent>();
         components.AddRange(found);
@@ -49,6 +71,14 @@ public class CharacterCore : MonoBehaviour
                 return typedComp;
         }
         return null;
+    }
+
+    // Create a default config for testing
+    private CharacterConfig CreateDefaultConfig()
+    {
+        CharacterConfig defaultConfig = ScriptableObject.CreateInstance<CharacterConfig>();
+        defaultConfig.name = "DefaultConfig";
+        return defaultConfig;
     }
 }
 
