@@ -14,6 +14,8 @@ public class DashAbility : CharacterAbility
     private float cooldownTimer = 0f;
     private GameObject trailInstance;
 
+    private Vector2 currentDashForce;
+
     public DashAbility()
     {
         AbilityName = "Dash";
@@ -56,14 +58,14 @@ public class DashAbility : CharacterAbility
         cooldownTimer = cooldown;
 
         // Get facing direction
-        Vector2 facingDirection = movement.GetFacingDirection();
+        float facingDirection = movement.GetCurrentXDirection();
 
         // Calculate dash force
-        Vector2 dashForce = facingDirection * force;
+        Vector2 dashForce = new Vector2(facingDirection * force, 0);
+        currentDashForce = new Vector2(facingDirection * force, 0);
 
         // Apply through movement system
         float preservedVertical = preserveVerticalVelocity ? movement.GetVerticalVelocity() : 0f;
-        movement.SetExternalVelocity(new Vector2(0, preservedVertical));
         movement.ApplyExternalForce(dashForce);
 
         // Start ability state
@@ -83,6 +85,8 @@ public class DashAbility : CharacterAbility
 
         if (sound != null)
             AudioSource.PlayClipAtPoint(sound, transform.position);
+
+        Debug.Log($"Dash used, applied force of {dashForce} to the player");
 
         character.RaiseEvent("ability_used", AbilityName);
         OnActivated();
@@ -109,6 +113,9 @@ public class DashAbility : CharacterAbility
 
         if (IsActive)
         {
+            movement.ApplyExternalForce(currentDashForce);
+            Debug.Log($"applied force of {currentDashForce} to the player");
+
             activeTimer -= deltaTime;
             if (activeTimer <= 0)
             {

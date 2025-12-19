@@ -388,6 +388,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
     public float GetHorizontalVelocity() => rb.linearVelocity.x;
     public float GetVerticalVelocity() => rb.linearVelocity.y;
     public bool IsMoving() => Mathf.Abs(rb.linearVelocity.x) > 0.1f;
+    public float GetCurrentXDirection() => Mathf.Sign(rb.linearVelocity.x);
 
     public Vector2 GetFacingDirection()
     {

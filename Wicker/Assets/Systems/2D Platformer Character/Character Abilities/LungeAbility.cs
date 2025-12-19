@@ -57,11 +57,11 @@ public class LungeAbility : CharacterAbility
         cooldownTimer = cooldown;
 
         // Get facing direction
-        Vector2 facingDirection = movement.GetFacingDirection();
+        float facingDirection = movement.GetCurrentXDirection();
 
         // Calculate lunge force
         Vector2 lungeForce = new Vector2(
-            facingDirection.x * horizontalForce,
+            facingDirection * horizontalForce,
             verticalForce
         );
 

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a88b4f26568c6b4da648d249d7a3ec0, type: 3}
   m_Name: PlayerConfig
   m_EditorClassIdentifier: Assembly-CSharp::CharacterConfig
-  maxSpeed: 50
+  maxSpeed: 20
   acceleration: 20
   deceleration: 15
   jumpForce: 13
@@ -25,7 +25,7 @@ MonoBehaviour:
   jumpCutMultiplier: 0.5
   groundLayer:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 64
   groundCheckRadius: 0.2
   attack:
     isEnabled: 0
@@ -35,14 +35,14 @@ MonoBehaviour:
     hitboxPrefab: {fileID: 0}
   dash:
     isEnabled: 1
-    force: 25
+    force: 50
     duration: 0.2
     cooldown: 1
     preserveVerticalVelocity: 1
     trailPrefab: {fileID: 0}
     sound: {fileID: 0}
   lunge:
-    isEnabled: 0
+    isEnabled: 1
     horizontalForce: 20
     verticalForce: 5
     duration: 0.3
