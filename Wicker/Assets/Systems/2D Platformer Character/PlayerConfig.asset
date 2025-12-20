@@ -16,7 +16,7 @@ MonoBehaviour:
   acceleration: 8
   deceleration: 3
   jumpForce: 20
-  gravity: 30
+  gravity: 40
   coyoteTime: 0.1
   jumpBufferTime: 0.05
   airDecelerationMultiplier: 0.1
@@ -43,9 +43,9 @@ MonoBehaviour:
     continuousForceMultiplier: 0.05
     massDependent: 0
     preserveHorizontalVelocity: 0
-    preserveVerticalVelocity: 1
+    preserveVerticalVelocity: 0
     applyPostDashDeceleration: 1
-    postDashDecelerationForce: 10
+    postDashDecelerationMultilplier: 2
     postDashDecelerationDuration: 0.3
     trailPrefab: {fileID: 0}
     sound: {fileID: 0}

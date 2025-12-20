@@ -716,7 +716,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraSystem
   target: {fileID: 960373647}
-  smoothTime: 0.15
+  smoothTime: 0.25
   maxSpeed: 50
   predictionModifier: {fileID: 519420034}
   showDebugVisuals: 1
