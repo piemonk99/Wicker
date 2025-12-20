@@ -1334,7 +1334,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1140701397
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1391,7 +1391,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 55545cdbc9083984d8faed6cc6c4cbf4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CharacterCore
-  config: {fileID: 0}
+  config: {fileID: 11400000, guid: 49f774656b5f7aa4a86457da19bb2f0d, type: 2}
 --- !u!61 &1140701401
 BoxCollider2D:
   m_ObjectHideFlags: 0

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine.InputSystem;
 using UnityEngine;
 
 public class CharacterCore : MonoBehaviour
@@ -21,8 +22,8 @@ public class CharacterCore : MonoBehaviour
     public void SetConfig(CharacterConfig newConfig)
     {
         config = newConfig;
-        // Notify components that config changed
-        RaiseEvent("config_changed", newConfig);
+        // Clean up and re-initialize with new config
+        ReloadAllComponents();
     }
 
     void Awake()
@@ -34,12 +35,7 @@ public class CharacterCore : MonoBehaviour
             Debug.LogWarning($"No CharacterConfig assigned to {gameObject.name}. Created default config.");
         }
 
-        // Find and initialize all components
-        var found = GetComponents<ICharacterComponent>();
-        components.AddRange(found);
-
-        foreach (var comp in components)
-            comp.Initialize(this);
+        InitializeAllComponents();
     }
 
     void Update()
@@ -47,6 +43,13 @@ public class CharacterCore : MonoBehaviour
         float delta = Time.deltaTime;
         foreach (var comp in components)
             comp.Tick(delta);
+
+#if UNITY_EDITOR
+            if (Keyboard.current.f5Key.wasPressedThisFrame)
+            {
+                ReloadAllComponents();
+            }
+#endif
     }
 
     void FixedUpdate()
@@ -56,10 +59,91 @@ public class CharacterCore : MonoBehaviour
             comp.PhysicsTick(fixedDelta);
     }
 
-    // ONLY public method - raise events
+    // Public method to raise events
     public void RaiseEvent(string type, object data = null)
     {
         OnEvent?.Invoke(type, data);
+    }
+
+    // Initialize all components (called once at Awake)
+    private void InitializeAllComponents()
+    {
+        // Clear any existing components
+        components.Clear();
+
+        // Find all ICharacterComponent components on this GameObject
+        var foundComponents = GetComponents<ICharacterComponent>();
+        components.AddRange(foundComponents);
+
+        // Initialize each component
+        foreach (var comp in components)
+        {
+            try
+            {
+                comp.Initialize(this);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Failed to initialize component {comp.GetType().Name}: {e.Message}");
+            }
+        }
+
+        Debug.Log($"CharacterCore: Initialized {components.Count} components");
+    }
+
+    // Reload all components (clean up and re-initialize)
+    private void ReloadAllComponents()
+    {
+        if (config == null) return;
+
+        Debug.Log($"CharacterCore: Reloading all components with config: {config.name}");
+
+#if UNITY_EDITOR
+            UnityEditor.AssetDatabase.Refresh();
+#endif
+
+        // IMPORTANT: Clear ALL event subscribers before re-initializing
+        // This prevents duplicate event handlers
+        ClearAllEventSubscribers();
+
+        // Clear the component list and re-find all components
+        components.Clear();
+        var foundComponents = GetComponents<ICharacterComponent>();
+        components.AddRange(foundComponents);
+
+        // Re-initialize all components
+        foreach (var comp in components)
+        {
+            try
+            {
+                comp.Initialize(this);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Failed to re-initialize component {comp.GetType().Name}: {e.Message}");
+            }
+        }
+
+        // Raise config changed event AFTER all components are re-initialized
+        RaiseEvent("config_changed", config);
+
+        Debug.Log($"CharacterCore: Reloaded {components.Count} components");
+    }
+
+    // Clear all event subscribers to prevent accumulation
+    private void ClearAllEventSubscribers()
+    {
+        if (OnEvent != null)
+        {
+            // Get all delegates and remove them one by one
+            var invocationList = OnEvent.GetInvocationList();
+            foreach (var handler in invocationList)
+            {
+                OnEvent -= (Action<string, object>)handler;
+            }
+        }
+
+        Debug.Log("CharacterCore: Cleared all event subscribers");
     }
 
     // Helper to get components
@@ -79,6 +163,12 @@ public class CharacterCore : MonoBehaviour
         CharacterConfig defaultConfig = ScriptableObject.CreateInstance<CharacterConfig>();
         defaultConfig.name = "DefaultConfig";
         return defaultConfig;
+    }
+
+    // Clean up when destroyed
+    void OnDestroy()
+    {
+        ClearAllEventSubscribers();
     }
 }
 

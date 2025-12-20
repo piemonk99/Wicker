@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: PlayerConfig
   m_EditorClassIdentifier: Assembly-CSharp::CharacterConfig
   maxSpeed: 15
-  acceleration: 2
-  deceleration: 0.4
+  acceleration: 8
+  deceleration: 3
   jumpForce: 20
   gravity: 30
   coyoteTime: 0.1
@@ -35,16 +35,16 @@ MonoBehaviour:
     hitboxPrefab: {fileID: 0}
   dash:
     isEnabled: 1
-    force: 50
+    force: 30
     duration: 0.2
     cooldown: 1
     applyInstantForce: 1
     applyContinuousForce: 1
-    continuousForceMultiplier: 0.1
+    continuousForceMultiplier: 0.05
     massDependent: 0
-    preserveHorizontalVelocity: 1
+    preserveHorizontalVelocity: 0
     preserveVerticalVelocity: 1
-    applyPostDashDeceleration: 0
+    applyPostDashDeceleration: 1
     postDashDecelerationForce: 10
     postDashDecelerationDuration: 0.3
     trailPrefab: {fileID: 0}

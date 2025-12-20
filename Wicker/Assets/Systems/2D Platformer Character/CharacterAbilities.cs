@@ -17,6 +17,9 @@ public class CharacterAbilities : MonoBehaviour, ICharacterComponent
     {
         character = core;
 
+        // Clear the list before adding abilities, in case this is a reload
+        allAbilities.Clear();
+
         // Initialize all abilities (they will load their own config)
         attack.Initialize(core);
         dash.Initialize(core);

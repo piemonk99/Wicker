@@ -6,8 +6,8 @@ public class CharacterConfig : ScriptableObject
 {
     [Header("Movement Settings")]
     public float maxSpeed = 15f;
-    public float acceleration = 2f;
-    public float deceleration = .4f;
+    public float acceleration = 5f;
+    public float deceleration = 1f;
     public float jumpForce = 20f;
     public float gravity = 30f;
     public float coyoteTime = 0.1f;
@@ -63,7 +63,7 @@ public class DashConfig
 
     [Header("Post-Dash Effects")]
     public bool applyPostDashDeceleration = false;
-    public float postDashDecelerationForce = 10f;
+    public float postDashDecelerationMultilplier = 10f;
     public float postDashDecelerationDuration = 0.3f;
 
     [Header("Visual Feedback")]

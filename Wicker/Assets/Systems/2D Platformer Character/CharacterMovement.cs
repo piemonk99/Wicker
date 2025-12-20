@@ -237,7 +237,6 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         // Apply max speed multiplier
         float stateMaxSpeed = maxSpeed * currentState.maxSpeedMultiplier;
         float targetSpeed = inputX * stateMaxSpeed;
-        float speedDiff = targetSpeed - rb.linearVelocity.x;
 
         // Use current state-appropriate acceleration and deceleration
         float effectiveAcceleration = GetEffectiveAcceleration();
@@ -249,19 +248,15 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         if (Mathf.Abs(inputX) > 0.01f)
         {
             // Player is trying to move
-            if (Mathf.Abs(rb.linearVelocity.x) < Mathf.Abs(stateMaxSpeed))
+            if (Mathf.Abs(rb.linearVelocity.x) < Mathf.Abs(stateMaxSpeed) ||
+                Mathf.Sign(inputX) != Mathf.Sign(rb.linearVelocity.x))
             {
-                // Below max speed - accelerate normally
+                // Below max speed OR changing direction - accelerate normally
                 accelRate = effectiveAcceleration;
-            }
-            else if (Mathf.Sign(inputX) != Mathf.Sign(rb.linearVelocity.x))
-            {
-                // Trying to move opposite direction we are currently moving
-                accelRate = effectiveDeceleration + effectiveAcceleration;
             }
             else
             {
-                // Attempting to move in the same direction above max speed
+                // Above max speed in same direction
                 accelRate = effectiveDeceleration;
             }
         }
@@ -271,8 +266,14 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
             accelRate = effectiveDeceleration;
         }
 
-        float movement = Mathf.Pow(Mathf.Abs(speedDiff) * accelRate, 0.5f) * Mathf.Sign(speedDiff);
-        rb.linearVelocity = new Vector2(rb.linearVelocity.x + movement * Time.fixedDeltaTime, rb.linearVelocity.y);
+        // Calculate acceleration (more physically accurate)
+        float acceleration = Mathf.Sign(targetSpeed - rb.linearVelocity.x) * accelRate;
+
+        // Apply acceleration
+        rb.linearVelocity = new Vector2(
+            Mathf.MoveTowards(rb.linearVelocity.x, targetSpeed, Mathf.Abs(acceleration) * Time.fixedDeltaTime),
+            rb.linearVelocity.y
+        );
     }
 
     private float GetEffectiveAcceleration()

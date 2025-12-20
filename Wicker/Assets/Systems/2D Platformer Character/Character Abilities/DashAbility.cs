@@ -3,21 +3,8 @@ using UnityEngine;
 [System.Serializable]
 public class DashAbility : CharacterAbility
 {
-    // Config values
-    private float force;
-    private float duration;
-    private float cooldown;
-    private bool massDependent;
-    private bool applyInstantForce;
-    private bool applyContinuousForce;
-    private float continuousForceMultiplier;
-    private float preserveHorizontalVelocity;
-    private float preserveVerticalVelocity;
-    private bool applyPostDashDeceleration;
-    private float postDashDecelerationForce;
-    private float postDashDecelerationDuration;
-    private GameObject trailPrefab;
-    private AudioClip sound;
+    // Store the config reference directly
+    private DashConfig config;
 
     // State
     private float activeTimer = 0f;
@@ -26,7 +13,6 @@ public class DashAbility : CharacterAbility
     private GameObject trailInstance;
     private Vector2 dashDirection;
     private bool isInPostDashPhase = false;
-    private Vector2 preDashVelocity;
     private Vector2 currentContinuousForce;
 
     public DashAbility()
@@ -34,28 +20,20 @@ public class DashAbility : CharacterAbility
         AbilityName = "Dash";
     }
 
-    protected override void LoadConfig(CharacterConfig config)
+    protected override void LoadConfig(CharacterConfig characterConfig)
     {
-        IsEnabled = config.dash.isEnabled;
-        force = config.dash.force;
-        duration = config.dash.duration;
-        cooldown = config.dash.cooldown;
-        massDependent = config.dash.massDependent;
-        applyInstantForce = config.dash.applyInstantForce;
-        applyContinuousForce = config.dash.applyContinuousForce;
-        continuousForceMultiplier = config.dash.continuousForceMultiplier;
-        preserveHorizontalVelocity = config.dash.preserveHorizontalVelocity;
-        preserveVerticalVelocity = config.dash.preserveVerticalVelocity;
-        applyPostDashDeceleration = config.dash.applyPostDashDeceleration;
-        postDashDecelerationForce = config.dash.postDashDecelerationForce;
-        postDashDecelerationDuration = config.dash.postDashDecelerationDuration;
-        trailPrefab = config.dash.trailPrefab;
-        sound = config.dash.sound;
+        if (character != null)
+        {
+            character.OnEvent -= HandleEvent;
+        }
+
+        config = characterConfig.dash;
+        IsEnabled = config.isEnabled;
 
         if (IsEnabled)
         {
             character.OnEvent += HandleEvent;
-            Debug.Log($"Dash ability loaded: Enabled={IsEnabled}, Force={force}, MassDependent={massDependent}");
+            Debug.Log($"Dash ability loaded: Enabled={IsEnabled}, Force={config.force}");
         }
     }
 
@@ -75,57 +53,47 @@ public class DashAbility : CharacterAbility
     public override void Activate()
     {
         IsActive = true;
-        activeTimer = duration;
-        cooldownTimer = cooldown;
+        activeTimer = config.duration;
+        cooldownTimer = config.cooldown;
         isInPostDashPhase = false;
 
-        // Store pre-dash velocity for preservation
-        preDashVelocity = rb.linearVelocity;
+        // Store pre-dash velocity
+        Vector2 preDashVelocity = rb.linearVelocity;
 
         // Determine dash direction
         float movementDirection = movement.GetCurrentXDirection();
         dashDirection = new Vector2(movementDirection, 0).normalized;
 
         // Apply velocity preservation
-        Vector2 preservedVelocity = new Vector2(
-            preDashVelocity.x * preserveHorizontalVelocity,
-            preDashVelocity.y * preserveVerticalVelocity
+        rb.linearVelocity = new Vector2(
+            preDashVelocity.x * config.preserveHorizontalVelocity,
+            preDashVelocity.y * config.preserveVerticalVelocity
         );
-        rb.linearVelocity = preservedVelocity;
 
-        // Calculate base dash force
-        Vector2 dashForce = dashDirection * force;
+        // Calculate and apply dash force
+        Vector2 dashForce = dashDirection * config.force;
 
-        // Apply instant force if enabled
-        if (applyInstantForce)
-        {
+        if (config.applyInstantForce)
             ApplyForce(dashForce, true);
-            Debug.Log($"Dash: Applied instant force of {dashForce} (massDependent: {massDependent})");
-        }
 
-        // Store continuous force if enabled
-        if (applyContinuousForce)
-        {
-            currentContinuousForce = dashForce * continuousForceMultiplier;
-        }
+        if (config.applyContinuousForce)
+            currentContinuousForce = dashForce * config.continuousForceMultiplier;
 
-        // Start ability state
-        var abilityState = new CharacterMovement.MovementState(
+        // Start dash state (no movement control during dash)
+        character.RaiseEvent("movement_override_start", new CharacterMovement.MovementState(
             name: "Dashing",
             allowMovement: false,
-            applyGravity: applyPostDashDeceleration ? false : true,
+            applyGravity: false,
             applyDeceleration: false,
             canJump: false
-        );
+        ));
 
-        character.RaiseEvent("movement_override_start", abilityState);
+        // Visual/audio feedback
+        if (config.trailPrefab != null)
+            trailInstance = GameObject.Instantiate(config.trailPrefab, transform.position, Quaternion.identity);
 
-        // Visual feedback
-        if (trailPrefab != null)
-            trailInstance = GameObject.Instantiate(trailPrefab, transform.position, Quaternion.identity);
-
-        if (sound != null)
-            AudioSource.PlayClipAtPoint(sound, transform.position);
+        if (config.sound != null)
+            AudioSource.PlayClipAtPoint(config.sound, transform.position);
 
         character.RaiseEvent("ability_used", AbilityName);
         OnActivated();
@@ -135,26 +103,17 @@ public class DashAbility : CharacterAbility
     {
         if (isInstant)
         {
-            if (massDependent)
-            {
+            if (config.massDependent)
                 rb.AddForce(force, ForceMode2D.Impulse);
-            }
             else
-            {
                 rb.linearVelocity += force;
-            }
         }
         else
         {
-            if (massDependent)
-            {
+            if (config.massDependent)
                 rb.AddForce(force, ForceMode2D.Force);
-            }
             else
-            {
-                // Mass-independent: multiply by mass
                 rb.AddForce(force * rb.mass, ForceMode2D.Force);
-            }
         }
     }
 
@@ -165,41 +124,53 @@ public class DashAbility : CharacterAbility
         IsActive = false;
         currentContinuousForce = Vector2.zero;
 
-        // Handle post-dash effects
-        if (applyPostDashDeceleration)
+        // End dash state FIRST (pop it from stack)
+        character.RaiseEvent("movement_override_end", null);
+
+        // Start post-dash if enabled
+        if (config.applyPostDashDeceleration)
         {
             isInPostDashPhase = true;
-            postDashTimer = postDashDecelerationDuration;
+            postDashTimer = config.postDashDecelerationDuration;
 
-            var postDashState = new CharacterMovement.MovementState(
+            // Post-dash state: allow movement but with high deceleration
+            character.RaiseEvent("movement_override_start", new CharacterMovement.MovementState(
                 name: "PostDash",
-                allowMovement: false,
-                applyGravity: false,
-                applyDeceleration: false,
-                canJump: false
-            );
-
-            character.RaiseEvent("movement_override_start", postDashState);
+                allowMovement: true,  // Player can move during post-dash
+                applyGravity: true,
+                applyDeceleration: true,
+                canJump: true,
+                gravityMultiplier: 1f,
+                accelerationMultiplier: 1f,
+                airAccelerationMultiplier: 1f,
+                decelerationMultiplier: config.postDashDecelerationMultilplier,  // This is the multiplier!
+                airDecelerationMultiplier: config.postDashDecelerationMultilplier,
+                jumpForceMultiplier: 1f,
+                maxSpeedMultiplier: 1f
+            ));
         }
         else
         {
-            Cleanup();
-            character.RaiseEvent("movement_override_end", null);
+            CleanupTrail();
         }
 
         character.RaiseEvent("ability_ended", AbilityName);
         OnDeactivated();
     }
 
-    private void Cleanup()
+    private void CleanupTrail()
     {
         if (trailInstance != null)
+        {
             GameObject.Destroy(trailInstance);
+            trailInstance = null;
+        }
     }
 
     public override void Tick(float deltaTime)
     {
-        if (cooldownTimer > 0) cooldownTimer -= deltaTime;
+        if (cooldownTimer > 0)
+            cooldownTimer -= deltaTime;
 
         if (isInPostDashPhase)
         {
@@ -213,20 +184,16 @@ public class DashAbility : CharacterAbility
 
     private void UpdateActiveDash(float deltaTime)
     {
-        // Apply continuous force if enabled
-        if (applyContinuousForce && currentContinuousForce != Vector2.zero)
-        {
+        // Apply continuous force
+        if (config.applyContinuousForce && currentContinuousForce != Vector2.zero)
             ApplyForce(currentContinuousForce * deltaTime * 60f, false);
-        }
 
+        // Update timer
         activeTimer -= deltaTime;
-
         if (activeTimer <= 0)
-        {
             Deactivate();
-        }
 
-        // Update trail position
+        // Update trail
         if (trailInstance != null)
             trailInstance.transform.position = transform.position;
     }
@@ -235,27 +202,21 @@ public class DashAbility : CharacterAbility
     {
         postDashTimer -= deltaTime;
 
-        // Apply deceleration force opposite to dash direction
-        if (applyPostDashDeceleration && postDashTimer > 0)
-        {
-            Vector2 decelerationForce = -dashDirection * postDashDecelerationForce * deltaTime * 60f;
-            ApplyForce(decelerationForce, false);
-        }
-
+        // End post-dash phase when timer expires
         if (postDashTimer <= 0)
-        {
             EndPostDash();
-        }
     }
 
     private void EndPostDash()
     {
         isInPostDashPhase = false;
-        Cleanup();
+        CleanupTrail();
+
+        // End the post-dash movement state (return to default movement)
         character.RaiseEvent("movement_override_end", null);
     }
 
-    public float GetCooldownPercent() => cooldownTimer / cooldown;
+    public float GetCooldownPercent() => cooldownTimer / config.cooldown;
     public bool IsInPostDash() => isInPostDashPhase;
-    public float GetPostDashPercent() => postDashTimer / postDashDecelerationDuration;
+    public float GetPostDashPercent() => postDashTimer / config.postDashDecelerationDuration;
 }
