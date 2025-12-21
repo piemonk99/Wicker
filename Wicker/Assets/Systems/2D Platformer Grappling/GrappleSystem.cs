@@ -286,6 +286,10 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
     //////////////////////// Swing Physics //////////////////////////
 
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="fixedDeltaTime"></param>
     private void UpdateSwingPhysics(float fixedDeltaTime)
     {
         Vector2 playerPos = grappleOrigin.position;
@@ -298,10 +302,22 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Get current rope state (stretch/squash)
         RopeState ropeState = physicsCalculator.GetRopeState(currentDistance, currentRopeLength);
 
+        float restoringForceMagnitude = 0;
+
         // Apply rope physics if stretching or squashing
         if (ropeState.ratio != 0f)
         {
-            ApplySwingPhysics(ropeState.ratio, ropeState.isStretch, currentDistance, fixedDeltaTime);
+            restoringForceMagnitude = ApplySwingPhysics(ropeState.ratio, ropeState.isStretch, currentDistance, fixedDeltaTime);
+        }
+
+        // Update creak volume with simple call
+        if (soundManager != null && grappleConfig.soundConfig != null)
+        {
+            soundManager.UpdateCreakVolume(
+                restoringForceMagnitude,
+                grappleConfig.soundConfig.creakMinForce,
+                grappleConfig.soundConfig.creakMaxForce
+            );
         }
 
         // Apply friction (always active)
@@ -314,7 +330,15 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         }
     }
 
-    private void ApplySwingPhysics(float ratio, bool isStretch, float currentDistance, float fixedDeltaTime)
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="ratio"></param>
+    /// <param name="isStretch"></param>
+    /// <param name="currentDistance"></param>
+    /// <param name="fixedDeltaTime"></param>
+    /// <returns></returns>
+    private float ApplySwingPhysics(float ratio, bool isStretch, float currentDistance, float fixedDeltaTime)
     {
         Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
         Vector2 radialDirection = toGrapple.normalized;
@@ -333,16 +357,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             -radialDirection * restoringForceMagnitude;     // Push away from grapple point
 
         rb.AddForce(restoringForce, ForceMode2D.Force);
-
-        // Update creak volume with simple call
-        if (soundManager != null && grappleConfig.soundConfig != null)
-        {
-            soundManager.UpdateCreakVolume(
-                restoringForceMagnitude,
-                grappleConfig.soundConfig.creakMinForce,
-                grappleConfig.soundConfig.creakMaxForce
-            );
-        }
 
         // Calculate velocity components
         Vector2 radialVelocity = Vector2.Dot(rb.linearVelocity, radialDirection) * radialDirection;
@@ -381,6 +395,8 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
                                   (radialVelocity.magnitude * grappleConfig.physicsConfig.ropeDamping * dynamicStiffness);
             rb.AddForce(dampingForce, ForceMode2D.Force);
         }
+
+        return restoringForceMagnitude;
     }
 
     /// <summary>
