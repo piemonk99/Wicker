@@ -376,7 +376,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // 1. We have high angular velocity (swinging fast)
         // 2. Radial motion is increasing displacement
         bool shouldApplyDamping = false;
-        bool isSwinging = angularVelocity > 0.3f; // ~17 degrees per second
+        bool isSwinging = angularVelocity > 0.15f; // ~8.5 degrees per second
         bool isProblematicRadialMotion = false;
         if (isStretch) // Stretching
         {
@@ -422,8 +422,23 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     /// <param name="fixedDeltaTime">Fixed time step for friction calculation.</param>
     private void ApplyTangentialFriction(float fixedDeltaTime)
     {
+        // Calculate base tangential friction
+        float effectiveTangentialFriction = grappleConfig.physicsConfig.tangentialFriction;
+
+        // Add reeling/unreeling friction based on state
+        float reelingFrictionAdjustment = CalculateReelingFrictionAdjustment();
+        effectiveTangentialFriction += reelingFrictionAdjustment;
+
+        Debug.Log($"Reeling applied additional tangential friction of {reelingFrictionAdjustment}");
+
+        // Clamp to valid range (0 to 1 for positive, -1 to 0 for negative)
+        if (effectiveTangentialFriction > 0)
+            effectiveTangentialFriction = Mathf.Clamp(effectiveTangentialFriction, 0f, 1f);
+        else
+            effectiveTangentialFriction = Mathf.Clamp(effectiveTangentialFriction, -1f, 0f);
+
         // Early return if tangential friction is effectively zero
-        if (grappleConfig.physicsConfig.tangentialFriction < 0.001f) return;
+        if (Mathf.Abs(effectiveTangentialFriction) < 0.001f) return;
 
         Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
 
@@ -442,22 +457,115 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         if (tangentialVelocity.magnitude > 0.1f)
         {
             // Apply tangential friction (only reduces tangential component)
-            Vector2 newTangentialVelocity = tangentialVelocity * (1 - grappleConfig.physicsConfig.tangentialFriction);
+            Vector2 newTangentialVelocity = tangentialVelocity * (1 - effectiveTangentialFriction);
 
             // Recombine: radial velocity stays the same, tangential gets friction
             rb.linearVelocity = radialVelocity + newTangentialVelocity;
 
             // Debug visualization
-            if (showPhysicsDebug && grappleConfig.physicsConfig.tangentialFriction > 0.01f)
+            if (showPhysicsDebug)
             {
-                // Show tangential velocity direction
-                Debug.DrawRay(grappleOrigin.position, tangentialVelocity.normalized * 2f, Color.cyan, fixedDeltaTime);
-
-                // Show friction force (opposite to tangential velocity)
-                Debug.DrawRay(grappleOrigin.position, -tangentialVelocity.normalized * grappleConfig.physicsConfig.tangentialFriction * 3f,
-                             new Color(1f, 0.5f, 0f), fixedDeltaTime); // Orange color
+                DrawTangentialFrictionDebug(tangentialVelocity, effectiveTangentialFriction, fixedDeltaTime);
             }
         }
+    }
+
+    /// <summary>
+    /// Draws debug visualization for tangential friction.
+    /// </summary>
+    private void DrawTangentialFrictionDebug(Vector2 tangentialVelocity, float effectiveFriction, float fixedDeltaTime)
+    {
+        // Color code: green for reeling, red for unreeling, orange for normal
+        Color frictionColor;
+        if (ShouldReel)
+            frictionColor = Color.green;
+        else if (ShouldUnreel)
+            frictionColor = Color.red;
+        else
+            frictionColor = new Color(1f, 0.5f, 0f); // Orange
+
+        // Show tangential velocity direction
+        Debug.DrawRay(grappleOrigin.position, tangentialVelocity.normalized * 2f,
+                     Color.cyan, fixedDeltaTime);
+
+        // Show friction force (opposite to tangential velocity)
+        float frictionVisualScale = Mathf.Clamp(Mathf.Abs(effectiveFriction) * 5f, 1f, 3f);
+        Debug.DrawRay(grappleOrigin.position,
+                     -tangentialVelocity.normalized * frictionVisualScale,
+                     frictionColor, fixedDeltaTime);
+    }
+
+    /// <summary>
+    /// Calculates additional friction based on reeling/unreeling state and current speed.
+    /// Uses velocity-based scaling to reduce friction impact at high speeds.
+    /// </summary>
+    private float CalculateReelingFrictionAdjustment()
+    {
+        if (!isGrappling) return 0f;
+
+        // Calculate current tangential speed
+        Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
+        if (toGrapple.magnitude < 0.1f) return 0f;
+
+        Vector2 radialDirection = toGrapple.normalized;
+        Vector2 tangentialDirection = new Vector2(-radialDirection.y, radialDirection.x);
+        float tangentialSpeed = Mathf.Abs(Vector2.Dot(rb.linearVelocity, tangentialDirection));
+
+        if (ShouldReel)
+        {
+            return GetVelocityScaledFriction(
+                tangentialSpeed,
+                grappleConfig.physicsConfig.minReelingTangentialFriction,
+                grappleConfig.physicsConfig.maxReelingTangentialFriction,
+                grappleConfig.physicsConfig.maxReelingFrictionVelocity,
+                grappleConfig.physicsConfig.minReelingFrictionVelocity
+            );
+        }
+        else if (ShouldUnreel)
+        {
+            return GetVelocityScaledFriction(
+                tangentialSpeed,
+                grappleConfig.physicsConfig.minUnreelingTangentialFriction,
+                grappleConfig.physicsConfig.maxUnreelingTangentialFriction,
+                grappleConfig.physicsConfig.maxReelingFrictionVelocity,
+                grappleConfig.physicsConfig.minReelingFrictionVelocity
+            );
+        }
+
+        return 0f;
+    }
+
+    /// <summary>
+    /// Scales friction between min and max values based on current speed.
+    /// At maxFrictionVelocity (low speed): returns maxFriction
+    /// At minFrictionVelocity (high speed): returns minFriction
+    /// Uses smooth interpolation outside the range.
+    /// </summary>
+    private float GetVelocityScaledFriction(
+        float currentSpeed,
+        float minFriction,
+        float maxFriction,
+        float minSpeedForMaxFriction,   // Lower speed = more friction
+        float minSpeedForMinFriction)   // Higher speed = less friction
+    {
+        // Ensure valid speed range
+        if (minSpeedForMinFriction <= minSpeedForMaxFriction)
+        {
+            // Invalid range, use max friction as default
+            return maxFriction;
+        }
+
+        // Calculate interpolation factor (0 at low speed, 1 at high speed)
+        float t = Mathf.InverseLerp(minSpeedForMaxFriction, minSpeedForMinFriction, currentSpeed);
+
+        // Clamp t to 0-1 range
+        t = Mathf.Clamp01(t);
+
+        // Use smoothstep for smoother transitions at boundaries
+        float smoothT = t * t * (3f - 2f * t);
+
+        // Interpolate between max and min friction
+        return Mathf.Lerp(maxFriction, minFriction, smoothT);
     }
 
     private void ApplyBoost()

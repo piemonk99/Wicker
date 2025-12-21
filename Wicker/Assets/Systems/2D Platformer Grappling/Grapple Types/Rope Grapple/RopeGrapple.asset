@@ -28,10 +28,16 @@ MonoBehaviour:
   physicsConfig:
     maxDistance: 20
     ropeDamping: 0.1
-    friction: 0
-    tangentialFriction: 0.005
     boostMultiplier: 1.1
     minBoostVelocity: 2
+    friction: 0
+    tangentialFriction: 0.003
+    minReelingFrictionVelocity: 50
+    maxReelingFrictionVelocity: 5
+    minReelingTangentialFriction: 0.002
+    maxReelingTangentialFriction: 0.005
+    minUnreelingTangentialFriction: -0.002
+    maxUnreelingTangentialFriction: -0.005
     enableStretch: 1
     stretchStiffness: 200
     stretchStiffnessExponent: 2

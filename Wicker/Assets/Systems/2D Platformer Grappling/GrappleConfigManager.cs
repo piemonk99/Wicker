@@ -59,17 +59,34 @@ public class GrappleSwingPhysicsConfig
 {
     public float maxDistance = 20f;
     public float ropeDamping = 0.1f;
+    public float boostMultiplier = 1.1f;
+    public float minBoostVelocity = 2f;
 
+
+    [Header("Friction Settings")]
     [Tooltip("Friction applied to all velocity. Higher values = less movement.")]
     [Range(0f, 1f)]
     public float friction = 0f;
 
     [Tooltip("Friction applied only to motion perpendicular to the rope direction. Higher values = less swinging.")]
     [Range(0f, 1f)]
-    public float tangentialFriction = 0.005f;
+    public float tangentialFriction = 0.003f;
 
-    public float boostMultiplier = 1.1f;
-    public float minBoostVelocity = 2f;
+    [Tooltip("Velocity where we reach minimum reeling/unreeling friction")]
+    public float minReelingFrictionVelocity = 50f;
+    [Tooltip("Velocity where we reach maximum reeling/unreeling friction")]
+    public float maxReelingFrictionVelocity = 5f;
+
+    [Tooltip("Minimum added friction when reeling (at high speeds)")]
+    [Range(-1f, 1f)] public float minReelingTangentialFriction = 0.002f;
+    [Tooltip("Maximum added friction when reeling (at low speeds)")]
+    [Range(-1f, 1f)] public float maxReelingTangentialFriction = 0.005f;
+
+    [Tooltip("Minimum added friction when unreeling (at high speeds)")]
+    [Range(-1f, 1f)] public float minUnreelingTangentialFriction = -0.002f;
+    [Tooltip("Maximum added friction when unreeling (at low speeds)")]
+    [Range(-1f, 1f)] public float maxUnreelingTangentialFriction = -0.005f;
+
 
     [Header("Stretch Physics (Outside Rope)")]
     public bool enableStretch = true;
