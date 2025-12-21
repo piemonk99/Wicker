@@ -51,6 +51,10 @@ public class PredictiveCameraModifier : MonoBehaviour
         // Store for external access (if other systems need it)
         currentVelocity = velocity;
 
+        Debug.Log($"Raw Velocity: {velocity} \n" +
+                  $"Acceleration: {currentAcceleration}\n" +
+                  $"");
+
         // Apply deadzone - ignore tiny movements
         if (velocity.magnitude < velocityDeadzone)
         {
@@ -67,6 +71,8 @@ public class PredictiveCameraModifier : MonoBehaviour
 
         // Apply direction bias
         totalPrediction = ApplyDirectionBias(totalPrediction);
+
+        Debug.Log($"Total Prediction: {totalPrediction.magnitude}");
 
         // Smooth the prediction
         smoothedPrediction = Vector3.Lerp(
