@@ -43,9 +43,9 @@ public class GrappleConfig : ScriptableObject
             applyDeceleration = movementState.applyDeceleration,
             canJump = movementState.canJump,
             gravityMultiplier = movementState.gravityMultiplier,
-            accelerationMultiplier = movementState.accelerationMultiplier,
+            groundAccelerationMultiplier = movementState.groundAccelerationMultiplier,
             airAccelerationMultiplier = movementState.airAccelerationMultiplier,
-            decelerationMultiplier = movementState.decelerationMultiplier,
+            groundDecelerationMultiplier = movementState.groundDecelerationMultiplier,
             airDecelerationMultiplier = movementState.airDecelerationMultiplier,
             jumpForceMultiplier = movementState.jumpForceMultiplier,
             maxSpeedMultiplier = movementState.maxSpeedMultiplier
@@ -56,6 +56,8 @@ public class GrappleConfig : ScriptableObject
         {
             maxDistance = physicsConfig.maxDistance,
             ropeDamping = physicsConfig.ropeDamping,
+            maxGroundDecelerationVelocity = physicsConfig.maxGroundDecelerationVelocity,
+            minGroundDecelerationVelocity = physicsConfig.minGroundDecelerationVelocity,
             friction = physicsConfig.friction,
             tangentialFriction = physicsConfig.tangentialFriction,
             boostMultiplier = physicsConfig.boostMultiplier,

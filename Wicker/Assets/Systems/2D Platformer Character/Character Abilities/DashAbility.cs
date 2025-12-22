@@ -3,8 +3,6 @@ using UnityEngine;
 
 // Dash ability - propels the character forward horizontally in the direction of movement.
 // Todo: add special behavior if used while grappling and under the effects of a force from grappling. Should propel the character in the direction of the closest tangent to the vector they would have dashed in.
-// Todo: fix issue related to dashing right before grappling. Likely due to pushing the postDash condition after starting a grapple in the middle of the dash.
-//              ^ May be better fixed with elegant handling in the charactermovement system, though some supplementary fixes here couldn't hurt.
 [System.Serializable]
 public class DashAbility : CharacterAbility
 {
@@ -84,9 +82,11 @@ public class DashAbility : CharacterAbility
         if (config.applyContinuousForce)
             currentContinuousForce = dashForce * config.continuousForceMultiplier;
 
-        // Start dash state (no movement control during dash)
-        character.RaiseEvent("movement_override_start", new CharacterMovement.MovementState(
+        // Set DASH as base state (higher priority than default)
+        character.RaiseEvent("movement_base_set", new CharacterMovement.MovementState(
             name: "Dashing",
+            type: CharacterMovement.MovementStateType.Base,
+            priority: 10, // Higher than default (0)
             allowMovement: false,
             applyGravity: false,
             applyDeceleration: false,
@@ -104,23 +104,7 @@ public class DashAbility : CharacterAbility
         OnActivated();
     }
 
-    private void ApplyForce(Vector2 force, bool isInstant)
-    {
-        if (isInstant)
-        {
-            if (config.massDependent)
-                rb.AddForce(force, ForceMode2D.Impulse);
-            else
-                rb.linearVelocity += force;
-        }
-        else
-        {
-            if (config.massDependent)
-                rb.AddForce(force, ForceMode2D.Force);
-            else
-                rb.AddForce(force * rb.mass, ForceMode2D.Force);
-        }
-    }
+
 
     public override void Deactivate()
     {
@@ -129,8 +113,8 @@ public class DashAbility : CharacterAbility
         IsActive = false;
         currentContinuousForce = Vector2.zero;
 
-        // End dash state FIRST (pop it from stack)
-        character.RaiseEvent("movement_override_end", null);
+        // Clear the dash base state
+        character.RaiseEvent("movement_base_clear", "Dashing");
 
         // Start post-dash if enabled
         if (config.applyPostDashDeceleration)
@@ -138,17 +122,17 @@ public class DashAbility : CharacterAbility
             isInPostDashPhase = true;
             postDashTimer = config.postDashDecelerationDuration;
 
-            // Post-dash state: allow movement but with high deceleration
-            character.RaiseEvent("movement_override_start", new CharacterMovement.MovementState(
+            // Add post-dash as a MODIFIER (not base state)
+            character.RaiseEvent("movement_modifier_add", new CharacterMovement.MovementState(
                 name: "PostDash",
-                allowMovement: true,  // Player can move during post-dash
+                type: CharacterMovement.MovementStateType.Modifier,
+                allowMovement: true,
                 applyGravity: true,
                 applyDeceleration: true,
                 canJump: true,
-                gravityMultiplier: 1f,
-                accelerationMultiplier: 1f,
+                groundAccelerationMultiplier: 1f,
                 airAccelerationMultiplier: 1f,
-                decelerationMultiplier: config.postDashDecelerationMultilplier,  // This is the multiplier!
+                groundDecelerationMultiplier: config.postDashDecelerationMultilplier,
                 airDecelerationMultiplier: config.postDashDecelerationMultilplier,
                 jumpForceMultiplier: 1f,
                 maxSpeedMultiplier: 1f
@@ -203,6 +187,24 @@ public class DashAbility : CharacterAbility
             trailInstance.transform.position = transform.position;
     }
 
+    private void ApplyForce(Vector2 force, bool isInstant)
+    {
+        if (isInstant)
+        {
+            if (config.massDependent)
+                rb.AddForce(force, ForceMode2D.Impulse);
+            else
+                rb.linearVelocity += force;
+        }
+        else
+        {
+            if (config.massDependent)
+                rb.AddForce(force, ForceMode2D.Force);
+            else
+                rb.AddForce(force * rb.mass, ForceMode2D.Force);
+        }
+    }
+
     private void UpdatePostDash(float deltaTime)
     {
         postDashTimer -= deltaTime;
@@ -218,7 +220,7 @@ public class DashAbility : CharacterAbility
         CleanupTrail();
 
         // End the post-dash movement state (return to default movement)
-        character.RaiseEvent("movement_override_end", null);
+        character.RaiseEvent("movement_override_end", "PostDash");
     }
 
     public float GetCooldownPercent() => cooldownTimer / config.cooldown;

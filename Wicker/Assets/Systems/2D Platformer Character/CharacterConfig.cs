@@ -6,16 +6,17 @@ public class CharacterConfig : ScriptableObject
 {
     [Header("Movement Settings")]
     public float maxSpeed = 15f;
-    public float acceleration = 5f;
-    public float deceleration = 1f;
+    public float groundAcceleration = 5f;
+    public float airAcceleration = 0.8f;
+    public float groundDeceleration = 1f;
+    public float airDeceleration = .5f;
+
+    [Header("Jump/Gravity")]
     public float jumpForce = 20f;
     public float gravity = 30f;
     public float coyoteTime = 0.1f;
     public float jumpBufferTime = 0.05f;
 
-    [Header("Air Control")]
-    [Range(0f, 1f)] public float airDecelerationMultiplier = 0.1f;
-    [Range(0f, 1f)] public float airAccelerationMultiplier = 0.8f;
 
     [Header("Variable Jump Height")]
     public bool enableVariableJump = true;

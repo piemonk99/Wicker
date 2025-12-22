@@ -13,14 +13,14 @@ MonoBehaviour:
   m_Name: PlayerConfig
   m_EditorClassIdentifier: Assembly-CSharp::CharacterConfig
   maxSpeed: 15
-  acceleration: 8
-  deceleration: 3
+  groundAcceleration: 5
+  airAcceleration: 4
+  groundDeceleration: 4
+  airDeceleration: 0.4
   jumpForce: 20
   gravity: 40
   coyoteTime: 0.1
   jumpBufferTime: 0.05
-  airDecelerationMultiplier: 0.1
-  airAccelerationMultiplier: 0.8
   enableVariableJump: 1
   jumpCutMultiplier: 0.5
   groundLayer:
@@ -45,7 +45,7 @@ MonoBehaviour:
     preserveHorizontalVelocity: 0
     preserveVerticalVelocity: 0
     applyPostDashDeceleration: 1
-    postDashDecelerationMultilplier: 2
+    postDashDecelerationMultilplier: 5
     postDashDecelerationDuration: 0.3
     trailPrefab: {fileID: 0}
     sound: {fileID: 0}

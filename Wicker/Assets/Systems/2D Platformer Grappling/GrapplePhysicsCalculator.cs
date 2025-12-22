@@ -14,6 +14,35 @@ public class GrapplePhysicsCalculator
     }
 
     /// <summary>
+    /// Calculates velocity-based ground deceleration multiplier for sliding.
+    /// Returns a multiplier between currentStateValue and airDecelerationMultiplier based on speed.
+    /// </summary>
+    public float CalculateVelocityBasedGroundDeceleration(
+        float currentHorizontalSpeed,
+        float currentStateGroundDeceleration,
+        float airDecelerationMultiplier)
+    {
+        float maxVel = physicsConfig.maxGroundDecelerationVelocity;
+        float minVel = physicsConfig.minGroundDecelerationVelocity;
+
+        // If we're below the minimum velocity threshold, use the full state value
+        if (currentHorizontalSpeed <= maxVel)
+            return currentStateGroundDeceleration;
+
+        // If we're above the maximum velocity threshold, use air deceleration
+        if (currentHorizontalSpeed >= minVel)
+            return airDecelerationMultiplier;
+
+        // Between thresholds: lerp from state value to air deceleration
+        float t = Mathf.InverseLerp(maxVel, minVel, currentHorizontalSpeed);
+
+        // Apply smoothstep for better transition
+        float smoothT = t * t * (3f - 2f * t);
+
+        return Mathf.Lerp(currentStateGroundDeceleration, airDecelerationMultiplier, smoothT);
+    }
+
+    /// <summary>
     /// Calculates the swing arc geometry based on player position, grapple point, and rope length.
     /// </summary>
     public SwingArc CalculateSwingArc(Vector2 playerPos, Vector2 grapplePos, float ropeLength)

@@ -20,10 +20,15 @@ public class GrappleMovementState
 
     // Multipliers
     public float gravityMultiplier = 1f;
-    public float accelerationMultiplier = 1f;
+
+    // Ground-only multipliers
+    public float groundAccelerationMultiplier = 1f;
+    public float groundDecelerationMultiplier = 1f;
+
+    // Air-only multipliers
     public float airAccelerationMultiplier = 0.025f;
-    public float decelerationMultiplier = 1f;
     public float airDecelerationMultiplier = 0.025f;
+
     public float jumpForceMultiplier = 0f;
     public float maxSpeedMultiplier = 1f;
 
@@ -40,9 +45,9 @@ public class GrappleMovementState
             applyDeceleration: applyDeceleration,
             canJump: canJump,
             gravityMultiplier: gravityMultiplier,
-            accelerationMultiplier: accelerationMultiplier,
+            groundAccelerationMultiplier: groundAccelerationMultiplier,
+            groundDecelerationMultiplier: groundDecelerationMultiplier,
             airAccelerationMultiplier: airAccelerationMultiplier,
-            decelerationMultiplier: decelerationMultiplier,
             airDecelerationMultiplier: airDecelerationMultiplier,
             jumpForceMultiplier: jumpForceMultiplier,
             maxSpeedMultiplier: maxSpeedMultiplier
@@ -61,6 +66,13 @@ public class GrappleSwingPhysicsConfig
     public float ropeDamping = 0.1f;
     public float boostMultiplier = 1.1f;
     public float minBoostVelocity = 2f;
+
+    [Header("Ground Deceleration Settings")]
+    [Tooltip("Horizontal velocity at which full ground deceleration is applied")]
+    public float maxGroundDecelerationVelocity = 15f;
+
+    [Tooltip("Horizontal velocity at which minimum ground deceleration is applied")]
+    public float minGroundDecelerationVelocity = 25f;
 
 
     [Header("Friction Settings")]

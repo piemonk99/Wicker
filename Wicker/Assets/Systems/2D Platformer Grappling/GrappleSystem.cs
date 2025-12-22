@@ -54,6 +54,9 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     private float momentumCaptureTimer = 0f;
     private const float MOMENTUM_CAPTURE_RATE = 0.1f;
 
+    // Current grapple movement state (cached for updates)
+    private CharacterMovement.MovementState currentGrappleMovementState;
+
     // Computed properties for reeling
     private bool ShouldReel => isGrappling && isJumpHeld && !isDownHeld;
     private bool ShouldUnreel => isGrappling && isDownHeld && !isJumpHeld;
@@ -230,6 +233,9 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Early exit if no config is equipped or not grappling
         if (currentConfig == null || !isGrappling) return;
 
+        // Update dynamic movement state based on current speed
+        UpdateDynamicMovementState(fixedDeltaTime);
+
         // Capture swing momentum at regular intervals
         if (momentumCaptureTimer >= MOMENTUM_CAPTURE_RATE)
         {
@@ -338,11 +344,15 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         swingMomentum = Vector2.zero;
         momentumCaptureTimer = 0f;
 
-        // Apply grapple movement state override
-        var movementState = currentConfig.movementState.ToMovementState();
+        // Create initial grapple movement state
+        float horizontalSpeed = Mathf.Abs(rb.linearVelocity.x);
+        currentGrappleMovementState = CreateDynamicGrappleMovementState(horizontalSpeed);
 
-        // Notify other systems about grapple start
-        character.RaiseEvent("movement_override_start", movementState);
+        // Set grapple as base state with high priority
+        currentGrappleMovementState.type = CharacterMovement.MovementStateType.Base;
+        currentGrappleMovementState.priority = 20; // Higher than dash (10)
+
+        character.RaiseEvent("movement_base_set", currentGrappleMovementState);
         character.RaiseEvent("grapple_started", grapplePoint);
 
         // Create visual elements
@@ -370,8 +380,8 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             soundManager.StopCreakSounds();
         }
 
-        // Notify other systems about grapple end
-        character.RaiseEvent("movement_override_end", null);
+        // Clear the grapple base state and notify other systems about grapple end
+        character.RaiseEvent("movement_base_clear", currentGrappleMovementState.name);
         character.RaiseEvent("grapple_ended", grapplePoint);
     }
 
@@ -678,6 +688,57 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         currentRopeLength = Mathf.Lerp(currentRopeLength, targetLength, currentConfig.reelConfig.unreelSmoothness);
     }
 
+
+    //////////////////////// Dynamic MovementState //////////////////////////
+
+    private CharacterMovement.MovementState CreateDynamicGrappleMovementState(float horizontalSpeed)
+    {
+        // Start with the base grapple movement state
+        var movementState = currentConfig.movementState.ToMovementState();
+
+        // Override the ground deceleration based on current speed
+        movementState.groundDecelerationMultiplier = CalculateDynamicGroundDeceleration(horizontalSpeed);
+
+        // For debug purposes, we can log this
+        if (showPhysicsDebug)
+        {
+            Debug.Log($"Grapple Dynamic Deceleration: Speed={horizontalSpeed:F1}, " +
+                     $"Multiplier={movementState.groundDecelerationMultiplier:F3}");
+        }
+
+        return movementState;
+    }
+
+    private float CalculateDynamicGroundDeceleration(float horizontalSpeed)
+    {
+        if (physicsCalculator == null || currentConfig == null)
+            return currentConfig.movementState.groundDecelerationMultiplier;
+
+        // Get the air deceleration multiplier from the grapple movement state
+        float airDecelerationMultiplier = currentConfig.movementState.airDecelerationMultiplier;
+        float currentStateGroundDeceleration = currentConfig.movementState.groundDecelerationMultiplier;
+
+        return physicsCalculator.CalculateVelocityBasedGroundDeceleration(
+            horizontalSpeed,
+            currentStateGroundDeceleration,
+            airDecelerationMultiplier
+        );
+    }
+
+    private void UpdateDynamicMovementState(float fixedDeltaTime)
+    {
+        float horizontalSpeed = Mathf.Abs(rb.linearVelocity.x);
+        float newGroundDecelerationMultiplier = CalculateDynamicGroundDeceleration(horizontalSpeed);
+
+        if (Mathf.Abs(currentGrappleMovementState.groundDecelerationMultiplier - newGroundDecelerationMultiplier) > 0.001f)
+        {
+            currentGrappleMovementState.groundDecelerationMultiplier = newGroundDecelerationMultiplier;
+
+            // Update the grapple base state
+            character.RaiseEvent("movement_base_set", currentGrappleMovementState);
+        }
+    }
+
     //////////////////////// Helper Methods ////////////////////////
 
     private void CaptureSwingMomentum()
@@ -723,6 +784,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Default direction: up and to the right
         return (Vector2.up + Vector2.right).normalized;
     }
+
 
     //////////////////////// Public API ////////////////////////
 

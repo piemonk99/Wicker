@@ -19,9 +19,9 @@ MonoBehaviour:
     applyDeceleration: 1
     canJump: 0
     gravityMultiplier: 1
-    accelerationMultiplier: 1
+    groundAccelerationMultiplier: 1
+    groundDecelerationMultiplier: 1
     airAccelerationMultiplier: 0.025
-    decelerationMultiplier: 1
     airDecelerationMultiplier: 0.025
     jumpForceMultiplier: 0
     maxSpeedMultiplier: 1
@@ -30,6 +30,8 @@ MonoBehaviour:
     ropeDamping: 0.1
     boostMultiplier: 1.1
     minBoostVelocity: 2
+    maxGroundDecelerationVelocity: 15
+    minGroundDecelerationVelocity: 18
     friction: 0
     tangentialFriction: 0.003
     minReelingFrictionVelocity: 50
