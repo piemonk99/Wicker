@@ -429,8 +429,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         float reelingFrictionAdjustment = CalculateReelingFrictionAdjustment();
         effectiveTangentialFriction += reelingFrictionAdjustment;
 
-        Debug.Log($"Reeling applied additional tangential friction of {reelingFrictionAdjustment}");
-
         // Clamp to valid range (0 to 1 for positive, -1 to 0 for negative)
         if (effectiveTangentialFriction > 0)
             effectiveTangentialFriction = Mathf.Clamp(effectiveTangentialFriction, 0f, 1f);

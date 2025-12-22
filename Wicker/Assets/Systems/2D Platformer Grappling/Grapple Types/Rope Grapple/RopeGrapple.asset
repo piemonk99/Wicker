@@ -34,9 +34,9 @@ MonoBehaviour:
     tangentialFriction: 0.003
     minReelingFrictionVelocity: 50
     maxReelingFrictionVelocity: 5
-    minReelingTangentialFriction: 0.002
+    minReelingTangentialFriction: 0.005
     maxReelingTangentialFriction: 0.005
-    minUnreelingTangentialFriction: -0.002
+    minUnreelingTangentialFriction: -0.005
     maxUnreelingTangentialFriction: -0.005
     enableStretch: 1
     stretchStiffness: 200

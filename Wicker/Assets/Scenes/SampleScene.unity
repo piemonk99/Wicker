@@ -1119,7 +1119,11 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 960373647}
+  - component: {fileID: 960373652}
   - component: {fileID: 960373648}
+  - component: {fileID: 960373654}
+  - component: {fileID: 960373653}
+  - component: {fileID: 960373655}
   - component: {fileID: 960373646}
   - component: {fileID: 960373645}
   - component: {fileID: 960373644}
@@ -1359,6 +1363,66 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e10fa7c133734b7488896257a785e292, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CharacterAbilities
+--- !u!114 &960373652
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 960373641}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2dd75273c7e5e8e42ab39e87c53399d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TestSetup
+  startingWeapon: {fileID: 11400000, guid: 85bddd1abc6d2304992d7a10e8c6ad8f, type: 2}
+--- !u!114 &960373653
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 960373641}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee413484bc588ca4dae6834f3b7e625c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponComponent
+--- !u!114 &960373654
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 960373641}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b541dd611cf03640a208f6a86c2b1a3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InventoryComponent
+--- !u!114 &960373655
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 960373641}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e9251687904d354ab0746fb6947b2c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HealthComponent
+  maxHealth: 100
+  currentHealth: 100
+  isInvulnerable: 0
+  invulnerabilityDuration: 0.5
+  damageTextPrefab: {fileID: 0}
+  textOffset: {x: 0, y: 1}
+  textDuration: 2
+  damageColor: {r: 1, g: 0, b: 0, a: 1}
+  healColor: {r: 0, g: 1, b: 0, a: 1}
+  destroyOnDeath: 1
+  deathEffect: {fileID: 0}
 --- !u!1 &1108525854
 GameObject:
   m_ObjectHideFlags: 0
@@ -1462,6 +1526,7 @@ GameObject:
   - component: {fileID: 1140701403}
   - component: {fileID: 1140701402}
   - component: {fileID: 1140701401}
+  - component: {fileID: 1140701405}
   - component: {fileID: 1140701400}
   - component: {fileID: 1140701399}
   - component: {fileID: 1140701398}
@@ -1678,6 +1743,29 @@ Transform:
   - {fileID: 1587671672}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1140701405
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1140701395}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e9251687904d354ab0746fb6947b2c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HealthComponent
+  maxHealth: 100
+  currentHealth: 100
+  isInvulnerable: 0
+  invulnerabilityDuration: 0.5
+  damageTextPrefab: {fileID: 0}
+  textOffset: {x: 0, y: 1}
+  textDuration: 2
+  damageColor: {r: 1, g: 0, b: 0, a: 1}
+  healColor: {r: 0, g: 1, b: 0, a: 1}
+  destroyOnDeath: 1
+  deathEffect: {fileID: 0}
 --- !u!1 &1214943935
 GameObject:
   m_ObjectHideFlags: 0
