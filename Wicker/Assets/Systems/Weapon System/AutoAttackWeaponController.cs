@@ -3,9 +3,9 @@ using UnityEngine;
 using System.Collections.Generic;
 using TMPro; // For text display
 
-public class AutoAttackController : MonoBehaviour, IWeaponController
+public class AutoAttackWeaponController : MonoBehaviour, IWeaponController
 {
-    private WeaponComponent owner;
+    private CharacterEquipment owner;
     private AutoAttackWeaponConfig config;
     private CharacterCore character;
     private Transform characterTransform;
@@ -16,7 +16,7 @@ public class AutoAttackController : MonoBehaviour, IWeaponController
     private float attackTimer = 0f;
     private List<GameObject> recentTargets = new List<GameObject>();
 
-    public void Initialize(WeaponConfig baseConfig, CharacterCore character, WeaponComponent owner)
+    public void Initialize(WeaponConfig baseConfig, CharacterCore character, CharacterEquipment owner)
     {
         this.config = baseConfig as AutoAttackWeaponConfig;
         this.character = character;
@@ -139,12 +139,12 @@ public class AutoAttackController : MonoBehaviour, IWeaponController
 
     private void ApplyDamage(GameObject target, float damage)
     {
-        // Get or add HealthComponent
-        var health = target.GetComponent<HealthComponent>();
+        // Get or add CharacterCondition
+        var health = target.GetComponent<CharacterCondition>();
         if (health == null)
         {
             // For testing, add a health component if none exists
-            health = target.AddComponent<HealthComponent>();
+            health = target.AddComponent<CharacterCondition>();
         }
 
         if (health != null)

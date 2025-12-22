@@ -9,11 +9,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 37bafb67eba84644183d8fe4cd8f18aa, type: 3}
-  m_Name: TestWeapon1
-  m_EditorClassIdentifier: Assembly-CSharp::HitboxWeaponConfig
-  weaponName: IronSword
-  weaponType: 0
+  m_Script: {fileID: 11500000, guid: c3b2cd4bd72e6564caba73e65145244a, type: 3}
+  m_Name: TestWeapon2
+  m_EditorClassIdentifier: Assembly-CSharp::CursorWeaponConfig
+  weaponName: Heavy Mace
+  weaponType: 1
   category: 0
   icon: {fileID: 0}
   weaponPrefab: {fileID: 4628941215659518742, guid: b523443d3bcd3c84abc30a704ce8f256, type: 3}
@@ -23,13 +23,14 @@ MonoBehaviour:
   scalesWithVelocity: 1
   velocityDamageMultiplier: 0.5
   maxVelocityBonus: 20
-  hitboxSize: {x: 1.5, y: 0.8}
-  hitboxOffset: {x: 0.5, y: 0}
-  attackDuration: 0.2
-  attackAnimation: {fileID: 0}
-  hitLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  multiHit: 0
-  maxHitsPerAttack: 1
-  knockbackForce: 5
+  orbitRadius: 2
+  orbitSpeed: 5
+  weaponMass: 1
+  weaponDrag: 0.5
+  maxWeaponSpeed: 20
+  returnForce: 10
+  cursorFollowSpeed: 15
+  maxAnglePerSecond: 180
+  usePhysicsBasedMovement: 1
+  damagePerSpeedUnit: 0.2
+  minimumDamageSpeed: 2

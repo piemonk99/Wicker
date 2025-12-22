@@ -4,7 +4,7 @@ using UnityEngine;
 public enum WeaponType
 {
     Hitbox,     // Basic swing with hitbox
-    CursorSword, // Physics-based sword following cursor
+    CursorWeapon, // Physics-based weapon following cursor
     AutoAttack,  // Passive attacks while moving
     Ranged       // For future implementation
 }
@@ -38,4 +38,14 @@ public abstract class WeaponConfig : ScriptableObject
     public float maxVelocityBonus = 20f;
 
     public abstract void InitializeWeapon(GameObject weaponInstance, CharacterCore character);
+}
+
+// Updated IWeaponController interface
+public interface IWeaponController
+{
+    void Initialize(WeaponConfig config, CharacterCore character, CharacterEquipment owner);
+    bool TryAttack();
+    bool IsAttacking();
+    void Tick(float deltaTime);
+    void PhysicsTick(float fixedDeltaTime);
 }

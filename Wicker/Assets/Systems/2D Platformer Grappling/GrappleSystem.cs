@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -9,9 +8,6 @@ using UnityEngine.InputSystem;
 /// </summary>
 public class GrappleSystem : MonoBehaviour, ICharacterComponent
 {
-    [Header("Grapple Configuration")]
-    [SerializeField] private GrappleConfig grappleConfig;
-
     [Header("References")]
     public Transform grappleOrigin;
     public LineRenderer grappleLine;
@@ -32,13 +28,17 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     private GrappleVisualManager visualManager;
     private GrappleSoundManager soundManager;
 
-    // Input references
-    private Camera mainCamera;
-
-    // State variables
+    // References to other components
     private CharacterCore character;
     private CharacterMovement movement;
     private Rigidbody2D rb;
+    private CharacterEquipment equipment;
+    private Camera mainCamera;
+
+    // Current config (will be set from CharacterEquipment)
+    private GrappleConfig currentConfig;
+
+    // State variables
     private bool isGrappling = false;
     private Vector2 grapplePoint;
     private RaycastHit2D grappleHit;
@@ -65,24 +65,28 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         character = core;
         movement = character.GetComponent<CharacterMovement>();
         rb = character.gameObject.GetComponent<Rigidbody2D>();
+        equipment = character.GetComponent<CharacterEquipment>();
 
-        // Initialize config manager with ScriptableObject
-        configManager = new GrappleConfigManager(grappleConfig);
+        // Check if we have a CharacterEquipment component
+        if (equipment == null)
+        {
+            Debug.LogError("GrappleSystem requires CharacterEquipment component on the same GameObject");
+            return;
+        }
 
-        // Initialize subsystem managers
-        physicsCalculator = new GrapplePhysicsCalculator(grappleConfig.physicsConfig);
-        visualManager = new GrappleVisualManager(
-            grappleConfig.visualConfig,
-            grappleOrigin,
-            grappleLine,
-            showPhysicsDebug
-        );
+        // Subscribe to equipment events to get grapple config updates
+        equipment.OnGrappleHookChanged += OnGrappleHookChanged;
 
-        // Initialize sound manager
-        soundManager = new GrappleSoundManager(
-            grappleConfig.soundConfig,
-            this
-        );
+        // Get initial grapple config from equipment
+        currentConfig = equipment.CurrentGrappleHook;
+        if (currentConfig == null)
+        {
+            Debug.LogWarning("No grapple hook equipped on initialization. GrappleSystem will be inactive until one is equipped.");
+        }
+        else
+        {
+            InitializeWithConfig(currentConfig);
+        }
 
         // Register for character events
         character.OnEvent += HandleEvent;
@@ -95,8 +99,89 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         }
     }
 
+    private void InitializeWithConfig(GrappleConfig config)
+    {
+        if (config == null) return;
+
+        currentConfig = config;
+
+        // Initialize config manager with the config
+        configManager = new GrappleConfigManager(config);
+
+        // Initialize subsystem managers
+        physicsCalculator = new GrapplePhysicsCalculator(config.physicsConfig);
+        visualManager = new GrappleVisualManager(
+            config.visualConfig,
+            grappleOrigin,
+            grappleLine,
+            showPhysicsDebug
+        );
+
+        // Initialize sound manager
+        soundManager = new GrappleSoundManager(
+            config.soundConfig,
+            this
+        );
+
+        Debug.Log($"GrappleSystem initialized with config: {config.GrappleName}");
+    }
+
+    private void OnGrappleHookChanged(GrappleConfig newConfig)
+    {
+        if (newConfig == null)
+        {
+            Debug.Log("Grapple hook unequipped");
+
+            // Stop current grapple if active
+            if (isGrappling)
+            {
+                StopGrapple();
+            }
+
+            // Clean up managers
+            CleanupManagers();
+            currentConfig = null;
+            return;
+        }
+
+        Debug.Log($"Switching to grapple hook: {newConfig.GrappleName}");
+
+        // Stop current grapple if active
+        if (isGrappling)
+        {
+            StopGrapple();
+        }
+
+        // Initialize with new config
+        InitializeWithConfig(newConfig);
+    }
+
+    private void CleanupManagers()
+    {
+        // Clean up visual manager
+        if (visualManager != null)
+        {
+            visualManager.CleanupGrappleVisuals();
+        }
+
+        // Clean up sound manager
+        if (soundManager != null)
+        {
+            soundManager.Cleanup();
+        }
+
+        // Reset managers
+        configManager = null;
+        physicsCalculator = null;
+        visualManager = null;
+        soundManager = null;
+    }
+
     public void Tick(float deltaTime)
     {
+        // Early exit if no config is equipped
+        if (currentConfig == null) return;
+
         // Draw raycast debug when not grappling
         if (showRaycastDebug && !isGrappling)
         {
@@ -104,8 +189,8 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             visualManager.DrawRaycastDebug(
                 grappleOrigin.position,
                 aimDir,
-                grappleConfig.physicsConfig.grappleLayers,
-                grappleConfig.physicsConfig.maxDistance,
+                currentConfig.physicsConfig.grappleLayers,
+                currentConfig.physicsConfig.maxDistance,
                 raycastHitColor,
                 raycastMissColor
             );
@@ -142,27 +227,27 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
     public void PhysicsTick(float fixedDeltaTime)
     {
-        if (isGrappling)
+        // Early exit if no config is equipped or not grappling
+        if (currentConfig == null || !isGrappling) return;
+
+        // Capture swing momentum at regular intervals
+        if (momentumCaptureTimer >= MOMENTUM_CAPTURE_RATE)
         {
-            // Capture swing momentum at regular intervals
-            if (momentumCaptureTimer >= MOMENTUM_CAPTURE_RATE)
-            {
-                CaptureSwingMomentum();
-                momentumCaptureTimer = 0f;
-            }
+            CaptureSwingMomentum();
+            momentumCaptureTimer = 0f;
+        }
 
-            // Apply swing physics
-            UpdateSwingPhysics(fixedDeltaTime);
+        // Apply swing physics
+        UpdateSwingPhysics(fixedDeltaTime);
 
-            // Handle reeling/unreeling based on input
-            if (ShouldReel)
-            {
-                UpdateReeling(fixedDeltaTime);
-            }
-            else if (ShouldUnreel)
-            {
-                UpdateUnreeling(fixedDeltaTime);
-            }
+        // Handle reeling/unreeling based on input
+        if (ShouldReel)
+        {
+            UpdateReeling(fixedDeltaTime);
+        }
+        else if (ShouldUnreel)
+        {
+            UpdateUnreeling(fixedDeltaTime);
         }
     }
 
@@ -170,6 +255,9 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
     private void HandleEvent(string type, object data)
     {
+        // Early exit if no config is equipped
+        if (currentConfig == null) return;
+
         if (type == grappleInput)
         {
             if (!isGrappling)
@@ -213,14 +301,16 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
     private void TryStartGrapple(int initialReelDirection = 0)
     {
+        if (currentConfig == null) return;
+
         Vector2 aimDir = GetAimDirection();
 
         // Perform grapple raycast using physics calculator
         grappleHit = physicsCalculator.PerformGrappleRaycast(
             grappleOrigin.position,
             aimDir,
-            grappleConfig.physicsConfig.grappleLayers,
-            grappleConfig.physicsConfig.maxDistance
+            currentConfig.physicsConfig.grappleLayers,
+            currentConfig.physicsConfig.maxDistance
         );
 
         if (grappleHit.collider != null)
@@ -235,6 +325,8 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
     private void StartGrapple(Vector2 point, int initialReelDirection = 0)
     {
+        if (currentConfig == null) return;
+
         isGrappling = true;
         grapplePoint = point;
         currentRopeLength = Vector2.Distance(grappleOrigin.position, point);
@@ -247,7 +339,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         momentumCaptureTimer = 0f;
 
         // Apply grapple movement state override
-        var movementState = grappleConfig.movementState.ToMovementState();
+        var movementState = currentConfig.movementState.ToMovementState();
 
         // Notify other systems about grapple start
         character.RaiseEvent("movement_override_start", movementState);
@@ -283,13 +375,8 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         character.RaiseEvent("grapple_ended", grapplePoint);
     }
 
-
     //////////////////////// Swing Physics //////////////////////////
 
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="fixedDeltaTime"></param>
     private void UpdateSwingPhysics(float fixedDeltaTime)
     {
         Vector2 playerPos = grappleOrigin.position;
@@ -311,12 +398,12 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         }
 
         // Update creak volume with simple call
-        if (soundManager != null && grappleConfig.soundConfig != null)
+        if (soundManager != null && currentConfig.soundConfig != null)
         {
             soundManager.UpdateCreakVolume(
                 restoringForceMagnitude,
-                grappleConfig.soundConfig.creakMinForce,
-                grappleConfig.soundConfig.creakMaxForce
+                currentConfig.soundConfig.creakMinForce,
+                currentConfig.soundConfig.creakMaxForce
             );
         }
 
@@ -324,20 +411,12 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         ApplyFriction(fixedDeltaTime);
 
         // Check for detachment (rope too long)
-        if (currentDistance > grappleConfig.physicsConfig.maxDistance * 1.5f)
+        if (currentDistance > currentConfig.physicsConfig.maxDistance * 1.5f)
         {
             StopGrapple();
         }
     }
 
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="ratio"></param>
-    /// <param name="isStretch"></param>
-    /// <param name="currentDistance"></param>
-    /// <param name="fixedDeltaTime"></param>
-    /// <returns></returns>
     private float ApplySwingPhysics(float ratio, bool isStretch, float currentDistance, float fixedDeltaTime)
     {
         Vector2 toGrapple = grapplePoint - (Vector2)grappleOrigin.position;
@@ -392,38 +471,26 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         if (shouldApplyDamping && radialVelocity.magnitude > 0.1f)
         {
             Vector2 dampingForce = -radialVelocity.normalized *
-                                  (radialVelocity.magnitude * grappleConfig.physicsConfig.ropeDamping * dynamicStiffness);
+                                  (radialVelocity.magnitude * currentConfig.physicsConfig.ropeDamping * dynamicStiffness);
             rb.AddForce(dampingForce, ForceMode2D.Force);
         }
 
         return restoringForceMagnitude;
     }
 
-    /// <summary>
-    /// Applies swing friction to simulate air resistance.
-    /// Applies two types of friction:
-    /// 1. General swing friction (affects all velocity)
-    /// 2. Tangential friction (only affects motion perpendicular to rope direction)
-    /// </summary>
-    /// <param name="fixedDeltaTime">Fixed time step for friction calculation.</param>
     private void ApplyFriction(float fixedDeltaTime)
     {
         // Apply general swing friction (affects all velocity)
-        rb.linearVelocity *= 1 - grappleConfig.physicsConfig.friction;
+        rb.linearVelocity *= 1 - currentConfig.physicsConfig.friction;
 
         // Apply tangential friction (only affects motion perpendicular to rope)
         ApplyTangentialFriction(fixedDeltaTime);
     }
 
-    /// <summary>
-    /// Applies friction only to the tangential component of velocity.
-    /// This allows controlling swinging motion independently from radial motion.
-    /// </summary>
-    /// <param name="fixedDeltaTime">Fixed time step for friction calculation.</param>
     private void ApplyTangentialFriction(float fixedDeltaTime)
     {
         // Calculate base tangential friction
-        float effectiveTangentialFriction = grappleConfig.physicsConfig.tangentialFriction;
+        float effectiveTangentialFriction = currentConfig.physicsConfig.tangentialFriction;
 
         // Add reeling/unreeling friction based on state
         float reelingFrictionAdjustment = CalculateReelingFrictionAdjustment();
@@ -468,9 +535,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         }
     }
 
-    /// <summary>
-    /// Draws debug visualization for tangential friction.
-    /// </summary>
     private void DrawTangentialFrictionDebug(Vector2 tangentialVelocity, float effectiveFriction, float fixedDeltaTime)
     {
         // Color code: green for reeling, red for unreeling, orange for normal
@@ -493,10 +557,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
                      frictionColor, fixedDeltaTime);
     }
 
-    /// <summary>
-    /// Calculates additional friction based on reeling/unreeling state and current speed.
-    /// Uses velocity-based scaling to reduce friction impact at high speeds.
-    /// </summary>
     private float CalculateReelingFrictionAdjustment()
     {
         if (!isGrappling) return 0f;
@@ -513,32 +573,26 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         {
             return GetVelocityScaledFriction(
                 tangentialSpeed,
-                grappleConfig.physicsConfig.minReelingTangentialFriction,
-                grappleConfig.physicsConfig.maxReelingTangentialFriction,
-                grappleConfig.physicsConfig.maxReelingFrictionVelocity,
-                grappleConfig.physicsConfig.minReelingFrictionVelocity
+                currentConfig.physicsConfig.minReelingTangentialFriction,
+                currentConfig.physicsConfig.maxReelingTangentialFriction,
+                currentConfig.physicsConfig.maxReelingFrictionVelocity,
+                currentConfig.physicsConfig.minReelingFrictionVelocity
             );
         }
         else if (ShouldUnreel)
         {
             return GetVelocityScaledFriction(
                 tangentialSpeed,
-                grappleConfig.physicsConfig.minUnreelingTangentialFriction,
-                grappleConfig.physicsConfig.maxUnreelingTangentialFriction,
-                grappleConfig.physicsConfig.maxReelingFrictionVelocity,
-                grappleConfig.physicsConfig.minReelingFrictionVelocity
+                currentConfig.physicsConfig.minUnreelingTangentialFriction,
+                currentConfig.physicsConfig.maxUnreelingTangentialFriction,
+                currentConfig.physicsConfig.maxReelingFrictionVelocity,
+                currentConfig.physicsConfig.minReelingFrictionVelocity
             );
         }
 
         return 0f;
     }
 
-    /// <summary>
-    /// Scales friction between min and max values based on current speed.
-    /// At maxFrictionVelocity (low speed): returns maxFriction
-    /// At minFrictionVelocity (high speed): returns minFriction
-    /// Uses smooth interpolation outside the range.
-    /// </summary>
     private float GetVelocityScaledFriction(
         float currentSpeed,
         float minFriction,
@@ -568,14 +622,14 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
     private void ApplyBoost()
     {
-        if (swingMomentum.magnitude < grappleConfig.physicsConfig.minBoostVelocity)
+        if (swingMomentum.magnitude < currentConfig.physicsConfig.minBoostVelocity)
         {
             return;
         }
 
         // Calculate boost strength based on captured momentum
         float momentumMagnitude = swingMomentum.magnitude;
-        float boostStrength = momentumMagnitude * (grappleConfig.physicsConfig.boostMultiplier - 1f);
+        float boostStrength = momentumMagnitude * (currentConfig.physicsConfig.boostMultiplier - 1f);
         Vector2 boostDirection = swingMomentum.normalized;
 
         // Apply boost to movement system
@@ -598,19 +652,19 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         float currentDistance = toGrapple.magnitude;
 
         // Base reel speed
-        float effectiveReelSpeed = grappleConfig.reelConfig.reelSpeed;
+        float effectiveReelSpeed = currentConfig.reelConfig.reelSpeed;
 
         // Increase reel speed when there's slack
         if (currentDistance < currentRopeLength)
         {
             float slackRatio = 1f - (currentDistance / currentRopeLength);
-            effectiveReelSpeed *= Mathf.Lerp(1f, grappleConfig.reelConfig.slackReelMultiplier, slackRatio);
+            effectiveReelSpeed *= Mathf.Lerp(1f, currentConfig.reelConfig.slackReelMultiplier, slackRatio);
         }
 
         // Calculate and apply new rope length
-        float targetLength = Mathf.Max(grappleConfig.reelConfig.minRopeLength,
+        float targetLength = Mathf.Max(currentConfig.reelConfig.minRopeLength,
             currentRopeLength - effectiveReelSpeed * fixedDeltaTime);
-        currentRopeLength = Mathf.Lerp(currentRopeLength, targetLength, grappleConfig.reelConfig.reelSmoothness);
+        currentRopeLength = Mathf.Lerp(currentRopeLength, targetLength, currentConfig.reelConfig.reelSmoothness);
     }
 
     private void UpdateUnreeling(float fixedDeltaTime)
@@ -619,9 +673,9 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         float currentDistance = toGrapple.magnitude;
 
         // Calculate and apply new rope length
-        float targetLength = Mathf.Min(grappleConfig.reelConfig.maxRopeLength,
-            currentRopeLength + grappleConfig.reelConfig.unreelSpeed * fixedDeltaTime);
-        currentRopeLength = Mathf.Lerp(currentRopeLength, targetLength, grappleConfig.reelConfig.unreelSmoothness);
+        float targetLength = Mathf.Min(currentConfig.reelConfig.maxRopeLength,
+            currentRopeLength + currentConfig.reelConfig.unreelSpeed * fixedDeltaTime);
+        currentRopeLength = Mathf.Lerp(currentRopeLength, targetLength, currentConfig.reelConfig.unreelSmoothness);
     }
 
     //////////////////////// Helper Methods ////////////////////////
@@ -678,7 +732,8 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     public SwingArc GetSwingArc() => swingArc;
 
     /// <summary>
-    /// Switch to a different grapple configuration at runtime.
+    /// Directly switch to a different grapple configuration (for compatibility with old system).
+    /// Note: Use CharacterEquipment.EquipGrappleHook() instead for the new system.
     /// </summary>
     public void SwitchGrappleConfig(GrappleConfig newConfig)
     {
@@ -690,37 +745,28 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             StopGrapple();
         }
 
-        // Update configuration
-        grappleConfig = newConfig;
+        // Clean up old managers
+        CleanupManagers();
 
-        // Reinitialize physics calculator with new config
-        physicsCalculator = new GrapplePhysicsCalculator(grappleConfig.physicsConfig);
-
-        // Reinitialize visual manager
-        visualManager = new GrappleVisualManager(
-            grappleConfig.visualConfig,
-            grappleOrigin,
-            grappleLine,
-            showPhysicsDebug
-        );
-
-        // Clean up old sound manager and create new one
-        if (soundManager != null)
-        {
-            soundManager.Cleanup();
-        }
-
-        soundManager = new GrappleSoundManager(
-            grappleConfig.soundConfig,
-            this
-        );
-
-        Debug.Log($"Switched to {grappleConfig.movementState.name} grapple configuration");
+        // Initialize with new config
+        InitializeWithConfig(newConfig);
     }
 
     //////////////////////// Cleanup ///////////////////////////
     private void OnDestroy()
     {
+        // Unsubscribe from events
+        if (equipment != null)
+        {
+            equipment.OnGrappleHookChanged -= OnGrappleHookChanged;
+        }
+
+        if (character != null)
+        {
+            character.OnEvent -= HandleEvent;
+        }
+
+        // Clean up sound manager
         if (soundManager != null)
         {
             soundManager.Cleanup();

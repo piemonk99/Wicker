@@ -1342,7 +1342,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 514fe05ee16d31148b027ab926f6035c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GrappleSystem
-  grappleConfig: {fileID: 11400000, guid: 408ed55ff57e2524c9f798632511e0e0, type: 2}
+  grappleConfig: {fileID: 0}
   grappleOrigin: {fileID: 960373647}
   grappleLine: {fileID: 0}
   grappleInput: grapple_pressed
@@ -1376,6 +1376,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TestSetup
   startingWeapon: {fileID: 11400000, guid: 85bddd1abc6d2304992d7a10e8c6ad8f, type: 2}
+  startingGrappleHook: {fileID: 11400000, guid: 408ed55ff57e2524c9f798632511e0e0, type: 2}
+  additionalWeapons: []
+  additionalGrappleHooks: []
 --- !u!114 &960373653
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1400,6 +1403,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8b541dd611cf03640a208f6a86c2b1a3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InventoryComponent
+  maxWeapons: 10
+  maxGrappleHooks: 5
 --- !u!114 &960373655
 MonoBehaviour:
   m_ObjectHideFlags: 0

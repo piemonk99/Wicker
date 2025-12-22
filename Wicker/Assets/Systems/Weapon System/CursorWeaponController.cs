@@ -1,63 +1,63 @@
-// CursorSwordController.cs
+// CursorWeaponController.cs
 using UnityEngine;
 
-public class CursorSwordController : MonoBehaviour, IWeaponController
+public class CursorWeaponController : MonoBehaviour, IWeaponController
 {
-    private WeaponComponent owner;
-    private CursorSwordConfig config;
+    private CharacterEquipment owner;
+    private CursorWeaponConfig config;
     private CharacterCore character;
     private Transform characterTransform;
 
-    // Sword physics
-    private Rigidbody2D swordRb;
-    private Transform swordTransform;
+    // Weapon physics
+    private Rigidbody2D weaponRb;
+    private Transform weaponTransform;
     private Vector2 targetPosition;
     private Vector2 lastPosition;
-    private float currentSwordSpeed;
+    private float currentWeaponSpeed;
 
     // State
     private bool isActive = false;
     private bool isSwinging = false;
 
-    public void Initialize(WeaponConfig baseConfig, CharacterCore character, WeaponComponent owner)
+    public void Initialize(WeaponConfig baseConfig, CharacterCore character, CharacterEquipment owner)
     {
-        this.config = baseConfig as CursorSwordConfig;
+        this.config = baseConfig as CursorWeaponConfig;
         this.character = character;
         this.owner = owner;
         this.characterTransform = character.transform;
 
         if (this.config == null)
         {
-            Debug.LogError($"CursorSwordController requires CursorSwordConfig, got {baseConfig.GetType().Name}");
+            Debug.LogError($"CursorWeaponController requires CursorWeaponConfig, got {baseConfig.GetType().Name}");
             return;
         }
 
-        // Setup sword GameObject
-        swordTransform = transform;
-        swordRb = gameObject.AddComponent<Rigidbody2D>();
+        // Setup weapon GameObject
+        weaponTransform = transform;
+        weaponRb = gameObject.AddComponent<Rigidbody2D>();
 
-        // Configure sword rigidbody
-        swordRb.mass = config.swordMass;
-        swordRb.linearDamping = config.swordDrag;
-        swordRb.gravityScale = 0f;
-        swordRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        // Configure weapon rigidbody
+        weaponRb.mass = config.weaponMass;
+        weaponRb.linearDamping = config.weaponDrag;
+        weaponRb.gravityScale = 0f;
+        weaponRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
 
         // Set initial position
-        swordTransform.position = characterTransform.position + (Vector3)Vector2.right * config.orbitRadius;
-        lastPosition = swordTransform.position;
+        weaponTransform.position = characterTransform.position + (Vector3)Vector2.right * config.orbitRadius;
+        lastPosition = weaponTransform.position;
     }
 
     public bool TryAttack()
     {
-        // For cursor sword, attacking might mean "swing with force"
+        // For cursor weapon, attacking might mean "swing with force"
         // or it might just be always active. Let's make it toggle swinging.
         isSwinging = !isSwinging;
 
         if (isSwinging)
         {
             // Apply initial force if needed
-            Vector2 swingDirection = (targetPosition - (Vector2)swordTransform.position).normalized;
-            swordRb.AddForce(swingDirection * config.orbitSpeed, ForceMode2D.Impulse);
+            Vector2 swingDirection = (targetPosition - (Vector2)weaponTransform.position).normalized;
+            weaponRb.AddForce(swingDirection * config.orbitSpeed, ForceMode2D.Impulse);
         }
 
         return true;
@@ -72,15 +72,15 @@ public class CursorSwordController : MonoBehaviour, IWeaponController
         // Update target position based on cursor (for player) or AI (for enemy)
         UpdateTargetPosition(deltaTime);
 
-        // Calculate current sword speed for damage
-        currentSwordSpeed = ((Vector2)swordTransform.position - lastPosition).magnitude / deltaTime;
-        lastPosition = swordTransform.position;
+        // Calculate current weapon speed for damage
+        currentWeaponSpeed = ((Vector2)weaponTransform.position - lastPosition).magnitude / deltaTime;
+        lastPosition = weaponTransform.position;
 
         // Apply control forces
         ApplyControlForces(deltaTime);
 
         // Check for collisions and apply damage
-        if (isSwinging && currentSwordSpeed > config.minimumDamageSpeed)
+        if (isSwinging && currentWeaponSpeed > config.minimumDamageSpeed)
         {
             CheckCollisions();
         }
@@ -116,8 +116,8 @@ public class CursorSwordController : MonoBehaviour, IWeaponController
         if (!config.usePhysicsBasedMovement)
         {
             // Simple lerp movement
-            swordTransform.position = Vector2.Lerp(
-                swordTransform.position,
+            weaponTransform.position = Vector2.Lerp(
+                weaponTransform.position,
                 targetPosition,
                 config.cursorFollowSpeed * deltaTime
             );
@@ -125,7 +125,7 @@ public class CursorSwordController : MonoBehaviour, IWeaponController
         else
         {
             // Physics-based movement with force
-            Vector2 toTarget = targetPosition - (Vector2)swordTransform.position;
+            Vector2 toTarget = targetPosition - (Vector2)weaponTransform.position;
             float distance = toTarget.magnitude;
 
             if (distance > 0.1f)
@@ -135,15 +135,15 @@ public class CursorSwordController : MonoBehaviour, IWeaponController
                 float forceMagnitude = distance * config.returnForce;
 
                 // Limit maximum force to prevent overshooting
-                forceMagnitude = Mathf.Min(forceMagnitude, config.maxSwordSpeed);
+                forceMagnitude = Mathf.Min(forceMagnitude, config.maxWeaponSpeed);
 
-                swordRb.AddForce(forceDirection * forceMagnitude);
+                weaponRb.AddForce(forceDirection * forceMagnitude);
             }
 
             // Limit maximum speed
-            if (swordRb.linearVelocity.magnitude > config.maxSwordSpeed)
+            if (weaponRb.linearVelocity.magnitude > config.maxWeaponSpeed)
             {
-                swordRb.linearVelocity = swordRb.linearVelocity.normalized * config.maxSwordSpeed;
+                weaponRb.linearVelocity = weaponRb.linearVelocity.normalized * config.maxWeaponSpeed;
             }
         }
     }
@@ -151,16 +151,16 @@ public class CursorSwordController : MonoBehaviour, IWeaponController
     private void CheckCollisions()
     {
         // Simple collision check - you might want to use a collider instead
-        float checkRadius = 0.5f; // Adjust based on sword size
-        var hitColliders = Physics2D.OverlapCircleAll(swordTransform.position, checkRadius);
+        float checkRadius = 0.5f; // Adjust based on weapon size
+        var hitColliders = Physics2D.OverlapCircleAll(weaponTransform.position, checkRadius);
 
         foreach (var hit in hitColliders)
         {
             if (hit.gameObject == character.gameObject || hit.gameObject == gameObject)
                 continue;
 
-            // Calculate damage based on sword speed
-            float speedDamage = (currentSwordSpeed - config.minimumDamageSpeed) * config.damagePerSpeedUnit;
+            // Calculate damage based on weapon speed
+            float speedDamage = (currentWeaponSpeed - config.minimumDamageSpeed) * config.damagePerSpeedUnit;
             float totalDamage = Mathf.Max(config.baseDamage, speedDamage);
 
             // Add velocity bonus from character
@@ -173,12 +173,12 @@ public class CursorSwordController : MonoBehaviour, IWeaponController
 
     private void ApplyDamage(GameObject target, float damage)
     {
-        // Get or add HealthComponent
-        var health = target.GetComponent<HealthComponent>();
+        // Get or add CharacterCondition
+        var health = target.GetComponent<CharacterCondition>();
         if (health == null)
         {
             // For testing, add a health component if none exists
-            health = target.AddComponent<HealthComponent>();
+            health = target.AddComponent<CharacterCondition>();
         }
 
         if (health != null)
@@ -191,14 +191,14 @@ public class CursorSwordController : MonoBehaviour, IWeaponController
                 enemy = target,
                 damage = damage,
                 position = target.transform.position,
-                weaponType = "CursorSword"
+                weaponType = "CursorWeapon"
             });
 
-            // Apply knockback based on sword velocity
+            // Apply knockback based on weapon velocity
             var rb = target.GetComponent<Rigidbody2D>();
-            if (rb != null && swordRb.linearVelocity.magnitude > 0.1f)
+            if (rb != null && weaponRb.linearVelocity.magnitude > 0.1f)
             {
-                rb.AddForce(swordRb.linearVelocity.normalized * currentSwordSpeed * 0.5f, ForceMode2D.Impulse);
+                rb.AddForce(weaponRb.linearVelocity.normalized * currentWeaponSpeed * 0.5f, ForceMode2D.Impulse);
             }
         }
     }

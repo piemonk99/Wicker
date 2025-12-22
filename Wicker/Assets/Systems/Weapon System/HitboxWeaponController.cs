@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 public class HitboxWeaponController : MonoBehaviour, IWeaponController
 {
-    private WeaponComponent owner;
+    private CharacterEquipment owner;
     private HitboxWeaponConfig config;
     private CharacterCore character;
     private Transform characterTransform;
@@ -13,7 +13,7 @@ public class HitboxWeaponController : MonoBehaviour, IWeaponController
     private float activeTimer = 0f;
     private List<GameObject> alreadyHit = new List<GameObject>();
 
-    public void Initialize(WeaponConfig baseConfig, CharacterCore character, WeaponComponent owner)
+    public void Initialize(WeaponConfig baseConfig, CharacterCore character, CharacterEquipment owner)
     {
         this.config = baseConfig as HitboxWeaponConfig;
         this.character = character;
@@ -83,12 +83,12 @@ public class HitboxWeaponController : MonoBehaviour, IWeaponController
 
     private void ApplyDamage(GameObject target, float damage, Vector2 direction)
     {
-        // Get or add HealthComponent
-        var health = target.GetComponent<HealthComponent>();
+        // Get or add CharacterCondition
+        var health = target.GetComponent<CharacterCondition>();
         if (health == null)
         {
             // For testing, add a health component if none exists
-            health = target.AddComponent<HealthComponent>();
+            health = target.AddComponent<CharacterCondition>();
         }
 
         if (health != null)
