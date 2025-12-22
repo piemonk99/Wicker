@@ -34,6 +34,11 @@ public class SoundNode : ScriptableObject
 
     public void Initialize()
     {
+        if (nodeID == "Root")
+        {
+            PrintBasicTree();
+        }
+
         childNodeDict = new Dictionary<string, SoundNode>();
         foreach (var child in childNodes)
         {

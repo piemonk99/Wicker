@@ -1,4 +1,3 @@
-// AutoAttackWeaponConfig.cs
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "AutoAttackWeapon", menuName = "Weapons/Auto Attack")]
@@ -7,7 +6,7 @@ public class AutoAttackWeaponConfig : WeaponConfig
     [Header("Auto Attack Settings")]
     public float detectionRadius = 3f;
     public float attackInterval = 0.3f;
-    public float velocityThreshold = 3f; // Minimum speed to trigger attacks
+    public float velocityThreshold = 3f;
 
     [Header("Grapple Enhancement")]
     public bool onlyActiveDuringGrapple = false;
@@ -18,6 +17,9 @@ public class AutoAttackWeaponConfig : WeaponConfig
     public float autoAttackDamage = 5f;
     public float attackWidth = 1f;
     public LayerMask enemyLayers;
+
+    [Header("Debug")]
+    public bool enableDebugVisualization = false;
 
     public override void InitializeWeapon(GameObject weaponInstance, CharacterCore character)
     {

@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e4b6304a05b355042ae0f364c528dc4f, type: 3}
-  m_Name: PlayerSounds
+  m_Name: DaggerSwing1Sound
   m_EditorClassIdentifier: Assembly-CSharp::SoundNode
-  nodeID: Player
-  nodeType: 1
-  clip: {fileID: 0}
+  nodeID: 1
+  nodeType: 0
+  clip: {fileID: 8300000, guid: d4ec0c467e5b9004d8445df290a18db8, type: 3}
   baseVolume: 1
   pitch: 1
   pitchVariation: 0
@@ -23,6 +23,4 @@ MonoBehaviour:
   category: 2
   weight: 1
   playMode: 0
-  childNodes:
-  - {fileID: 11400000, guid: c1f841a5bbd69394e835d0089a305c96, type: 2}
-  - {fileID: 11400000, guid: 75b5128d52d863341afd7f8018c06459, type: 2}
+  childNodes: []

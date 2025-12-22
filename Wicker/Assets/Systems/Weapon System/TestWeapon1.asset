@@ -23,13 +23,14 @@ MonoBehaviour:
   scalesWithVelocity: 1
   velocityDamageMultiplier: 0.5
   maxVelocityBonus: 20
-  hitboxSize: {x: 1.5, y: 0.8}
-  hitboxOffset: {x: 0.5, y: 0}
+  hitboxSize: {x: 2, y: 3}
+  hitboxOffset: {x: 1.5, y: 0}
   attackDuration: 0.2
   attackAnimation: {fileID: 0}
   hitLayers:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 128
   multiHit: 0
   maxHitsPerAttack: 1
   knockbackForce: 5
+  enableDebugVisualization: 1

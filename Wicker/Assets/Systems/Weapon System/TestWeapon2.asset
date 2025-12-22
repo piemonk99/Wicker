@@ -25,12 +25,13 @@ MonoBehaviour:
   maxVelocityBonus: 20
   orbitRadius: 2
   orbitSpeed: 5
-  weaponMass: 1
-  weaponDrag: 0.5
-  maxWeaponSpeed: 20
+  swordMass: 1
+  swordDrag: 0.5
+  maxSwordSpeed: 20
   returnForce: 10
   cursorFollowSpeed: 15
   maxAnglePerSecond: 180
   usePhysicsBasedMovement: 1
   damagePerSpeedUnit: 0.2
   minimumDamageSpeed: 2
+  enableDebugVisualization: 1

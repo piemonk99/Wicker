@@ -1,4 +1,3 @@
-// HitboxWeaponConfig.cs
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "HitboxWeapon", menuName = "Weapons/Hitbox Weapon")]
@@ -15,6 +14,9 @@ public class HitboxWeaponConfig : WeaponConfig
     public bool multiHit = false;
     public int maxHitsPerAttack = 1;
     public float knockbackForce = 5f;
+
+    [Header("Debug")]
+    public bool enableDebugVisualization = false;
 
     public override void InitializeWeapon(GameObject weaponInstance, CharacterCore character)
     {

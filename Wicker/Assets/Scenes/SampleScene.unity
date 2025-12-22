@@ -404,7 +404,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 449028902}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: GroundCheck
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1131,9 +1131,9 @@ GameObject:
   - component: {fileID: 960373651}
   - component: {fileID: 960373642}
   - component: {fileID: 960373649}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Player
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1342,7 +1342,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 514fe05ee16d31148b027ab926f6035c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GrappleSystem
-  grappleConfig: {fileID: 0}
   grappleOrigin: {fileID: 960373647}
   grappleLine: {fileID: 0}
   grappleInput: grapple_pressed
@@ -1375,7 +1374,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2dd75273c7e5e8e42ab39e87c53399d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TestSetup
-  startingWeapon: {fileID: 11400000, guid: 85bddd1abc6d2304992d7a10e8c6ad8f, type: 2}
+  startingWeapon: {fileID: 11400000, guid: 6e0686538ff76c0408c961c6eb185471, type: 2}
   startingGrappleHook: {fileID: 11400000, guid: 408ed55ff57e2524c9f798632511e0e0, type: 2}
   additionalWeapons: []
   additionalGrappleHooks: []
@@ -1536,9 +1535,9 @@ GameObject:
   - component: {fileID: 1140701399}
   - component: {fileID: 1140701398}
   - component: {fileID: 1140701397}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Enemy
-  m_TagString: Untagged
+  m_TagString: Enemy
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2061,7 +2060,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1587671672}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: GroundCheck
   m_TagString: Untagged
   m_Icon: {fileID: 0}
