@@ -1,4 +1,3 @@
-// AutoAttackWeaponSystem.cs
 using UnityEngine;
 using System.Collections.Generic;
 
@@ -25,15 +24,15 @@ public class AutoAttackWeaponSystem : WeaponSystem
     private float hitCooldown = 1f;
 
     // Config references
-    private AutoAttackWeaponMechanicsConfig mechanicsConfig;
-    private AutoAttackWeaponVisualConfig visualConfig;
-    private AutoAttackWeaponSoundConfig soundConfig;
+    private AutoAttackWeaponMechanicsConfig autoAttackMechanics;
+    private AutoAttackWeaponVisualConfig autoAttackVisual;
+    private AutoAttackWeaponSoundConfig autoAttackSound;
 
     // Debug
     private List<Vector3> lastDetectionPositions = new List<Vector3>();
     private int totalAttacks = 0;
     private int totalHits = 0;
-    private float debugLineDuration = 0.1f;
+    private float debugLineDuration = 0.002f;
 
     // Cache
     private int enemyLayerMask;
@@ -43,35 +42,35 @@ public class AutoAttackWeaponSystem : WeaponSystem
     {
         base.InitializeWithConfig(config);
 
-        if (configManager == null) return;
+        if (currentConfig == null) return;
 
-        // Get specific configs
-        mechanicsConfig = configManager.GetMechanicsConfig<AutoAttackWeaponMechanicsConfig>();
-        visualConfig = configManager.GetVisualConfig<AutoAttackWeaponVisualConfig>();
-        soundConfig = configManager.GetSoundConfig<AutoAttackWeaponSoundConfig>();
+        // Get specific configs from the main config
+        autoAttackMechanics = currentConfig.MechanicsConfig as AutoAttackWeaponMechanicsConfig;
+        autoAttackVisual = currentConfig.VisualConfig as AutoAttackWeaponVisualConfig;
+        autoAttackSound = currentConfig.SoundConfig as AutoAttackWeaponSoundConfig;
 
-        if (mechanicsConfig == null || visualConfig == null)
+        if (autoAttackMechanics == null || autoAttackVisual == null)
         {
-            Debug.LogError($"AutoAttackWeaponSystem requires appropriate configs");
+            Debug.LogError($"AutoAttackWeaponSystem requires AutoAttackWeapon configs");
             return;
         }
 
         // Build layer mask from config
-        enemyLayerMask = mechanicsConfig.enemyLayers.value;
+        enemyLayerMask = autoAttackMechanics.enemyLayers.value;
 
         // Use attack interval as cooldown
-        hitCooldown = Mathf.Max(0.5f, mechanicsConfig.attackInterval * 2f);
+        hitCooldown = Mathf.Max(0.5f, autoAttackMechanics.attackInterval * 2f);
 
-        attackTimer = mechanicsConfig.attackInterval;
+        attackTimer = autoAttackMechanics.attackInterval;
 
         // Set debug mode
-        showDebugInfo = visualConfig.enableDebugVisualization;
+        showDebugInfo = autoAttackVisual.enableDebugVisualization;
 
         Debug.Log($"AutoAttackWeaponSystem initialized: {config.weaponName}");
-        Debug.Log($"  Detection Radius: {mechanicsConfig.detectionRadius}");
-        Debug.Log($"  Attack Interval: {mechanicsConfig.attackInterval}");
-        Debug.Log($"  Enemy Layers: {mechanicsConfig.enemyLayers.value}");
-        Debug.Log($"  Debug Visualization: {visualConfig.enableDebugVisualization}");
+        Debug.Log($"  Detection Radius: {autoAttackMechanics.detectionRadius}");
+        Debug.Log($"  Attack Interval: {autoAttackMechanics.attackInterval}");
+        Debug.Log($"  Enemy Layers: {autoAttackMechanics.enemyLayers.value}");
+        Debug.Log($"  Debug Visualization: {autoAttackVisual.enableDebugVisualization}");
     }
 
     protected override void TryAttack()
@@ -99,7 +98,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
     {
         base.Tick(deltaTime);
 
-        if (mechanicsConfig == null || !isEnabled) return;
+        if (autoAttackMechanics == null || !isEnabled) return;
 
         // Update timers
         attackTimer -= deltaTime;
@@ -109,11 +108,11 @@ public class AutoAttackWeaponSystem : WeaponSystem
         if (attackTimer <= 0 && ShouldAttack())
         {
             PerformAutoAttack();
-            attackTimer = mechanicsConfig.attackInterval;
+            attackTimer = autoAttackMechanics.attackInterval;
         }
 
         // Draw debug info
-        if (showDebugInfo)
+        if (showDebugInfo && autoAttackVisual != null)
         {
             DrawDebugInfo();
         }
@@ -140,14 +139,16 @@ public class AutoAttackWeaponSystem : WeaponSystem
 
     private bool ShouldAttack()
     {
+        if (autoAttackMechanics == null) return false;
+
         // Check if weapon is only active during grapple
-        if (mechanicsConfig.onlyActiveDuringGrapple && !equipment.IsGrappling())
+        if (autoAttackMechanics.onlyActiveDuringGrapple && !equipment.IsGrappling())
         {
             return false;
         }
 
         // Check velocity threshold
-        if (rb != null && rb.linearVelocity.magnitude < mechanicsConfig.velocityThreshold)
+        if (rb != null && rb.linearVelocity.magnitude < autoAttackMechanics.velocityThreshold)
         {
             return false;
         }
@@ -166,12 +167,13 @@ public class AutoAttackWeaponSystem : WeaponSystem
     {
         var validEnemies = new List<GameObject>();
 
-        if (character == null || character.transform == null) return validEnemies;
+        if (character == null || character.transform == null || autoAttackMechanics == null)
+            return validEnemies;
 
         // Find all colliders in detection radius
         var allColliders = Physics2D.OverlapCircleAll(
             character.transform.position,
-            mechanicsConfig.detectionRadius,
+            autoAttackMechanics.detectionRadius,
             enemyLayerMask
         );
 
@@ -192,7 +194,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
             if (equipment.IsGrappling())
             {
                 float distance = Vector2.Distance(character.transform.position, obj.transform.position);
-                if (distance > mechanicsConfig.maxGrappleRange)
+                if (distance > autoAttackMechanics.maxGrappleRange)
                     continue;
             }
 
@@ -204,7 +206,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
         }
 
         // Store for debug visualization
-        if (showDebugInfo)
+        if (showDebugInfo && autoAttackVisual != null)
         {
             lastDetectionPositions.Clear();
             foreach (var enemy in validEnemies)
@@ -274,15 +276,15 @@ public class AutoAttackWeaponSystem : WeaponSystem
 
         foreach (var enemy in enemies)
         {
-            if (enemy == null) continue;
+            if (enemy == null || autoAttackMechanics == null) continue;
 
             // Calculate damage
-            float damage = mechanicsConfig.autoAttackDamage;
+            float damage = autoAttackMechanics.autoAttackDamage;
 
             // Apply grapple multiplier if grappling
             if (equipment.IsGrappling())
             {
-                damage *= mechanicsConfig.grappleDamageMultiplier;
+                damage *= autoAttackMechanics.grappleDamageMultiplier;
             }
 
             // Add velocity bonus
@@ -323,15 +325,15 @@ public class AutoAttackWeaponSystem : WeaponSystem
 
     private void DrawDebugInfo()
     {
-        if (character == null || character.transform == null) return;
+        if (character == null || character.transform == null || autoAttackVisual == null) return;
 
         // Draw detection radius
-        DrawCircle(character.transform.position, mechanicsConfig.detectionRadius, 24, visualConfig.detectionRadiusColor);
+        DrawCircle(character.transform.position, autoAttackMechanics.detectionRadius, 24, autoAttackVisual.detectionRadiusColor);
 
         // Draw grapple range if grappling
-        if (equipment.IsGrappling())
+        if (equipment.IsGrappling() && autoAttackMechanics != null)
         {
-            DrawCircle(character.transform.position, mechanicsConfig.maxGrappleRange, 24, visualConfig.grappleRangeColor);
+            DrawCircle(character.transform.position, autoAttackMechanics.maxGrappleRange, 24, autoAttackVisual.grappleRangeColor);
         }
 
         // Draw recent enemy positions
@@ -373,12 +375,12 @@ public class AutoAttackWeaponSystem : WeaponSystem
 
     public string GetDebugInfo()
     {
-        if (mechanicsConfig == null) return "No config";
+        if (autoAttackMechanics == null) return "No config";
 
         return $"Auto-Attack Weapon:\n" +
                $"Enabled: {isEnabled}\n" +
                $"Status: {(attackTimer <= 0 ? "READY" : $"Charging ({attackTimer:F2}s)")}\n" +
-               $"Velocity: {rb?.linearVelocity.magnitude:F1}/{mechanicsConfig.velocityThreshold}\n" +
+               $"Velocity: {rb?.linearVelocity.magnitude:F1}/{autoAttackMechanics.velocityThreshold}\n" +
                $"Grappling: {equipment.IsGrappling()}\n" +
                $"Total Attacks: {totalAttacks}\n" +
                $"Total Hits: {totalHits}\n" +
@@ -389,9 +391,9 @@ public class AutoAttackWeaponSystem : WeaponSystem
     {
         base.CleanupManagers();
 
-        mechanicsConfig = null;
-        visualConfig = null;
-        soundConfig = null;
+        autoAttackMechanics = null;
+        autoAttackVisual = null;
+        autoAttackSound = null;
         recentHits.Clear();
         lastDetectionPositions.Clear();
     }

@@ -1,4 +1,3 @@
-// WeaponConfig.cs - This stays as is
 using UnityEngine;
 
 public enum WeaponType
@@ -18,6 +17,54 @@ public enum WeaponCategory
 }
 
 /// <summary>
+/// Base class for all weapon mechanics configurations.
+/// Each weapon type will have its own implementation.
+/// </summary>
+[System.Serializable]
+public class WeaponMechanicsConfig
+{
+    [Header("Basic Combat Settings")]
+    public float baseDamage = 10f;
+    public float attackCooldown = 0.5f;
+    public bool canAttackWhileMoving = true;
+
+    [Header("Velocity Scaling")]
+    public bool scalesWithVelocity = true;
+    public float velocityDamageMultiplier = 0.5f;
+    public float maxVelocityBonus = 20f;
+}
+
+/// <summary>
+/// Base class for all weapon visual configurations.
+/// </summary>
+[System.Serializable]
+public class WeaponVisualConfig
+{
+    [Header("Visual Settings")]
+    public GameObject weaponPrefab;
+    public Sprite icon;
+
+    [Header("Debug Visualization")]
+    public bool enableDebugVisualization = false;
+}
+
+/// <summary>
+/// Base class for all weapon sound configurations.
+/// Each weapon type can implement its own sound behavior.
+/// </summary>
+[System.Serializable]
+public class WeaponSoundConfig
+{
+    [Header("Sound References")]
+    public SoundNode weaponSoundSet;
+
+    [Header("Volume Settings")]
+    [Range(0f, 2f)] public float swingVolume = 1.0f;
+    [Range(0f, 2f)] public float critVolume = 1.2f;
+    public float swingCooldown = 0.1f;
+}
+
+/// <summary>
 /// Complete weapon configuration as a ScriptableObject.
 /// Create assets via: Right-click -> Create -> Weapons -> Weapon Config
 /// </summary>
@@ -29,14 +76,58 @@ public class WeaponConfig : ScriptableObject
     public WeaponType weaponType;
     public WeaponCategory category = WeaponCategory.Melee;
 
-    [Header("Mechanics Configuration")]
-    public WeaponMechanicsConfig mechanicsConfig;
+    [Header("Type-Specific Configuration")]
+    [Tooltip("Reference to the specific weapon configuration asset")]
+    public ScriptableObject typeSpecificConfig;
 
-    [Header("Visual Configuration")]
-    public WeaponVisualConfig visualConfig;
+    // Helper properties to access the specific configs
+    public WeaponMechanicsConfig MechanicsConfig
+    {
+        get
+        {
+            if (typeSpecificConfig == null) return null;
 
-    [Header("Sound Configuration")]
-    public WeaponSoundConfig soundConfig;
+            return weaponType switch
+            {
+                WeaponType.Hitbox => (typeSpecificConfig as HitboxWeaponConfig)?.mechanics,
+                WeaponType.CursorWeapon => (typeSpecificConfig as CursorWeaponConfig)?.mechanics,
+                WeaponType.AutoAttack => (typeSpecificConfig as AutoAttackWeaponConfig)?.mechanics,
+                _ => null
+            };
+        }
+    }
+
+    public WeaponVisualConfig VisualConfig
+    {
+        get
+        {
+            if (typeSpecificConfig == null) return null;
+
+            return weaponType switch
+            {
+                WeaponType.Hitbox => (typeSpecificConfig as HitboxWeaponConfig)?.visual,
+                WeaponType.CursorWeapon => (typeSpecificConfig as CursorWeaponConfig)?.visual,
+                WeaponType.AutoAttack => (typeSpecificConfig as AutoAttackWeaponConfig)?.visual,
+                _ => null
+            };
+        }
+    }
+
+    public WeaponSoundConfig SoundConfig
+    {
+        get
+        {
+            if (typeSpecificConfig == null) return null;
+
+            return weaponType switch
+            {
+                WeaponType.Hitbox => (typeSpecificConfig as HitboxWeaponConfig)?.sound,
+                WeaponType.CursorWeapon => (typeSpecificConfig as CursorWeaponConfig)?.sound,
+                WeaponType.AutoAttack => (typeSpecificConfig as AutoAttackWeaponConfig)?.sound,
+                _ => null
+            };
+        }
+    }
 
     // Helper properties
     public string WeaponName => weaponName;
@@ -53,196 +144,211 @@ public class WeaponConfig : ScriptableObject
         clone.weaponType = weaponType;
         clone.category = category;
 
-        // Clone mechanics config based on type
-        clone.mechanicsConfig = CloneMechanicsConfig();
-
-        // Clone visual config based on type
-        clone.visualConfig = CloneVisualConfig();
-
-        // Clone sound config based on type
-        clone.soundConfig = CloneSoundConfig();
+        // Clone the type-specific config if it exists
+        if (typeSpecificConfig != null)
+        {
+            clone.typeSpecificConfig = CloneTypeSpecificConfig();
+        }
 
         return clone;
     }
 
-    private WeaponMechanicsConfig CloneMechanicsConfig()
+    private ScriptableObject CloneTypeSpecificConfig()
     {
-        if (mechanicsConfig == null) return null;
+        if (typeSpecificConfig == null) return null;
 
         switch (weaponType)
         {
             case WeaponType.Hitbox:
-                var hitboxMech = mechanicsConfig as HitboxWeaponMechanicsConfig;
-                if (hitboxMech == null) return null;
+                var hitboxConfig = typeSpecificConfig as HitboxWeaponConfig;
+                if (hitboxConfig == null) return null;
 
-                return new HitboxWeaponMechanicsConfig()
-                {
-                    baseDamage = hitboxMech.baseDamage,
-                    attackCooldown = hitboxMech.attackCooldown,
-                    canAttackWhileMoving = hitboxMech.canAttackWhileMoving,
-                    scalesWithVelocity = hitboxMech.scalesWithVelocity,
-                    velocityDamageMultiplier = hitboxMech.velocityDamageMultiplier,
-                    maxVelocityBonus = hitboxMech.maxVelocityBonus,
-                    hitboxSize = hitboxMech.hitboxSize,
-                    hitboxOffset = hitboxMech.hitboxOffset,
-                    attackDuration = hitboxMech.attackDuration,
-                    hitLayers = hitboxMech.hitLayers,
-                    multiHit = hitboxMech.multiHit,
-                    maxHitsPerAttack = hitboxMech.maxHitsPerAttack,
-                    knockbackForce = hitboxMech.knockbackForce
-                };
+                var clonedHitbox = CreateInstance<HitboxWeaponConfig>();
+                clonedHitbox.mechanics = CloneHitboxMechanics(hitboxConfig.mechanics);
+                clonedHitbox.visual = CloneHitboxVisual(hitboxConfig.visual);
+                clonedHitbox.sound = CloneHitboxSound(hitboxConfig.sound);
+                return clonedHitbox;
 
             case WeaponType.CursorWeapon:
-                var cursorMech = mechanicsConfig as CursorWeaponMechanicsConfig;
-                if (cursorMech == null) return null;
+                var cursorConfig = typeSpecificConfig as CursorWeaponConfig;
+                if (cursorConfig == null) return null;
 
-                return new CursorWeaponMechanicsConfig()
-                {
-                    baseDamage = cursorMech.baseDamage,
-                    attackCooldown = cursorMech.attackCooldown,
-                    canAttackWhileMoving = cursorMech.canAttackWhileMoving,
-                    scalesWithVelocity = cursorMech.scalesWithVelocity,
-                    velocityDamageMultiplier = cursorMech.velocityDamageMultiplier,
-                    maxVelocityBonus = cursorMech.maxVelocityBonus,
-                    orbitRadius = cursorMech.orbitRadius,
-                    orbitSpeed = cursorMech.orbitSpeed,
-                    swordMass = cursorMech.swordMass,
-                    swordDrag = cursorMech.swordDrag,
-                    maxSwordSpeed = cursorMech.maxSwordSpeed,
-                    returnForce = cursorMech.returnForce,
-                    cursorFollowSpeed = cursorMech.cursorFollowSpeed,
-                    maxAnglePerSecond = cursorMech.maxAnglePerSecond,
-                    usePhysicsBasedMovement = cursorMech.usePhysicsBasedMovement,
-                    damagePerSpeedUnit = cursorMech.damagePerSpeedUnit,
-                    minimumDamageSpeed = cursorMech.minimumDamageSpeed
-                };
+                var clonedCursor = CreateInstance<CursorWeaponConfig>();
+                clonedCursor.mechanics = CloneCursorMechanics(cursorConfig.mechanics);
+                clonedCursor.visual = CloneCursorVisual(cursorConfig.visual);
+                clonedCursor.sound = CloneCursorSound(cursorConfig.sound);
+                return clonedCursor;
 
             case WeaponType.AutoAttack:
-                var autoMech = mechanicsConfig as AutoAttackWeaponMechanicsConfig;
-                if (autoMech == null) return null;
+                var autoConfig = typeSpecificConfig as AutoAttackWeaponConfig;
+                if (autoConfig == null) return null;
 
-                return new AutoAttackWeaponMechanicsConfig()
-                {
-                    baseDamage = autoMech.baseDamage,
-                    attackCooldown = autoMech.attackCooldown,
-                    canAttackWhileMoving = autoMech.canAttackWhileMoving,
-                    scalesWithVelocity = autoMech.scalesWithVelocity,
-                    velocityDamageMultiplier = autoMech.velocityDamageMultiplier,
-                    maxVelocityBonus = autoMech.maxVelocityBonus,
-                    detectionRadius = autoMech.detectionRadius,
-                    attackInterval = autoMech.attackInterval,
-                    velocityThreshold = autoMech.velocityThreshold,
-                    onlyActiveDuringGrapple = autoMech.onlyActiveDuringGrapple,
-                    grappleDamageMultiplier = autoMech.grappleDamageMultiplier,
-                    maxGrappleRange = autoMech.maxGrappleRange,
-                    autoAttackDamage = autoMech.autoAttackDamage,
-                    enemyLayers = autoMech.enemyLayers
-                };
+                var clonedAuto = CreateInstance<AutoAttackWeaponConfig>();
+                clonedAuto.mechanics = CloneAutoAttackMechanics(autoConfig.mechanics);
+                clonedAuto.visual = CloneAutoAttackVisual(autoConfig.visual);
+                clonedAuto.sound = CloneAutoAttackSound(autoConfig.sound);
+                return clonedAuto;
 
             default:
                 return null;
         }
     }
 
-    private WeaponVisualConfig CloneVisualConfig()
+    // Clone methods for each config type
+    private HitboxWeaponMechanicsConfig CloneHitboxMechanics(HitboxWeaponMechanicsConfig source)
     {
-        if (visualConfig == null) return null;
+        if (source == null) return null;
 
-        switch (weaponType)
+        return new HitboxWeaponMechanicsConfig()
         {
-            case WeaponType.Hitbox:
-                var hitboxVis = visualConfig as HitboxWeaponVisualConfig;
-                if (hitboxVis == null) return null;
-
-                return new HitboxWeaponVisualConfig()
-                {
-                    weaponPrefab = hitboxVis.weaponPrefab,
-                    icon = hitboxVis.icon,
-                    enableDebugVisualization = hitboxVis.enableDebugVisualization,
-                    attackAnimation = hitboxVis.attackAnimation,
-                    hitboxDebugColor = hitboxVis.hitboxDebugColor
-                };
-
-            case WeaponType.CursorWeapon:
-                var cursorVis = visualConfig as CursorWeaponVisualConfig;
-                if (cursorVis == null) return null;
-
-                return new CursorWeaponVisualConfig()
-                {
-                    weaponPrefab = cursorVis.weaponPrefab,
-                    icon = cursorVis.icon,
-                    enableDebugVisualization = cursorVis.enableDebugVisualization,
-                    orbitDebugColor = cursorVis.orbitDebugColor,
-                    swordTrailColor = cursorVis.swordTrailColor
-                };
-
-            case WeaponType.AutoAttack:
-                var autoVis = visualConfig as AutoAttackWeaponVisualConfig;
-                if (autoVis == null) return null;
-
-                return new AutoAttackWeaponVisualConfig()
-                {
-                    weaponPrefab = autoVis.weaponPrefab,
-                    icon = autoVis.icon,
-                    enableDebugVisualization = autoVis.enableDebugVisualization,
-                    detectionRadiusColor = autoVis.detectionRadiusColor,
-                    grappleRangeColor = autoVis.grappleRangeColor
-                };
-
-            default:
-                return null;
-        }
+            baseDamage = source.baseDamage,
+            attackCooldown = source.attackCooldown,
+            canAttackWhileMoving = source.canAttackWhileMoving,
+            scalesWithVelocity = source.scalesWithVelocity,
+            velocityDamageMultiplier = source.velocityDamageMultiplier,
+            maxVelocityBonus = source.maxVelocityBonus,
+            hitboxSize = source.hitboxSize,
+            hitboxOffset = source.hitboxOffset,
+            attackDuration = source.attackDuration,
+            hitLayers = source.hitLayers,
+            multiHit = source.multiHit,
+            maxHitsPerAttack = source.maxHitsPerAttack,
+            knockbackForce = source.knockbackForce
+        };
     }
 
-    private WeaponSoundConfig CloneSoundConfig()
+    private HitboxWeaponVisualConfig CloneHitboxVisual(HitboxWeaponVisualConfig source)
     {
-        if (soundConfig == null) return null;
+        if (source == null) return null;
 
-        switch (weaponType)
+        return new HitboxWeaponVisualConfig()
         {
-            case WeaponType.Hitbox:
-                var hitboxSound = soundConfig as HitboxWeaponSoundConfig;
-                if (hitboxSound == null) return null;
+            weaponPrefab = source.weaponPrefab,
+            icon = source.icon,
+            enableDebugVisualization = source.enableDebugVisualization,
+            attackAnimation = source.attackAnimation,
+            hitboxDebugColor = source.hitboxDebugColor
+        };
+    }
 
-                return new HitboxWeaponSoundConfig()
-                {
-                    weaponSoundSet = hitboxSound.weaponSoundSet,
-                    swingVolume = hitboxSound.swingVolume,
-                    critVolume = hitboxSound.critVolume,
-                    swingCooldown = hitboxSound.swingCooldown,
-                    hitVolume = hitboxSound.hitVolume
-                };
+    private HitboxWeaponSoundConfig CloneHitboxSound(HitboxWeaponSoundConfig source)
+    {
+        if (source == null) return null;
 
-            case WeaponType.CursorWeapon:
-                var cursorSound = soundConfig as CursorWeaponSoundConfig;
-                if (cursorSound == null) return null;
+        return new HitboxWeaponSoundConfig()
+        {
+            weaponSoundSet = source.weaponSoundSet,
+            swingVolume = source.swingVolume,
+            critVolume = source.critVolume,
+            swingCooldown = source.swingCooldown,
+            hitVolume = source.hitVolume
+        };
+    }
 
-                return new CursorWeaponSoundConfig()
-                {
-                    weaponSoundSet = cursorSound.weaponSoundSet,
-                    swingVolume = cursorSound.swingVolume,
-                    critVolume = cursorSound.critVolume,
-                    swingCooldown = cursorSound.swingCooldown,
-                    swooshSound = cursorSound.swooshSound,
-                    swooshVelocityThreshold = cursorSound.swooshVelocityThreshold,
-                    swooshVolume = cursorSound.swooshVolume
-                };
+    private CursorWeaponMechanicsConfig CloneCursorMechanics(CursorWeaponMechanicsConfig source)
+    {
+        if (source == null) return null;
 
-            case WeaponType.AutoAttack:
-                var autoSound = soundConfig as AutoAttackWeaponSoundConfig;
-                if (autoSound == null) return null;
+        return new CursorWeaponMechanicsConfig()
+        {
+            baseDamage = source.baseDamage,
+            attackCooldown = source.attackCooldown,
+            canAttackWhileMoving = source.canAttackWhileMoving,
+            scalesWithVelocity = source.scalesWithVelocity,
+            velocityDamageMultiplier = source.velocityDamageMultiplier,
+            maxVelocityBonus = source.maxVelocityBonus,
+            orbitRadius = source.orbitRadius,
+            orbitSpeed = source.orbitSpeed,
+            swordMass = source.swordMass,
+            swordDrag = source.swordDrag,
+            maxSwordSpeed = source.maxSwordSpeed,
+            returnForce = source.returnForce,
+            cursorFollowSpeed = source.cursorFollowSpeed,
+            maxAnglePerSecond = source.maxAnglePerSecond,
+            usePhysicsBasedMovement = source.usePhysicsBasedMovement,
+            damagePerSpeedUnit = source.damagePerSpeedUnit,
+            minimumDamageSpeed = source.minimumDamageSpeed
+        };
+    }
 
-                return new AutoAttackWeaponSoundConfig()
-                {
-                    weaponSoundSet = autoSound.weaponSoundSet,
-                    swingVolume = autoSound.swingVolume,
-                    critVolume = autoSound.critVolume,
-                    swingCooldown = autoSound.swingCooldown,
-                    critVelocityThreshold = autoSound.critVelocityThreshold
-                };
+    private CursorWeaponVisualConfig CloneCursorVisual(CursorWeaponVisualConfig source)
+    {
+        if (source == null) return null;
 
-            default:
-                return null;
-        }
+        return new CursorWeaponVisualConfig()
+        {
+            weaponPrefab = source.weaponPrefab,
+            icon = source.icon,
+            enableDebugVisualization = source.enableDebugVisualization,
+            orbitDebugColor = source.orbitDebugColor,
+            swordTrailColor = source.swordTrailColor
+        };
+    }
+
+    private CursorWeaponSoundConfig CloneCursorSound(CursorWeaponSoundConfig source)
+    {
+        if (source == null) return null;
+
+        return new CursorWeaponSoundConfig()
+        {
+            weaponSoundSet = source.weaponSoundSet,
+            swingVolume = source.swingVolume,
+            critVolume = source.critVolume,
+            swingCooldown = source.swingCooldown,
+            swooshSound = source.swooshSound,
+            swooshVelocityThreshold = source.swooshVelocityThreshold,
+            swooshVolume = source.swooshVolume
+        };
+    }
+
+    private AutoAttackWeaponMechanicsConfig CloneAutoAttackMechanics(AutoAttackWeaponMechanicsConfig source)
+    {
+        if (source == null) return null;
+
+        return new AutoAttackWeaponMechanicsConfig()
+        {
+            baseDamage = source.baseDamage,
+            attackCooldown = source.attackCooldown,
+            canAttackWhileMoving = source.canAttackWhileMoving,
+            scalesWithVelocity = source.scalesWithVelocity,
+            velocityDamageMultiplier = source.velocityDamageMultiplier,
+            maxVelocityBonus = source.maxVelocityBonus,
+            detectionRadius = source.detectionRadius,
+            attackInterval = source.attackInterval,
+            velocityThreshold = source.velocityThreshold,
+            onlyActiveDuringGrapple = source.onlyActiveDuringGrapple,
+            grappleDamageMultiplier = source.grappleDamageMultiplier,
+            maxGrappleRange = source.maxGrappleRange,
+            autoAttackDamage = source.autoAttackDamage,
+            enemyLayers = source.enemyLayers
+        };
+    }
+
+    private AutoAttackWeaponVisualConfig CloneAutoAttackVisual(AutoAttackWeaponVisualConfig source)
+    {
+        if (source == null) return null;
+
+        return new AutoAttackWeaponVisualConfig()
+        {
+            weaponPrefab = source.weaponPrefab,
+            icon = source.icon,
+            enableDebugVisualization = source.enableDebugVisualization,
+            detectionRadiusColor = source.detectionRadiusColor,
+            grappleRangeColor = source.grappleRangeColor
+        };
+    }
+
+    private AutoAttackWeaponSoundConfig CloneAutoAttackSound(AutoAttackWeaponSoundConfig source)
+    {
+        if (source == null) return null;
+
+        return new AutoAttackWeaponSoundConfig()
+        {
+            weaponSoundSet = source.weaponSoundSet,
+            swingVolume = source.swingVolume,
+            critVolume = source.critVolume,
+            swingCooldown = source.swingCooldown,
+            critVelocityThreshold = source.critVelocityThreshold
+        };
     }
 }

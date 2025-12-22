@@ -1,5 +1,5 @@
 // WeaponConfigManager.cs
-using UnityEngine;
+/*using UnityEngine;
 
 /// <summary>
 /// Manages weapon configuration data and provides helper methods.
@@ -105,4 +105,4 @@ public class WeaponConfigManager
     {
         return config.mechanicsConfig?.maxVelocityBonus ?? 20f;
     }
-}
+}*/

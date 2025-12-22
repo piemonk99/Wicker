@@ -13,7 +13,6 @@ public abstract class WeaponSystem : MonoBehaviour, ICharacterComponent
     public bool showDebugInfo = true;
 
     // Subsystem managers
-    protected WeaponConfigManager configManager;
     protected WeaponSoundManager soundManager;
 
     // References to other components
@@ -102,13 +101,10 @@ public abstract class WeaponSystem : MonoBehaviour, ICharacterComponent
 
         currentConfig = config;
 
-        // Initialize config manager
-        configManager = new WeaponConfigManager(config);
-
         // Initialize sound manager if sound config exists
-        if (config.soundConfig != null)
+        if (config.SoundConfig != null)
         {
-            soundManager = new WeaponSoundManager(config.soundConfig, this);
+            soundManager = new WeaponSoundManager(config.SoundConfig, this);
         }
 
         Debug.Log($"WeaponSystem initialized with config: {config.weaponName}");
@@ -121,8 +117,6 @@ public abstract class WeaponSystem : MonoBehaviour, ICharacterComponent
             soundManager.Cleanup();
             soundManager = null;
         }
-
-        configManager = null;
     }
 
     //////////////////////// Core Methods ////////////////////////
@@ -159,13 +153,18 @@ public abstract class WeaponSystem : MonoBehaviour, ICharacterComponent
 
     public float CalculateDamage(float baseDamage)
     {
-        if (configManager == null || !configManager.ScalesWithVelocity())
+        if (currentConfig?.MechanicsConfig == null)
+            return baseDamage;
+
+        var mechanics = currentConfig.MechanicsConfig;
+
+        if (!mechanics.scalesWithVelocity)
             return baseDamage;
 
         float velocity = rb != null ? rb.linearVelocity.magnitude : 0f;
         float velocityBonus = Mathf.Min(
-            velocity * configManager.GetVelocityDamageMultiplier(),
-            configManager.GetMaxVelocityBonus()
+            velocity * mechanics.velocityDamageMultiplier,
+            mechanics.maxVelocityBonus
         );
 
         return baseDamage + velocityBonus;

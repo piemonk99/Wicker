@@ -11,9 +11,9 @@ public class HitboxWeaponSystem : WeaponSystem
     private List<GameObject> alreadyHit = new List<GameObject>();
 
     // Config references
-    private HitboxWeaponMechanicsConfig mechanicsConfig;
-    private HitboxWeaponVisualConfig visualConfig;
-    private HitboxWeaponSoundConfig soundConfig;
+    private HitboxWeaponMechanicsConfig hitboxMechanics;
+    private HitboxWeaponVisualConfig hitboxVisual;
+    private HitboxWeaponSoundConfig hitboxSound;
 
     // Debug
     private Vector2 lastHitboxPosition;
@@ -23,24 +23,24 @@ public class HitboxWeaponSystem : WeaponSystem
     {
         base.InitializeWithConfig(config);
 
-        if (configManager == null) return;
+        if (currentConfig == null) return;
 
-        // Get specific configs
-        mechanicsConfig = configManager.GetMechanicsConfig<HitboxWeaponMechanicsConfig>();
-        visualConfig = configManager.GetVisualConfig<HitboxWeaponVisualConfig>();
-        soundConfig = configManager.GetSoundConfig<HitboxWeaponSoundConfig>();
+        // Get specific configs from the main config
+        hitboxMechanics = currentConfig.MechanicsConfig as HitboxWeaponMechanicsConfig;
+        hitboxVisual = currentConfig.VisualConfig as HitboxWeaponVisualConfig;
+        hitboxSound = currentConfig.SoundConfig as HitboxWeaponSoundConfig;
 
-        if (mechanicsConfig == null || visualConfig == null)
+        if (hitboxMechanics == null || hitboxVisual == null)
         {
-            Debug.LogError($"HitboxWeaponSystem requires appropriate configs");
+            Debug.LogError($"HitboxWeaponSystem requires HitboxWeapon configs");
             return;
         }
 
         // Create visual instance if prefab exists
-        if (visualConfig.weaponPrefab != null && weaponOrigin != null)
+        if (hitboxVisual.weaponPrefab != null && weaponOrigin != null)
         {
             weaponInstance = Instantiate(
-                visualConfig.weaponPrefab,
+                hitboxVisual.weaponPrefab,
                 weaponOrigin.position,
                 Quaternion.identity,
                 weaponOrigin
@@ -50,23 +50,23 @@ public class HitboxWeaponSystem : WeaponSystem
         }
 
         // Set debug mode
-        showDebugInfo = visualConfig.enableDebugVisualization;
+        showDebugInfo = hitboxVisual.enableDebugVisualization;
 
         Debug.Log($"HitboxWeaponSystem initialized: {config.weaponName}");
-        Debug.Log($"  Attack Duration: {mechanicsConfig.attackDuration}");
-        Debug.Log($"  Cooldown: {mechanicsConfig.attackCooldown}");
-        Debug.Log($"  Hitbox Size: {mechanicsConfig.hitboxSize}");
-        Debug.Log($"  Debug Visualization: {visualConfig.enableDebugVisualization}");
+        Debug.Log($"  Attack Duration: {hitboxMechanics.attackDuration}");
+        Debug.Log($"  Cooldown: {hitboxMechanics.attackCooldown}");
+        Debug.Log($"  Hitbox Size: {hitboxMechanics.hitboxSize}");
+        Debug.Log($"  Debug Visualization: {hitboxVisual.enableDebugVisualization}");
     }
 
     protected override void TryAttack()
     {
-        if (!CanAttack() || mechanicsConfig == null) return;
+        if (!CanAttack() || hitboxMechanics == null) return;
 
         isAttacking = true;
         IsAttacking = isAttacking;
-        activeTimer = mechanicsConfig.attackDuration;
-        attackCooldownTimer = mechanicsConfig.attackCooldown;
+        activeTimer = hitboxMechanics.attackDuration;
+        attackCooldownTimer = hitboxMechanics.attackCooldown;
         alreadyHit.Clear();
 
         // Get attack direction
@@ -104,15 +104,15 @@ public class HitboxWeaponSystem : WeaponSystem
 
     private void CheckHitbox()
     {
-        if (character == null || mechanicsConfig == null) return;
+        if (character == null || hitboxMechanics == null) return;
 
         // Calculate hitbox position
         lastHitboxPosition = (Vector2)character.transform.position +
-                             mechanicsConfig.hitboxOffset.x * lastAttackDirection +
-                             new Vector2(0, mechanicsConfig.hitboxOffset.y);
+                             hitboxMechanics.hitboxOffset.x * lastAttackDirection +
+                             new Vector2(0, hitboxMechanics.hitboxOffset.y);
 
         // Draw debug visualization
-        if (showDebugInfo && visualConfig != null)
+        if (showDebugInfo && hitboxVisual != null)
         {
             DrawDebugHitbox(lastHitboxPosition, lastAttackDirection);
         }
@@ -120,9 +120,9 @@ public class HitboxWeaponSystem : WeaponSystem
         // Check for hits
         var hitColliders = Physics2D.OverlapBoxAll(
             lastHitboxPosition,
-            mechanicsConfig.hitboxSize,
+            hitboxMechanics.hitboxSize,
             0f,
-            mechanicsConfig.hitLayers
+            hitboxMechanics.hitLayers
         );
 
         Debug.Log($"Hitbox check found {hitColliders.Length} colliders");
@@ -133,11 +133,11 @@ public class HitboxWeaponSystem : WeaponSystem
                 continue;
 
             // Check max hits for non-multi-hit weapons
-            if (!mechanicsConfig.multiHit && alreadyHit.Count >= mechanicsConfig.maxHitsPerAttack)
+            if (!hitboxMechanics.multiHit && alreadyHit.Count >= hitboxMechanics.maxHitsPerAttack)
                 break;
 
             // Calculate damage
-            float damage = CalculateDamage(mechanicsConfig.baseDamage);
+            float damage = CalculateDamage(hitboxMechanics.baseDamage);
 
             // Apply damage
             ApplyDamage(hit.gameObject, damage, lastAttackDirection);
@@ -145,9 +145,9 @@ public class HitboxWeaponSystem : WeaponSystem
             alreadyHit.Add(hit.gameObject);
 
             // Play hit sound if available
-            if (soundManager != null && soundConfig != null)
+            if (soundManager != null && hitboxSound != null)
             {
-                soundManager.PlaySound("Hit", soundConfig.hitVolume);
+                soundManager.PlaySound("Hit", hitboxSound.hitVolume);
             }
 
             Debug.Log($"Hit {hit.gameObject.name} for {damage:F1} damage");
@@ -156,11 +156,11 @@ public class HitboxWeaponSystem : WeaponSystem
 
     private void DrawDebugHitbox(Vector2 position, Vector2 direction)
     {
-        if (visualConfig == null) return;
+        if (hitboxVisual == null) return;
 
         // Draw the hitbox as a wire cube
         Vector3[] corners = new Vector3[4];
-        Vector2 halfSize = mechanicsConfig.hitboxSize * 0.5f;
+        Vector2 halfSize = hitboxMechanics.hitboxSize * 0.5f;
 
         corners[0] = position + new Vector2(-halfSize.x, -halfSize.y);
         corners[1] = position + new Vector2(halfSize.x, -halfSize.y);
@@ -170,15 +170,15 @@ public class HitboxWeaponSystem : WeaponSystem
         // Draw the box
         for (int i = 0; i < 4; i++)
         {
-            Debug.DrawLine(corners[i], corners[(i + 1) % 4], visualConfig.hitboxDebugColor, mechanicsConfig.attackDuration);
+            Debug.DrawLine(corners[i], corners[(i + 1) % 4], hitboxVisual.hitboxDebugColor, hitboxMechanics.attackDuration);
         }
 
         // Draw direction indicator
-        Debug.DrawRay(position, direction * 0.5f, Color.red, mechanicsConfig.attackDuration);
+        Debug.DrawRay(position, direction * 0.5f, Color.red, hitboxMechanics.attackDuration);
 
         // Draw hitbox center
-        Debug.DrawRay(position, Vector2.up * 0.1f, Color.green, mechanicsConfig.attackDuration);
-        Debug.DrawRay(position, Vector2.right * 0.1f, Color.green, mechanicsConfig.attackDuration);
+        Debug.DrawRay(position, Vector2.up * 0.1f, Color.green, hitboxMechanics.attackDuration);
+        Debug.DrawRay(position, Vector2.right * 0.1f, Color.green, hitboxMechanics.attackDuration);
     }
 
     private void ApplyDamage(GameObject target, float damage, Vector2 direction)
@@ -207,10 +207,10 @@ public class HitboxWeaponSystem : WeaponSystem
 
             // Apply knockback
             var targetRb = target.GetComponent<Rigidbody2D>();
-            if (targetRb != null && mechanicsConfig.knockbackForce > 0)
+            if (targetRb != null && hitboxMechanics.knockbackForce > 0)
             {
-                targetRb.AddForce(direction * mechanicsConfig.knockbackForce, ForceMode2D.Impulse);
-                Debug.Log($"Applied {mechanicsConfig.knockbackForce} knockback to {target.name}");
+                targetRb.AddForce(direction * hitboxMechanics.knockbackForce, ForceMode2D.Impulse);
+                Debug.Log($"Applied {hitboxMechanics.knockbackForce} knockback to {target.name}");
             }
 
             // Raise hit event
@@ -236,14 +236,14 @@ public class HitboxWeaponSystem : WeaponSystem
             {
                 StopAttack();
             }
-            else if (mechanicsConfig.multiHit && activeTimer > 0)
+            else if (hitboxMechanics.multiHit && activeTimer > 0)
             {
                 // Continue checking for multi-hit weapons
                 CheckHitbox();
             }
 
             // Update debug visualization during attack
-            if (showDebugInfo && visualConfig != null && activeTimer > 0)
+            if (showDebugInfo && hitboxVisual != null && activeTimer > 0)
             {
                 UpdateDebugVisualization();
             }
@@ -255,8 +255,8 @@ public class HitboxWeaponSystem : WeaponSystem
         // Update hitbox position based on current character position
         Vector2 currentDirection = equipment.GetAttackDirection();
         Vector2 currentPosition = (Vector2)character.transform.position +
-                                 mechanicsConfig.hitboxOffset.x * currentDirection +
-                                 new Vector2(0, mechanicsConfig.hitboxOffset.y);
+                                 hitboxMechanics.hitboxOffset.x * currentDirection +
+                                 new Vector2(0, hitboxMechanics.hitboxOffset.y);
 
         // Only redraw if position changed significantly
         if (Vector2.Distance(currentPosition, lastHitboxPosition) > 0.1f)
@@ -284,8 +284,8 @@ public class HitboxWeaponSystem : WeaponSystem
         }
 
         // Clear config references
-        mechanicsConfig = null;
-        visualConfig = null;
-        soundConfig = null;
+        hitboxMechanics = null;
+        hitboxVisual = null;
+        hitboxSound = null;
     }
 }
