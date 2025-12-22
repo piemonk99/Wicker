@@ -26,22 +26,16 @@ public class WeaponSoundManager
     {
         if (config == null || config.weaponSoundSet == null) return;
 
-        // Check cooldown
-        if (Time.time - lastSwingTime < config.swingCooldown)
-            return;
-
         lastSwingTime = Time.time;
 
         // Determine sound node based on velocity
         SoundNode soundNode = null;
-        float volume = config.swingVolume;
 
         // Check for crit in auto-attack weapons
         var autoSoundConfig = config as AutoAttackWeaponSoundConfig;
         if (autoSoundConfig != null && velocityMagnitude > autoSoundConfig.critVelocityThreshold)
         {
             soundNode = config.weaponSoundSet.GetChildNode("Crit");
-            volume = config.critVolume;
 
             if (soundNode != null)
                 Debug.Log($"Playing CRIT sound (velocity: {velocityMagnitude:F1})");
@@ -63,7 +57,7 @@ public class WeaponSoundManager
         // Play the sound
         if (soundNode != null)
         {
-            AudioManager.Instance.PlaySoundNode(soundNode); // does not use volume
+            AudioManager.Instance.Play(soundNode);
         }
     }
 
@@ -77,7 +71,7 @@ public class WeaponSoundManager
         var node = config.weaponSoundSet.GetChildNode(nodeName);
         if (node != null)
         {
-            AudioManager.Instance.PlaySoundNode(node); // does not use volume
+            AudioManager.Instance.Play(node);
         }
     }
 
@@ -91,30 +85,7 @@ public class WeaponSoundManager
 
         if (velocityMagnitude > cursorSoundConfig.swooshVelocityThreshold)
         {
-            AudioManager.Instance.PlaySoundNode(cursorSoundConfig.swooshSound); // does not use volume
-        }
-    }
-
-    /// <summary>
-    /// Borrow an AudioSource for continuous sounds (if needed).
-    /// </summary>
-    public AudioSource BorrowAudioSource()
-    {
-        if (borrowedAudioSource != null) return borrowedAudioSource;
-
-        borrowedAudioSource = AudioManager.Instance.BorrowAudioSource();
-        return borrowedAudioSource;
-    }
-
-    /// <summary>
-    /// Return borrowed AudioSource.
-    /// </summary>
-    public void ReturnAudioSource()
-    {
-        if (borrowedAudioSource != null)
-        {
-            AudioManager.Instance.ReturnAudioSource(borrowedAudioSource);
-            borrowedAudioSource = null;
+            AudioManager.Instance.Play(cursorSoundConfig.swooshSound); // does not use volume
         }
     }
 
@@ -123,6 +94,6 @@ public class WeaponSoundManager
     /// </summary>
     public void Cleanup()
     {
-        ReturnAudioSource();
+        // Nothing, for now. Will need to clean up borrowed sources when used.
     }
 }

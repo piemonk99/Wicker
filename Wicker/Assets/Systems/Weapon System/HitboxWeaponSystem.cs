@@ -147,7 +147,7 @@ public class HitboxWeaponSystem : WeaponSystem
             // Play hit sound if available
             if (soundManager != null && hitboxSound != null)
             {
-                soundManager.PlaySound("Hit", hitboxSound.hitVolume);
+                soundManager.PlaySound("Hit");
             }
 
             Debug.Log($"Hit {hit.gameObject.name} for {damage:F1} damage");

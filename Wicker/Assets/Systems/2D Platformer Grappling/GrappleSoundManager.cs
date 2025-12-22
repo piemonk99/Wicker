@@ -1,10 +1,6 @@
 using System.Collections;
 using UnityEngine;
 
-/// <summary>
-/// Manages grapple sounds using borrowed AudioSources from AudioManager.
-/// Features continuous creaking with 3D positioning at rope midpoint.
-/// </summary>
 public class GrappleSoundManager
 {
     private GrappleSoundConfig config;
@@ -27,11 +23,7 @@ public class GrappleSoundManager
     {
         if (config.grappleSoundSet == null) return;
 
-        var launchNode = config.grappleSoundSet.GetChildNode("Launch");
-        if (launchNode != null)
-        {
-            AudioManager.Instance.PlaySoundNode(launchNode);
-        }
+        AudioManager.Instance.Play(config.grappleSoundSet.GetChildNode("Launch"));
     }
 
     /// <summary>
@@ -43,8 +35,8 @@ public class GrappleSoundManager
 
         isCreaking = true;
 
-        // Borrow an AudioSource from AudioManager
-        borrowedCreakSource = AudioManager.Instance.BorrowAudioSource();
+        // Borrow an AudioSource
+        borrowedCreakSource = AudioManager.Instance.BorrowSource();
         if (borrowedCreakSource == null)
         {
             Debug.LogWarning("Could not borrow AudioSource for creak sounds");
@@ -58,7 +50,7 @@ public class GrappleSoundManager
         borrowedCreakSource.maxDistance = 20f;
         borrowedCreakSource.rolloffMode = AudioRolloffMode.Linear;
 
-        // Start the continuous playback coroutine
+        // Start playback coroutine
         if (creakCoroutine != null)
         {
             coroutineHost.StopCoroutine(creakCoroutine);
@@ -83,7 +75,7 @@ public class GrappleSoundManager
         // Return borrowed AudioSource
         if (borrowedCreakSource != null)
         {
-            AudioManager.Instance.ReturnAudioSource(borrowedCreakSource);
+            AudioManager.Instance.ReturnSource(borrowedCreakSource);
             borrowedCreakSource = null;
         }
     }
@@ -107,35 +99,32 @@ public class GrappleSoundManager
         else
         {
             float forceRange = maxForce - minForce;
-            float forceWithinRange = forceMagnitude - minForce;
-            currentNormalizedForce = forceWithinRange / forceRange;
+            currentNormalizedForce = (forceMagnitude - minForce) / forceRange;
         }
 
         // Calculate and set volume
         float targetVolume = Mathf.Lerp(config.creakMinVolume, config.creakMaxVolume, currentNormalizedForce);
+
+        // Force volume to 0 when force is below threshold
+        if (currentNormalizedForce < 0.01f)
+            targetVolume = 0f;
+
         borrowedCreakSource.volume = Mathf.Lerp(borrowedCreakSource.volume, targetVolume, 0.8f);
     }
 
     /// <summary>
-    /// Update the 3D position of the creak sound to follow the middle bone.
-    /// Call this every frame while grappling.
+    /// Update the 3D position of the creak sound.
     /// </summary>
-    /// <param name="grappleOrigin">Player grapple origin position.</param>
-    /// <param name="grapplePoint">Grapple hook position.</param>
     public void UpdateCreakPosition(Vector3 grappleOrigin, Vector3 grapplePoint)
     {
         if (!isCreaking || borrowedCreakSource == null) return;
 
-        // Get midpoint between player and hook
         Vector3 soundPosition = (grappleOrigin + grapplePoint) * 0.5f;
-
-        // Update AudioSource position
         borrowedCreakSource.transform.position = soundPosition;
     }
 
     /// <summary>
     /// Continuous creak playback using borrowed AudioSource.
-    /// Plays creak sounds back-to-back with seamless transitions.
     /// </summary>
     private IEnumerator ContinuousCreakRoutine()
     {
@@ -148,19 +137,16 @@ public class GrappleSoundManager
         {
             // Get next creak sound from the container
             var soundNode = creakContainer.GetNextNode();
-            if (soundNode == null || soundNode.nodeType != SoundNodeType.Sound || soundNode.clip == null)
+            if (soundNode?.nodeType != SoundNodeType.Sound || soundNode.clip == null)
             {
                 yield return new WaitForSeconds(0.1f);
                 continue;
             }
 
-            // Configure AudioSource with sound node properties
+            // Configure AudioSource
             borrowedCreakSource.clip = soundNode.clip;
             borrowedCreakSource.pitch = soundNode.pitch;
-
-            // Set initial volume
-            float initialVolume = Mathf.Lerp(config.creakMinVolume, config.creakMaxVolume, currentNormalizedForce);
-            borrowedCreakSource.volume = initialVolume;
+            borrowedCreakSource.volume = Mathf.Lerp(config.creakMinVolume, config.creakMaxVolume, currentNormalizedForce);
 
             // Skip initial silence on first play
             if (firstPlay)
@@ -174,10 +160,9 @@ public class GrappleSoundManager
                 borrowedCreakSource.time = 0f;
             }
 
-            // Play the sound
             borrowedCreakSource.Play();
 
-            // Wait for sound to almost finish (leaving small overlap)
+            // Wait for sound to almost finish
             if (soundNode.clip != null)
             {
                 float remainingTime = (soundNode.clip.length - borrowedCreakSource.time) / soundNode.pitch;

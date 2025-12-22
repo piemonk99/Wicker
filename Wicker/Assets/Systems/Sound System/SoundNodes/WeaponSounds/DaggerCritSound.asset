@@ -15,8 +15,8 @@ MonoBehaviour:
   nodeID: Crit
   nodeType: 0
   clip: {fileID: 8300000, guid: effd6c924890738468d619a4c9aa766a, type: 3}
-  baseVolume: 1
-  pitch: 1
+  baseVolume: 0.7
+  pitch: 1.13
   pitchVariation: 0
   volumeVariation: 0
   loop: 0

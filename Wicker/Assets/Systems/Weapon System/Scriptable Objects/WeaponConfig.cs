@@ -57,11 +57,6 @@ public class WeaponSoundConfig
 {
     [Header("Sound References")]
     public SoundNode weaponSoundSet;
-
-    [Header("Volume Settings")]
-    [Range(0f, 2f)] public float swingVolume = 1.0f;
-    [Range(0f, 2f)] public float critVolume = 1.2f;
-    public float swingCooldown = 0.1f;
 }
 
 /// <summary>
@@ -237,11 +232,7 @@ public class WeaponConfig : ScriptableObject
 
         return new HitboxWeaponSoundConfig()
         {
-            weaponSoundSet = source.weaponSoundSet,
-            swingVolume = source.swingVolume,
-            critVolume = source.critVolume,
-            swingCooldown = source.swingCooldown,
-            hitVolume = source.hitVolume
+            weaponSoundSet = source.weaponSoundSet
         };
     }
 
@@ -292,9 +283,6 @@ public class WeaponConfig : ScriptableObject
         return new CursorWeaponSoundConfig()
         {
             weaponSoundSet = source.weaponSoundSet,
-            swingVolume = source.swingVolume,
-            critVolume = source.critVolume,
-            swingCooldown = source.swingCooldown,
             swooshSound = source.swooshSound,
             swooshVelocityThreshold = source.swooshVelocityThreshold,
             swooshVolume = source.swooshVolume
@@ -345,9 +333,6 @@ public class WeaponConfig : ScriptableObject
         return new AutoAttackWeaponSoundConfig()
         {
             weaponSoundSet = source.weaponSoundSet,
-            swingVolume = source.swingVolume,
-            critVolume = source.critVolume,
-            swingCooldown = source.swingCooldown,
             critVelocityThreshold = source.critVelocityThreshold
         };
     }

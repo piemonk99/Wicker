@@ -17,12 +17,12 @@ MonoBehaviour:
   clip: {fileID: 0}
   baseVolume: 1
   pitch: 1
-  pitchVariation: 0
+  pitchVariation: 0.021
   volumeVariation: 0
   loop: 0
   category: 2
   weight: 1
-  playMode: 0
+  playMode: 2
   childNodes:
   - {fileID: 11400000, guid: f5a11bb1552c31247a43c79cf2b36172, type: 2}
   - {fileID: 11400000, guid: 9de2a2fa4f5fde043bfff6ee74aa467e, type: 2}

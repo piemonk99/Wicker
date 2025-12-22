@@ -34,6 +34,5 @@ public class HitboxWeaponVisualConfig : WeaponVisualConfig
 [System.Serializable]
 public class HitboxWeaponSoundConfig : WeaponSoundConfig
 {
-    [Header("Hitbox Specific Sounds")]
-    public float hitVolume = 1.0f;
+    
 }
