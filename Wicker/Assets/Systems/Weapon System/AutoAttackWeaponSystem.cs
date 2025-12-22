@@ -21,7 +21,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
     }
 
     private List<RecentHit> recentHits = new List<RecentHit>();
-    private float hitCooldown = 1f;
+    private float enemyRehitCooldown = 1f;
 
     // Config references
     private AutoAttackWeaponMechanicsConfig autoAttackMechanics;
@@ -36,7 +36,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
 
     // Cache
     private int enemyLayerMask;
-    private string enemyTag = "Enemy";
+    private string enemyTag;
 
     protected override void InitializeWithConfig(WeaponConfig config)
     {
@@ -55,11 +55,12 @@ public class AutoAttackWeaponSystem : WeaponSystem
             return;
         }
 
-        // Build layer mask from config
+        // Build layer mask and tag mask from config
         enemyLayerMask = autoAttackMechanics.enemyLayers.value;
+        enemyTag = autoAttackMechanics.enemyTag;
 
         // Use attack interval as cooldown
-        hitCooldown = Mathf.Max(0.5f, autoAttackMechanics.attackInterval * 2f);
+        enemyRehitCooldown = autoAttackMechanics.enemyRehitCooldown;
 
         attackTimer = autoAttackMechanics.attackInterval;
 
@@ -68,6 +69,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
 
         Debug.Log($"AutoAttackWeaponSystem initialized: {config.weaponName}");
         Debug.Log($"  Detection Radius: {autoAttackMechanics.detectionRadius}");
+        Debug.Log($"  Max Grapple Range: {autoAttackMechanics.maxGrappleRange}");
         Debug.Log($"  Attack Interval: {autoAttackMechanics.attackInterval}");
         Debug.Log($"  Enemy Layers: {autoAttackMechanics.enemyLayers.value}");
         Debug.Log($"  Debug Visualization: {autoAttackVisual.enableDebugVisualization}");
@@ -130,7 +132,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
                 continue;
             }
 
-            if (currentTime - recentHits[i].timestamp > hitCooldown)
+            if (currentTime - recentHits[i].timestamp > enemyRehitCooldown)
             {
                 recentHits.RemoveAt(i);
             }
@@ -170,10 +172,19 @@ public class AutoAttackWeaponSystem : WeaponSystem
         if (character == null || character.transform == null || autoAttackMechanics == null)
             return validEnemies;
 
-        // Find all colliders in detection radius
+        // Determine the actual detection radius based on grapple state
+        float currentDetectionRadius = autoAttackMechanics.detectionRadius;
+
+        if (equipment.IsGrappling())
+        {
+            // Use the extended range when grappling
+            currentDetectionRadius = autoAttackMechanics.maxGrappleRange;
+        }
+
+        // Find all colliders in the appropriate detection radius
         var allColliders = Physics2D.OverlapCircleAll(
             character.transform.position,
-            autoAttackMechanics.detectionRadius,
+            currentDetectionRadius,  // Use dynamic radius
             enemyLayerMask
         );
 
@@ -189,14 +200,6 @@ public class AutoAttackWeaponSystem : WeaponSystem
 
             // Check if recently hit
             if (IsRecentlyHit(obj)) continue;
-
-            // Check if enemy is in grapple range if grappling
-            if (equipment.IsGrappling())
-            {
-                float distance = Vector2.Distance(character.transform.position, obj.transform.position);
-                if (distance > autoAttackMechanics.maxGrappleRange)
-                    continue;
-            }
 
             // Check if this is a valid enemy root
             if (IsValidEnemyRoot(obj))
@@ -228,7 +231,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
             if (hit.enemy == enemy)
             {
                 float timeSinceHit = Time.time - hit.timestamp;
-                return timeSinceHit <= hitCooldown;
+                return timeSinceHit <= enemyRehitCooldown;
             }
         }
         return false;
@@ -279,7 +282,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
             if (enemy == null || autoAttackMechanics == null) continue;
 
             // Calculate damage
-            float damage = autoAttackMechanics.autoAttackDamage;
+            float damage = autoAttackMechanics.baseDamage;
 
             // Apply grapple multiplier if grappling
             if (equipment.IsGrappling())
@@ -298,7 +301,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
 
             totalHits++;
 
-            Debug.Log($"  Hit {enemy.name} for {damage:F1} damage");
+            Debug.Log($"  Hit {enemy.name} for {damage:F1} damage (Grappling: {equipment.IsGrappling()})");
         }
     }
 
@@ -327,14 +330,18 @@ public class AutoAttackWeaponSystem : WeaponSystem
     {
         if (character == null || character.transform == null || autoAttackVisual == null) return;
 
-        // Draw detection radius
-        DrawCircle(character.transform.position, autoAttackMechanics.detectionRadius, 24, autoAttackVisual.detectionRadiusColor);
+        // Determine which radius to draw
+        float drawRadius = autoAttackMechanics.detectionRadius;
+        Color drawColor = autoAttackVisual.detectionRadiusColor;
 
-        // Draw grapple range if grappling
         if (equipment.IsGrappling() && autoAttackMechanics != null)
         {
-            DrawCircle(character.transform.position, autoAttackMechanics.maxGrappleRange, 24, autoAttackVisual.grappleRangeColor);
+            drawRadius = autoAttackMechanics.maxGrappleRange;
+            drawColor = autoAttackVisual.grappleRangeColor;
         }
+
+        // Draw detection radius
+        DrawCircle(character.transform.position, drawRadius, 24, drawColor);
 
         // Draw recent enemy positions
         foreach (var pos in lastDetectionPositions)
@@ -377,9 +384,16 @@ public class AutoAttackWeaponSystem : WeaponSystem
     {
         if (autoAttackMechanics == null) return "No config";
 
+        float currentRadius = autoAttackMechanics.detectionRadius;
+        if (equipment.IsGrappling())
+        {
+            currentRadius = autoAttackMechanics.maxGrappleRange;
+        }
+
         return $"Auto-Attack Weapon:\n" +
                $"Enabled: {isEnabled}\n" +
                $"Status: {(attackTimer <= 0 ? "READY" : $"Charging ({attackTimer:F2}s)")}\n" +
+               $"Detection Radius: {currentRadius:F1}\n" +
                $"Velocity: {rb?.linearVelocity.magnitude:F1}/{autoAttackMechanics.velocityThreshold}\n" +
                $"Grappling: {equipment.IsGrappling()}\n" +
                $"Total Attacks: {totalAttacks}\n" +

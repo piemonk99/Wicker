@@ -162,12 +162,29 @@ public abstract class WeaponSystem : MonoBehaviour, ICharacterComponent
             return baseDamage;
 
         float velocity = rb != null ? rb.linearVelocity.magnitude : 0f;
-        float velocityBonus = Mathf.Min(
-            velocity * mechanics.velocityDamageMultiplier,
-            mechanics.maxVelocityBonus
+
+        // Calculate multiplier using lerp
+        float velocityMultiplier = CalculateVelocityMultiplier(velocity, mechanics);
+
+        return baseDamage * velocityMultiplier;
+    }
+
+    private float CalculateVelocityMultiplier(float currentVelocity, WeaponMechanicsConfig mechanics)
+    {
+        // If velocity is 0 or below minimum threshold, return base multiplier (1x)
+        if (currentVelocity <= mechanics.minimumVelocityForBonus)
+            return 1f;
+
+        // Calculate normalized velocity (0 to 1) within our scaling range
+        float normalizedVelocity = Mathf.Clamp01(
+            (currentVelocity - mechanics.minimumVelocityForBonus) /
+            (mechanics.maxVelocityForMultiplier - mechanics.minimumVelocityForBonus)
         );
 
-        return baseDamage + velocityBonus;
+        // Lerp between base multiplier (1x) and max multiplier
+        float multiplier = Mathf.Lerp(1f, mechanics.maxVelocityMultiplier, normalizedVelocity);
+
+        return multiplier;
     }
 
     protected bool CanAttack()

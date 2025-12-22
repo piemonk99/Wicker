@@ -25,13 +25,20 @@ public class WeaponMechanicsConfig
 {
     [Header("Basic Combat Settings")]
     public float baseDamage = 10f;
-    public float attackCooldown = 0.5f;
     public bool canAttackWhileMoving = true;
 
     [Header("Velocity Scaling")]
     public bool scalesWithVelocity = true;
-    public float velocityDamageMultiplier = 0.5f;
-    public float maxVelocityBonus = 20f;
+
+    [Tooltip("Minimum velocity required to start getting damage bonus")]
+    public float minimumVelocityForBonus = 0f;
+
+    [Tooltip("Velocity at which we reach maximum damage multiplier")]
+    public float maxVelocityForMultiplier = 20f;
+
+    [Tooltip("Maximum damage multiplier at max velocity (e.g., 2.0 = 2x damage)")]
+    [Range(1f, 5f)]
+    public float maxVelocityMultiplier = 2f;
 }
 
 /// <summary>
@@ -197,11 +204,11 @@ public class WeaponConfig : ScriptableObject
         return new HitboxWeaponMechanicsConfig()
         {
             baseDamage = source.baseDamage,
-            attackCooldown = source.attackCooldown,
             canAttackWhileMoving = source.canAttackWhileMoving,
             scalesWithVelocity = source.scalesWithVelocity,
-            velocityDamageMultiplier = source.velocityDamageMultiplier,
-            maxVelocityBonus = source.maxVelocityBonus,
+            minimumVelocityForBonus = source.minimumVelocityForBonus,
+            maxVelocityForMultiplier = source.maxVelocityForMultiplier,
+            maxVelocityMultiplier = source.maxVelocityMultiplier,
             hitboxSize = source.hitboxSize,
             hitboxOffset = source.hitboxOffset,
             attackDuration = source.attackDuration,
@@ -243,11 +250,11 @@ public class WeaponConfig : ScriptableObject
         return new CursorWeaponMechanicsConfig()
         {
             baseDamage = source.baseDamage,
-            attackCooldown = source.attackCooldown,
             canAttackWhileMoving = source.canAttackWhileMoving,
             scalesWithVelocity = source.scalesWithVelocity,
-            velocityDamageMultiplier = source.velocityDamageMultiplier,
-            maxVelocityBonus = source.maxVelocityBonus,
+            minimumVelocityForBonus = source.minimumVelocityForBonus,
+            maxVelocityForMultiplier = source.maxVelocityForMultiplier,
+            maxVelocityMultiplier = source.maxVelocityMultiplier,
             orbitRadius = source.orbitRadius,
             orbitSpeed = source.orbitSpeed,
             swordMass = source.swordMass,
@@ -296,18 +303,17 @@ public class WeaponConfig : ScriptableObject
         return new AutoAttackWeaponMechanicsConfig()
         {
             baseDamage = source.baseDamage,
-            attackCooldown = source.attackCooldown,
             canAttackWhileMoving = source.canAttackWhileMoving,
             scalesWithVelocity = source.scalesWithVelocity,
-            velocityDamageMultiplier = source.velocityDamageMultiplier,
-            maxVelocityBonus = source.maxVelocityBonus,
+            minimumVelocityForBonus = source.minimumVelocityForBonus,
+            maxVelocityForMultiplier = source.maxVelocityForMultiplier,
+            maxVelocityMultiplier = source.maxVelocityMultiplier,
             detectionRadius = source.detectionRadius,
             attackInterval = source.attackInterval,
             velocityThreshold = source.velocityThreshold,
             onlyActiveDuringGrapple = source.onlyActiveDuringGrapple,
             grappleDamageMultiplier = source.grappleDamageMultiplier,
             maxGrappleRange = source.maxGrappleRange,
-            autoAttackDamage = source.autoAttackDamage,
             enemyLayers = source.enemyLayers
         };
     }

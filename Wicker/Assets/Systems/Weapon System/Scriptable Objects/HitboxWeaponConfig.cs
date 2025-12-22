@@ -11,6 +11,9 @@ public class HitboxWeaponConfig : ScriptableObject
 [System.Serializable]
 public class HitboxWeaponMechanicsConfig : WeaponMechanicsConfig
 {
+    [Header("Attack Settings")]
+    public float attackCooldown = .5f;
+
     [Header("Hitbox Settings")]
     public Vector2 hitboxSize = new Vector2(1.5f, 0.8f);
     public Vector2 hitboxOffset = new Vector2(0.5f, 0f);

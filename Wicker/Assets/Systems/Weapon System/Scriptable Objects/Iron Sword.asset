@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 91614b766bc487143918ca2d0c8c6e90, type: 3}
-  m_Name: TestWeapon3Main
+  m_Name: Iron Sword
   m_EditorClassIdentifier: Assembly-CSharp::WeaponConfig
-  weaponName: Gem Dagger
-  weaponType: 2
+  weaponName: Iron Sword
+  weaponType: 0
   category: 0
-  typeSpecificConfig: {fileID: 11400000, guid: 3033e97b0eb5e1b4596e6feeac02b329, type: 2}
+  typeSpecificConfig: {fileID: 11400000, guid: a3ded52652c9cb84baab5af32a5278c6, type: 2}
