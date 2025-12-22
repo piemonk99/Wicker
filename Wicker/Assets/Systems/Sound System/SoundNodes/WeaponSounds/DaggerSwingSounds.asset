@@ -23,4 +23,8 @@ MonoBehaviour:
   category: 2
   weight: 1
   playMode: 0
-  childNodes: []
+  childNodes:
+  - {fileID: 11400000, guid: f5a11bb1552c31247a43c79cf2b36172, type: 2}
+  - {fileID: 11400000, guid: 9de2a2fa4f5fde043bfff6ee74aa467e, type: 2}
+  - {fileID: 11400000, guid: 1e6558ad0f8ec6a4bb62dbddad1118fd, type: 2}
+  - {fileID: 11400000, guid: 122a06676060d7642a6512b7bdc59fc7, type: 2}

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e4b6304a05b355042ae0f364c528dc4f, type: 3}
   m_Name: DaggerSwing3Sound
   m_EditorClassIdentifier: Assembly-CSharp::SoundNode
-  nodeID: 1
+  nodeID: 3
   nodeType: 0
   clip: {fileID: 8300000, guid: 114b783233d8bdc45a9a856cd598fb53, type: 3}
   baseVolume: 1

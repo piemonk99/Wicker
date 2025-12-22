@@ -1,157 +1,69 @@
 // WeaponSoundManager.cs
 using UnityEngine;
-using System.Collections.Generic;
+using System.Collections;
 
-public class WeaponSoundManager : MonoBehaviour
+/// <summary>
+/// Manages weapon sounds using borrowed AudioSources from AudioManager.
+/// Similar to GrappleSoundManager structure.
+/// </summary>
+public class WeaponSoundManager
 {
-    // Sound configuration
-    private SoundNode weaponSoundSet;
-    private float swingVolume = 1.0f;
-    private float critVolume = 1.2f;
-    private float critVelocityThreshold = 20f;
-    private float swingCooldown = 0.1f;
-
-    // Cached nodes for quick access
-    private SoundNode swingNode;
-    private SoundNode critNode;
-
-    // State
-    private bool isInitialized = false;
+    private WeaponSoundConfig config;
+    private MonoBehaviour coroutineHost;
+    private AudioSource borrowedAudioSource;
     private float lastSwingTime = 0f;
 
-    /// <summary>
-    /// Initialize with direct SoundNode reference.
-    /// </summary>
-    public void InitializeWithSoundNode(SoundNode soundNode, float swingVol = 1.0f, float critVol = 1.2f, float critThreshold = 20f)
+    public WeaponSoundManager(WeaponSoundConfig config, MonoBehaviour coroutineHost)
     {
-        if (soundNode == null)
-        {
-            Debug.LogWarning("WeaponSoundManager: No sound node provided");
-            return;
-        }
-
-        weaponSoundSet = soundNode;
-        swingVolume = swingVol;
-        critVolume = critVol;
-        critVelocityThreshold = critThreshold;
-
-        // Cache sound nodes
-        CacheSoundNodes();
-
-        isInitialized = true;
-
-        Debug.Log($"WeaponSoundManager initialized with sound node: {weaponSoundSet.nodeID}");
+        this.config = config;
+        this.coroutineHost = coroutineHost;
     }
 
     /// <summary>
-    /// Initialize from WeaponSoundConfig.
-    /// </summary>
-    public void InitializeFromConfig(WeaponSoundConfig soundConfig)
-    {
-        if (soundConfig == null || soundConfig.weaponSoundSet == null)
-        {
-            Debug.LogWarning("WeaponSoundManager: No sound config or sound set provided");
-            return;
-        }
-
-        weaponSoundSet = soundConfig.weaponSoundSet;
-        swingVolume = soundConfig.swingVolume;
-        critVolume = soundConfig.critVolume;
-        swingCooldown = soundConfig.swingCooldown;
-
-        CacheSoundNodes();
-        isInitialized = true;
-    }
-
-    private void CacheSoundNodes()
-    {
-        if (weaponSoundSet == null) return;
-
-        // Try to find Swing node
-        swingNode = FindSoundNode("Swing");
-        if (swingNode == null)
-        {
-            // Fallback: use the weapon sound set itself if it's a container with sounds
-            if (weaponSoundSet.nodeType == SoundNodeType.Container && weaponSoundSet.childNodes.Count > 0)
-            {
-                swingNode = weaponSoundSet;
-                Debug.Log($"No 'Swing' node found, using root node: {swingNode.nodeID}");
-            }
-            else
-            {
-                Debug.LogWarning($"No valid swing node found in {weaponSoundSet.nodeID}");
-            }
-        }
-
-        // Try to find Crit node
-        critNode = FindSoundNode("Crit");
-        if (critNode == null)
-        {
-            Debug.Log($"No 'Crit' node found in {weaponSoundSet.nodeID}");
-        }
-
-        if (swingNode != null)
-        {
-            Debug.Log($"Cached swing node: {swingNode.nodeID} (type: {swingNode.nodeType})");
-        }
-        if (critNode != null)
-        {
-            Debug.Log($"Cached crit node: {critNode.nodeID} (type: {critNode.nodeType})");
-        }
-    }
-
-    private SoundNode FindSoundNode(string nodeName)
-    {
-        if (weaponSoundSet == null) return null;
-
-        // First, try to get it directly if it's a child
-        var node = weaponSoundSet.GetChildNode(nodeName);
-        if (node != null) return node;
-
-        // If not found, search recursively in the subtree
-        return weaponSoundSet.FindNodeInSubtree(nodeName);
-    }
-
-    /// <summary>
-    /// Play swing sound based on current velocity.
+    /// Play the weapon swing sound.
     /// </summary>
     public void PlaySwingSound(float velocityMagnitude = 0f)
     {
-        if (!isInitialized) return;
+        if (config == null || config.weaponSoundSet == null) return;
 
         // Check cooldown
-        if (Time.time - lastSwingTime < swingCooldown)
+        if (Time.time - lastSwingTime < config.swingCooldown)
             return;
 
         lastSwingTime = Time.time;
 
-        // Determine if this is a crit based on velocity
-        bool isCrit = velocityMagnitude > critVelocityThreshold;
+        // Determine sound node based on velocity
+        SoundNode soundNode = null;
+        float volume = config.swingVolume;
 
-        // Choose which node to play
-        SoundNode nodeToPlay = null;
-        float volume = swingVolume;
-
-        if (isCrit && critNode != null)
+        // Check for crit in auto-attack weapons
+        var autoSoundConfig = config as AutoAttackWeaponSoundConfig;
+        if (autoSoundConfig != null && velocityMagnitude > autoSoundConfig.critVelocityThreshold)
         {
-            nodeToPlay = critNode;
-            volume = critVolume;
-            Debug.Log($"Playing CRIT sound (velocity: {velocityMagnitude:F1} > {critVelocityThreshold})");
+            soundNode = config.weaponSoundSet.GetChildNode("Crit");
+            volume = config.critVolume;
+
+            if (soundNode != null)
+                Debug.Log($"Playing CRIT sound (velocity: {velocityMagnitude:F1})");
         }
-        else if (swingNode != null)
+
+        // Fallback to swing sound
+        if (soundNode == null)
         {
-            nodeToPlay = swingNode;
+            soundNode = config.weaponSoundSet.GetChildNode("Swing");
+            if (soundNode == null)
+            {
+                // If no Swing node, use the weapon sound set itself
+                soundNode = config.weaponSoundSet;
+            }
+
             Debug.Log($"Playing swing sound (velocity: {velocityMagnitude:F1})");
         }
 
         // Play the sound
-        if (nodeToPlay != null)
+        if (soundNode != null)
         {
-            PlaySoundNode(nodeToPlay, volume);
-        }
-        else
-        {
-            Debug.LogWarning("No sound node available to play");
+            AudioManager.Instance.PlaySoundNode(soundNode); // does not use volume
         }
     }
 
@@ -160,80 +72,57 @@ public class WeaponSoundManager : MonoBehaviour
     /// </summary>
     public void PlaySound(string nodeName, float volumeMultiplier = 1.0f)
     {
-        if (!isInitialized || weaponSoundSet == null) return;
+        if (config == null || config.weaponSoundSet == null) return;
 
-        var node = FindSoundNode(nodeName);
+        var node = config.weaponSoundSet.GetChildNode(nodeName);
         if (node != null)
         {
-            PlaySoundNode(node, volumeMultiplier);
-        }
-        else
-        {
-            Debug.LogWarning($"Sound node '{nodeName}' not found in {weaponSoundSet.nodeID}");
+            AudioManager.Instance.PlaySoundNode(node); // does not use volume
         }
     }
 
     /// <summary>
-    /// Play a specific SoundNode.
+    /// Play swoosh sound for cursor weapons when moving fast.
     /// </summary>
-    private void PlaySoundNode(SoundNode node, float volumeMultiplier = 1.0f)
+    public void PlaySwooshSound(float velocityMagnitude)
     {
-        if (node == null) return;
+        var cursorSoundConfig = config as CursorWeaponSoundConfig;
+        if (cursorSoundConfig == null || cursorSoundConfig.swooshSound == null) return;
 
-        // Get the actual sound node to play (could be a container that selects a child)
-        SoundNode soundToPlay = node;
-        if (node.nodeType == SoundNodeType.Container)
+        if (velocityMagnitude > cursorSoundConfig.swooshVelocityThreshold)
         {
-            soundToPlay = node.GetNextNode();
-            if (soundToPlay == null)
-            {
-                Debug.LogWarning($"Container node {node.nodeID} returned null child");
-                return;
-            }
-        }
-
-        // Play the sound using AudioManager
-        if (AudioManager.Instance != null)
-        {
-            // Adjust volume based on node's base volume and our multiplier
-            float finalVolume = Mathf.Clamp(soundToPlay.baseVolume * volumeMultiplier, 0f, 1f);
-            AudioManager.Instance.PlaySoundNode(soundToPlay);
-        }
-        else
-        {
-            Debug.LogWarning("AudioManager.Instance is null - cannot play sound");
-
-            // Fallback: log what would have been played
-            Debug.Log($"Would play: {soundToPlay.nodeID} (clip: {soundToPlay.clip?.name}, volume: {soundToPlay.baseVolume * volumeMultiplier:F2})");
+            AudioManager.Instance.PlaySoundNode(cursorSoundConfig.swooshSound); // does not use volume
         }
     }
 
     /// <summary>
-    /// Check if ready to play sounds.
+    /// Borrow an AudioSource for continuous sounds (if needed).
     /// </summary>
-    public bool IsReady()
+    public AudioSource BorrowAudioSource()
     {
-        return isInitialized && weaponSoundSet != null;
+        if (borrowedAudioSource != null) return borrowedAudioSource;
+
+        borrowedAudioSource = AudioManager.Instance.BorrowAudioSource();
+        return borrowedAudioSource;
     }
 
     /// <summary>
-    /// Get debug info about the sound setup.
+    /// Return borrowed AudioSource.
     /// </summary>
-    public string GetDebugInfo()
+    public void ReturnAudioSource()
     {
-        if (!isInitialized) return "Not initialized";
+        if (borrowedAudioSource != null)
+        {
+            AudioManager.Instance.ReturnAudioSource(borrowedAudioSource);
+            borrowedAudioSource = null;
+        }
+    }
 
-        string swingInfo = swingNode != null ?
-            $"{swingNode.nodeID} ({swingNode.nodeType})" : "Not found";
-        string critInfo = critNode != null ?
-            $"{critNode.nodeID} ({critNode.nodeType})" : "Not found";
-
-        return $"Weapon Sound Manager:\n" +
-               $"Sound Set: {weaponSoundSet.nodeID}\n" +
-               $"Swing Node: {swingInfo}\n" +
-               $"Crit Node: {critInfo}\n" +
-               $"Swing Volume: {swingVolume}\n" +
-               $"Crit Volume: {critVolume}\n" +
-               $"Crit Threshold: {critVelocityThreshold}";
+    /// <summary>
+    /// Clean up all resources.
+    /// </summary>
+    public void Cleanup()
+    {
+        ReturnAudioSource();
     }
 }
