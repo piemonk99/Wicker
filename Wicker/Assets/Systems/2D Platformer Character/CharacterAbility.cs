@@ -1,5 +1,6 @@
 using UnityEngine;
 
+// Base class for a character ability. Character abilities handle their own calls and behavior, and are managed by the CharacterAbilities component.
 public abstract class CharacterAbility : ICharacterComponent
 {
     public string AbilityName { get; protected set; }

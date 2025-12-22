@@ -12,15 +12,15 @@ public class AutoAttackWeaponConfig : ScriptableObject
 public class AutoAttackWeaponMechanicsConfig : WeaponMechanicsConfig
 {
     [Header("Auto Attack Settings")]
-    public float detectionRadius = 3f;
-    public float attackInterval = 0.3f;
-    public float enemyRehitCooldown = 0f;
-    public float velocityThreshold = 3f;
+    public float detectionRadius = 4f;
+    public float attackInterval = .1f;
+    public float enemyRehitCooldown = 1f;
+    public float velocityThreshold = 10f;
 
     [Header("Grapple Enhancement")]
     public bool onlyActiveDuringGrapple = false;
     public float grappleDamageMultiplier = 1.5f;
-    public float maxGrappleRange = 10f;
+    public float maxGrappleRange = 6f;
 
     [Header("Target Parameters")]
     public LayerMask enemyLayers;

@@ -1,8 +1,9 @@
-// CharacterInventory.cs
 using UnityEngine;
 using System.Collections.Generic;
 using System;
 
+
+// CharacterInventory handles tracking of all items a character owns
 public class CharacterInventory : MonoBehaviour, ICharacterComponent
 {
     [Header("Inventory Settings")]

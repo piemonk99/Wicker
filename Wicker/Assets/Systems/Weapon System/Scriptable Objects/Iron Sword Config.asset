@@ -16,19 +16,19 @@ MonoBehaviour:
     baseDamage: 10
     canAttackWhileMoving: 1
     scalesWithVelocity: 1
-    minimumVelocityForBonus: 0
-    maxVelocityForMultiplier: 20
+    minimumVelocityForBonus: 15
+    maxVelocityForMultiplier: 30
     maxVelocityMultiplier: 2
-    attackCooldown: 0.5
-    hitboxSize: {x: 1.5, y: 0.8}
-    hitboxOffset: {x: 0.5, y: 0}
-    attackDuration: 0.2
+    attackCooldown: 0.2
+    hitboxSize: {x: 4, y: 3}
+    hitboxOffset: {x: 2, y: 0}
+    attackDuration: 0.1
     hitLayers:
       serializedVersion: 2
-      m_Bits: 4294967295
+      m_Bits: 128
     multiHit: 0
     maxHitsPerAttack: 1
-    knockbackForce: 5
+    knockbackForce: 500
   visual:
     weaponPrefab: {fileID: 0}
     icon: {fileID: 0}

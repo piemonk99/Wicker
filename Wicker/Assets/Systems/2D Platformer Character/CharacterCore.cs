@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using UnityEngine.InputSystem;
 using UnityEngine;
 
+// CharacterCore manages all character components for a character - player or enemy.
+// Loads config options in from scriptable objects to their corresponding components
+// Ticks and PhysicsTicks all components
+// Serves as the connection between the event calls from an input script, like PlayerInput or some enemy ai script, and the components listening for event calls.
 public class CharacterCore : MonoBehaviour
 {
     // Config

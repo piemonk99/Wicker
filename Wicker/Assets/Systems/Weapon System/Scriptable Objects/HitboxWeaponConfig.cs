@@ -12,12 +12,12 @@ public class HitboxWeaponConfig : ScriptableObject
 public class HitboxWeaponMechanicsConfig : WeaponMechanicsConfig
 {
     [Header("Attack Settings")]
-    public float attackCooldown = .5f;
+    public float attackCooldown = .2f;
 
     [Header("Hitbox Settings")]
-    public Vector2 hitboxSize = new Vector2(1.5f, 0.8f);
-    public Vector2 hitboxOffset = new Vector2(0.5f, 0f);
-    public float attackDuration = 0.2f;
+    public Vector2 hitboxSize = new Vector2(4f, 2f);
+    public Vector2 hitboxOffset = new Vector2(2f, 0f);
+    public float attackDuration = 0.1f;
     public LayerMask hitLayers = ~0;
 
     [Header("Advanced")]

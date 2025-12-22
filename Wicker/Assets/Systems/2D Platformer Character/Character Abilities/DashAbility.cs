@@ -1,5 +1,10 @@
 using UnityEngine;
 
+
+// Dash ability - propels the character forward horizontally in the direction of movement.
+// Todo: add special behavior if used while grappling and under the effects of a force from grappling. Should propel the character in the direction of the closest tangent to the vector they would have dashed in.
+// Todo: fix issue related to dashing right before grappling. Likely due to pushing the postDash condition after starting a grapple in the middle of the dash.
+//              ^ May be better fixed with elegant handling in the charactermovement system, though some supplementary fixes here couldn't hurt.
 [System.Serializable]
 public class DashAbility : CharacterAbility
 {

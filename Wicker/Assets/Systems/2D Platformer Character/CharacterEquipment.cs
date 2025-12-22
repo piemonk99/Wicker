@@ -1,7 +1,8 @@
-// CharacterEquipment.cs
 using UnityEngine;
 using System.Collections.Generic;
 
+
+// Handles tracking/usage of a character's currently equipped items.
 public class CharacterEquipment : MonoBehaviour, ICharacterComponent
 {
     [Header("References")]

@@ -1,6 +1,8 @@
 using UnityEngine;
 using System.Collections.Generic;
 
+// CharacterMovement class handles all basic movement - horizontal input, and jumping.
+// It also tracks movementState, which allows for easy outside manipulation of the movement system.
 public class CharacterMovement : MonoBehaviour, ICharacterComponent
 {
     [System.Serializable]

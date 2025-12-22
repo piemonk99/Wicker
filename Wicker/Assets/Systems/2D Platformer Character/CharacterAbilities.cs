@@ -1,10 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// CharacterAbilities handles all extraneous character actions outside of basic movement and attacking.
+// This will include any abilities used by the player or enemies, but what abilities each can use is determined by their configs.
 public class CharacterAbilities : MonoBehaviour, ICharacterComponent
 {
     [Header("Abilities")]
-    public AttackAbility attack = new AttackAbility();
     public DashAbility dash = new DashAbility();
     public LungeAbility lunge = new LungeAbility();
 
@@ -21,12 +22,10 @@ public class CharacterAbilities : MonoBehaviour, ICharacterComponent
         allAbilities.Clear();
 
         // Initialize all abilities (they will load their own config)
-        attack.Initialize(core);
         dash.Initialize(core);
         lunge.Initialize(core);
 
         // Add enabled abilities to the list for updating
-        if (attack.IsEnabled) allAbilities.Add(attack);
         if (dash.IsEnabled) allAbilities.Add(dash);
         if (lunge.IsEnabled) allAbilities.Add(lunge);
 
@@ -58,7 +57,6 @@ public class CharacterAbilities : MonoBehaviour, ICharacterComponent
         {
             "lunge" => lunge.CanActivate(),
             "dash" => dash.CanActivate(),
-            "attack" => attack.CanActivate(),
             _ => false
         };
     }
@@ -73,9 +71,6 @@ public class CharacterAbilities : MonoBehaviour, ICharacterComponent
             case "dash":
                 dash.Activate();
                 break;
-            case "attack":
-                attack.Activate();
-                break;
         }
     }
 
@@ -85,7 +80,6 @@ public class CharacterAbilities : MonoBehaviour, ICharacterComponent
         {
             "lunge" => lunge.IsActive,
             "dash" => dash.IsActive,
-            "attack" => attack.IsActive,
             _ => false
         };
     }
@@ -96,7 +90,6 @@ public class CharacterAbilities : MonoBehaviour, ICharacterComponent
         {
             "lunge" => lunge.GetCooldownPercent(),
             "dash" => dash.GetCooldownPercent(),
-            "attack" => attack.GetCooldownPercent(),
             _ => 0f
         };
     }
@@ -104,7 +97,6 @@ public class CharacterAbilities : MonoBehaviour, ICharacterComponent
     // Public getters for UI
     public bool CanLunge() => lunge.CanActivate();
     public bool CanDash() => dash.CanActivate();
-    public bool CanAttack() => attack.CanActivate();
 
     public bool IsLunging() => lunge.IsActive;
     public bool IsDashing() => dash.IsActive;

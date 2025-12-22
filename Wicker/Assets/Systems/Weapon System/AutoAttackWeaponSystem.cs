@@ -32,7 +32,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
     private List<Vector3> lastDetectionPositions = new List<Vector3>();
     private int totalAttacks = 0;
     private int totalHits = 0;
-    private float debugLineDuration = 0.002f;
+    private float debugLineDuration = 0f;
 
     // Cache
     private int enemyLayerMask;

@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 /// <summary>
 /// Main grapple system controller that manages grapple behavior, physics, and visuals.
 /// Implements ICharacterComponent for integration with character systems.
-/// Coordinates between ConfigManager, PhysicsCalculator, and VisualManager.
+/// Coordinates between GrappleConfigManager, GrapplePhysicsCalculator, GrappleSoundManager, and GrappleVisualManager.
 /// </summary>
 public class GrappleSystem : MonoBehaviour, ICharacterComponent
 {

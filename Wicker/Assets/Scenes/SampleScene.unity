@@ -1405,7 +1405,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2dd75273c7e5e8e42ab39e87c53399d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TestSetup
-  startingWeapon: {fileID: 11400000, guid: 0bba1a979e8a75c448d203d02c00c7d8, type: 2}
+  startingWeapon: {fileID: 0}
   startingGrappleHook: {fileID: 11400000, guid: 408ed55ff57e2524c9f798632511e0e0, type: 2}
   additionalWeapons: []
   additionalGrappleHooks: []
