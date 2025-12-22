@@ -350,7 +350,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
         // Set grapple as base state with high priority
         currentGrappleMovementState.type = CharacterMovement.MovementStateType.Base;
-        currentGrappleMovementState.priority = 20; // Higher than dash (10)
+        currentGrappleMovementState.priority = 30; // Higher than dash and post-dash
 
         character.RaiseEvent("movement_base_set", currentGrappleMovementState);
         character.RaiseEvent("grapple_started", grapplePoint);
@@ -786,12 +786,44 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
     }
 
 
-    //////////////////////// Public API ////////////////////////
+    //////////////////////// Public API /////////////////////////
 
     public bool IsGrappling() => isGrappling;
     public Vector2 GetGrapplePoint() => grapplePoint;
     public float GetRopeLength() => currentRopeLength;
     public SwingArc GetSwingArc() => swingArc;
+
+    public RopeState? GetCurrentRopeState()
+    {
+        if (!isGrappling) return null;
+
+        float currentDistance = Vector2.Distance(grappleOrigin.position, grapplePoint);
+        return physicsCalculator.GetRopeState(currentDistance, currentRopeLength);
+    }
+
+    public Vector2 GetRadialDirection()
+    {
+        if (!isGrappling || swingArc == null) return Vector2.zero;
+        return swingArc.radialDirection;
+    }
+
+    public Vector2 GetTangentDirection()
+    {
+        if (!isGrappling || swingArc == null) return Vector2.zero;
+        return swingArc.tangentDirection;
+    }
+
+    public bool IsUnderGrappleForce()
+    {
+        if (!isGrappling) return false;
+
+        // Check if we have any restoring force from rope physics
+        float currentDistance = Vector2.Distance(grappleOrigin.position, grapplePoint);
+        RopeState ropeState = physicsCalculator.GetRopeState(currentDistance, currentRopeLength);
+
+        // We're under grapple force if rope is stretched OR squashed beyond threshold
+        return (ropeState.isStretch || ropeState.isSquash) && Mathf.Abs(ropeState.ratio) > 0.01f;
+    }
 
     /// <summary>
     /// Directly switch to a different grapple configuration (for compatibility with old system).

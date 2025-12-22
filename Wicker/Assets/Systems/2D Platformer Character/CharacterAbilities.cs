@@ -1,12 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// CharacterAbilities handles all extraneous character actions outside of basic movement and attacking.
-// This will include any abilities used by the player or enemies, but what abilities each can use is determined by their configs.
 public class CharacterAbilities : MonoBehaviour, ICharacterComponent
 {
     [Header("Abilities")]
     public DashAbility dash = new DashAbility();
+    public GrappleDashAbility grappleDash = new GrappleDashAbility();
     public LungeAbility lunge = new LungeAbility();
 
     // List to easily iterate through all abilities
@@ -23,10 +22,12 @@ public class CharacterAbilities : MonoBehaviour, ICharacterComponent
 
         // Initialize all abilities (they will load their own config)
         dash.Initialize(core);
+        grappleDash.Initialize(core);
         lunge.Initialize(core);
 
         // Add enabled abilities to the list for updating
         if (dash.IsEnabled) allAbilities.Add(dash);
+        if (grappleDash.IsEnabled) allAbilities.Add(grappleDash);
         if (lunge.IsEnabled) allAbilities.Add(lunge);
 
         Debug.Log($"CharacterAbilities initialized with {allAbilities.Count} enabled abilities");
@@ -57,6 +58,7 @@ public class CharacterAbilities : MonoBehaviour, ICharacterComponent
         {
             "lunge" => lunge.CanActivate(),
             "dash" => dash.CanActivate(),
+            "grappledash" => grappleDash.CanActivate(),
             _ => false
         };
     }
@@ -71,6 +73,9 @@ public class CharacterAbilities : MonoBehaviour, ICharacterComponent
             case "dash":
                 dash.Activate();
                 break;
+            case "grappledash":
+                grappleDash.Activate();
+                break;
         }
     }
 
@@ -80,6 +85,7 @@ public class CharacterAbilities : MonoBehaviour, ICharacterComponent
         {
             "lunge" => lunge.IsActive,
             "dash" => dash.IsActive,
+            "grappledash" => grappleDash.IsActive,
             _ => false
         };
     }
@@ -90,6 +96,7 @@ public class CharacterAbilities : MonoBehaviour, ICharacterComponent
         {
             "lunge" => lunge.GetCooldownPercent(),
             "dash" => dash.GetCooldownPercent(),
+            "grappledash" => grappleDash.GetCooldownPercent(),
             _ => 0f
         };
     }
@@ -97,7 +104,9 @@ public class CharacterAbilities : MonoBehaviour, ICharacterComponent
     // Public getters for UI
     public bool CanLunge() => lunge.CanActivate();
     public bool CanDash() => dash.CanActivate();
+    public bool CanGrappleDash() => grappleDash.CanActivate();
 
     public bool IsLunging() => lunge.IsActive;
     public bool IsDashing() => dash.IsActive;
+    public bool IsGrappleDashing() => grappleDash.IsActive;
 }

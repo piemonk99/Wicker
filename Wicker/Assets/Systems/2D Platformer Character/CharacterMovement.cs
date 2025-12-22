@@ -1,9 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-// CharacterMovement class handles all basic movement - horizontal input, and jumping.
-// It also tracks movementState, which allows for easy outside manipulation of the movement system.
-
 public class CharacterMovement : MonoBehaviour, ICharacterComponent
 {
     [System.Serializable]
@@ -119,6 +116,10 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
     private bool isJumping;
     private bool wasGrounded;
     private bool jumpWasReleased;
+
+    // Input tracking
+    private float currentInputX = 0f;
+    private float lastInputDirection = 1f; // Default to right (positive)
 
     // Two-tier state management
     private MovementState currentBaseState;
@@ -303,6 +304,9 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
                 {
                     Vector2 input = (Vector2)data;
                     HandleHorizontalMovement(input.x);
+
+                    // Update input tracking
+                    UpdateInputDirection(input.x);
                 }
                 break;
 
@@ -402,6 +406,17 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         );
     }
 
+    private void UpdateInputDirection(float inputX)
+    {
+        currentInputX = inputX;
+
+        // Update last direction when there's significant input
+        if (Mathf.Abs(inputX) > 0.01f)
+        {
+            lastInputDirection = Mathf.Sign(inputX);
+        }
+    }
+
     private float GetEffectiveAcceleration()
     {
         MovementState effectiveState = GetEffectiveState();
@@ -498,7 +513,24 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
     public float GetHorizontalVelocity() => rb.linearVelocity.x;
     public float GetVerticalVelocity() => rb.linearVelocity.y;
     public bool IsMoving() => Mathf.Abs(rb.linearVelocity.x) > 0.1f;
-    public float GetCurrentXDirection() => Mathf.Sign(rb.linearVelocity.x);
+
+    // Updated: Get current input direction with last direction fallback
+    public float GetCurrentXDirection()
+    {
+        // If there's current input, use it
+        if (Mathf.Abs(currentInputX) > 0.01f)
+        {
+            return Mathf.Sign(currentInputX);
+        }
+
+        // Otherwise return last direction (defaults to right/1)
+        return lastInputDirection;
+    }
+
+    // Additional helper methods for input state
+    public float GetCurrentInputX() => currentInputX;
+    public float GetLastInputDirection() => lastInputDirection;
+    public bool HasActiveInput() => Mathf.Abs(currentInputX) > 0.01f;
 
     // External control methods (unchanged)
     public void ApplyExternalForce(Vector2 force, ForceMode2DExtended forceMode = ForceMode2DExtended.Force) { /* Same as before */ }

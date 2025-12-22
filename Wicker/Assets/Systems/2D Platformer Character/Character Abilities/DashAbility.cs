@@ -1,8 +1,6 @@
 using UnityEngine;
 
-
 // Dash ability - propels the character forward horizontally in the direction of movement.
-// Todo: add special behavior if used while grappling and under the effects of a force from grappling. Should propel the character in the direction of the closest tangent to the vector they would have dashed in.
 [System.Serializable]
 public class DashAbility : CharacterAbility
 {
@@ -18,6 +16,8 @@ public class DashAbility : CharacterAbility
     private bool isInPostDashPhase = false;
     private Vector2 currentContinuousForce;
 
+    private CharacterAbilities characterAbilities;
+
     public DashAbility()
     {
         AbilityName = "Dash";
@@ -32,6 +32,7 @@ public class DashAbility : CharacterAbility
 
         config = characterConfig.dash;
         IsEnabled = config.isEnabled;
+        characterAbilities = character.GetComponent<CharacterAbilities>();
 
         if (IsEnabled)
         {
@@ -44,7 +45,19 @@ public class DashAbility : CharacterAbility
     {
         if (type == "dash_pressed" && CanActivate())
         {
+            if (characterAbilities != null && characterAbilities.CanUseAbility("grappledash"))
+                return;
+
             Activate();
+        }
+
+        else if (type == "dash_cooldown_set")
+        {
+            float newCooldown = (float)data;
+            if (newCooldown > cooldownTimer)
+            {
+                cooldownTimer = newCooldown;
+            }
         }
     }
 
@@ -57,15 +70,14 @@ public class DashAbility : CharacterAbility
     {
         IsActive = true;
         activeTimer = config.duration;
-        cooldownTimer = config.cooldown;
+        character.RaiseEvent("dash_cooldown_set", config.cooldown); // Puts all dashes on cooldown
         isInPostDashPhase = false;
 
         // Store pre-dash velocity
         Vector2 preDashVelocity = rb.linearVelocity;
 
-        // Determine dash direction
-        float movementDirection = movement.GetCurrentXDirection();
-        dashDirection = new Vector2(movementDirection, 0).normalized;
+        // Determine dash direction based on input
+        dashDirection = CalculateDashDirection();
 
         // Apply velocity preservation
         rb.linearVelocity = new Vector2(
@@ -82,11 +94,11 @@ public class DashAbility : CharacterAbility
         if (config.applyContinuousForce)
             currentContinuousForce = dashForce * config.continuousForceMultiplier;
 
-        // Set DASH as base state (higher priority than default)
+        // Set DASH as base state (priority 20)
         character.RaiseEvent("movement_base_set", new CharacterMovement.MovementState(
             name: "Dashing",
             type: CharacterMovement.MovementStateType.Base,
-            priority: 10, // Higher than default (0)
+            priority: 20,
             allowMovement: false,
             applyGravity: false,
             applyDeceleration: false,
@@ -104,7 +116,30 @@ public class DashAbility : CharacterAbility
         OnActivated();
     }
 
+    private Vector2 CalculateDashDirection()
+    {
+        // Get movement input direction
+        float movementDirection = movement.GetCurrentXDirection();
+        return new Vector2(movementDirection, 0).normalized;
+    }
 
+    private void ApplyForce(Vector2 force, bool isInstant)
+    {
+        if (isInstant)
+        {
+            if (config.massDependent)
+                rb.AddForce(force, ForceMode2D.Impulse);
+            else
+                rb.linearVelocity += force;
+        }
+        else
+        {
+            if (config.massDependent)
+                rb.AddForce(force, ForceMode2D.Force);
+            else
+                rb.AddForce(force * rb.mass, ForceMode2D.Force);
+        }
+    }
 
     public override void Deactivate()
     {
@@ -122,17 +157,19 @@ public class DashAbility : CharacterAbility
             isInPostDashPhase = true;
             postDashTimer = config.postDashDecelerationDuration;
 
-            // Add post-dash as a MODIFIER (not base state)
-            character.RaiseEvent("movement_modifier_add", new CharacterMovement.MovementState(
+            // Set POSTDASH as base state with lower priority (10)
+            character.RaiseEvent("movement_base_set", new CharacterMovement.MovementState(
                 name: "PostDash",
-                type: CharacterMovement.MovementStateType.Modifier,
-                allowMovement: true,
+                type: CharacterMovement.MovementStateType.Base,
+                priority: 10, // Lower than Dashing (20), higher than Default (0)
+                allowMovement: true,  // Player can move during post-dash
                 applyGravity: true,
                 applyDeceleration: true,
                 canJump: true,
+                gravityMultiplier: 1f,
                 groundAccelerationMultiplier: 1f,
-                airAccelerationMultiplier: 1f,
                 groundDecelerationMultiplier: config.postDashDecelerationMultilplier,
+                airAccelerationMultiplier: 1f,
                 airDecelerationMultiplier: config.postDashDecelerationMultilplier,
                 jumpForceMultiplier: 1f,
                 maxSpeedMultiplier: 1f
@@ -187,24 +224,6 @@ public class DashAbility : CharacterAbility
             trailInstance.transform.position = transform.position;
     }
 
-    private void ApplyForce(Vector2 force, bool isInstant)
-    {
-        if (isInstant)
-        {
-            if (config.massDependent)
-                rb.AddForce(force, ForceMode2D.Impulse);
-            else
-                rb.linearVelocity += force;
-        }
-        else
-        {
-            if (config.massDependent)
-                rb.AddForce(force, ForceMode2D.Force);
-            else
-                rb.AddForce(force * rb.mass, ForceMode2D.Force);
-        }
-    }
-
     private void UpdatePostDash(float deltaTime)
     {
         postDashTimer -= deltaTime;
@@ -219,8 +238,8 @@ public class DashAbility : CharacterAbility
         isInPostDashPhase = false;
         CleanupTrail();
 
-        // End the post-dash movement state (return to default movement)
-        character.RaiseEvent("movement_override_end", "PostDash");
+        // Clear the PostDash base state (returns to Default)
+        character.RaiseEvent("movement_base_clear", "PostDash");
     }
 
     public float GetCooldownPercent() => cooldownTimer / config.cooldown;
