@@ -857,6 +857,39 @@ MonoBehaviour:
   smoothTime: 0.25
   maxSpeed: 50
   predictionModifier: {fileID: 519420034}
+  zoomController:
+    enabled: 1
+    minOrthographicSize: 15
+    maxOrthographicSize: 20
+    velocityThreshold: 50
+    minVelocityForZoom: 20
+    zoomSmoothTime: 0.2
+    zoomCurve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    horizontalWeight: 1
+    verticalWeight: 0.5
   showDebugVisuals: 1
 --- !u!114 &519420034
 MonoBehaviour:
