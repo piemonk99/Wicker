@@ -45,10 +45,27 @@ MonoBehaviour:
     preserveHorizontalVelocity: 0
     preserveVerticalVelocity: 0
     applyPostDashDeceleration: 1
-    postDashDecelerationMultilplier: 5
+    postDashDecelerationMultilplier: 10
     postDashDecelerationDuration: 0.3
     trailPrefab: {fileID: 0}
     sound: {fileID: 0}
+  grappleDash:
+    isEnabled: 1
+    force: 10
+    duration: 0.15
+    cooldown: 1
+    minRopeRatioThreshold: 0.01
+    maxAngleDifference: 90
+    preserveAllVelocityOnTangentDash: 1
+    normalPreserveHorizontalVelocity: 1
+    normalPreserveVerticalVelocity: 1
+    applyInstantForce: 1
+    applyContinuousForce: 0
+    continuousForceMultiplier: 1
+    massDependent: 0
+    trailPrefab: {fileID: 0}
+    sound: {fileID: 0}
+    dashColor: {r: 0, g: 1, b: 1, a: 1}
   lunge:
     isEnabled: 1
     horizontalForce: 20

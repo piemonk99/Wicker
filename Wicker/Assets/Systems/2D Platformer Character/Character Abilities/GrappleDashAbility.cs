@@ -254,7 +254,7 @@ public class GrappleDashAbility : CharacterAbility
     public override void Tick(float deltaTime)
     {
         if (cooldownTimer > 0)
-            cooldownTimer -= deltaTime;
+            cooldownTimer -= deltaTime * 1.01f; // Make the grapple dash cool down slightly faster to avoid race conditions
 
         if (IsActive)
             UpdateActiveDash(deltaTime);
