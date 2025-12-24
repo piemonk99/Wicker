@@ -27,10 +27,13 @@ public class SimpleEnemyAI : MonoBehaviour, ICharacterComponent
     public void Tick(float deltaTime)
     {
         directionChangeTimer -= deltaTime;
-        Patrol();
+        
     }
 
-    public void PhysicsTick(float fixedDeltaTime) { }
+    public void PhysicsTick(float fixedDeltaTime)
+    {
+        Patrol();
+    }
 
     private void Patrol()
     {

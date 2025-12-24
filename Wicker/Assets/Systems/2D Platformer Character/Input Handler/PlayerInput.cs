@@ -162,17 +162,20 @@ public class PlayerInput : MonoBehaviour
     {
         if (character == null) return;
 
-        // Handle movement separately - send every frame
-        HandleMovementContinuous();
-
-        // Update all other action mappings
+        // Only handle non-movement inputs in Update
         foreach (var mapping in actionMappings)
         {
-            // Skip movement since we handle it separately
             if (mapping.eventName == "move") continue;
-
             mapping.Update(character, logEvents);
         }
+    }
+
+    void FixedUpdate()
+    {
+        if (character == null) return;
+
+        // Handle movement ONLY in FixedUpdate
+        HandleMovementContinuous();
     }
 
     private void HandleMovementContinuous()

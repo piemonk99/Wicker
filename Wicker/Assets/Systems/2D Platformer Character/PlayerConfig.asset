@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: PlayerConfig
   m_EditorClassIdentifier: Assembly-CSharp::CharacterConfig
   maxSpeed: 15
-  groundAcceleration: 5
-  airAcceleration: 4
-  groundDeceleration: 4
-  airDeceleration: 0.4
+  groundAcceleration: 60
+  airAcceleration: 48
+  groundDeceleration: 48
+  airDeceleration: 4.8
   jumpForce: 20
   gravity: 40
   coyoteTime: 0.1
