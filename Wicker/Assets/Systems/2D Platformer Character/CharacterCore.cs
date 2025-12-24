@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine.InputSystem;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 // CharacterCore manages all character components for a character - player or enemy.
 // Loads config options in from scriptable objects to their corresponding components
@@ -18,6 +18,7 @@ public class CharacterCore : MonoBehaviour
 
     // Component management
     private List<ICharacterComponent> components = new();
+    private List<ICharacterController> controllers = new();
 
     // Public getter for config
     public CharacterConfig GetConfig() => config;
@@ -45,6 +46,15 @@ public class CharacterCore : MonoBehaviour
     void Update()
     {
         float delta = Time.deltaTime;
+        
+        // Update all controllers first (generate inputs)
+        foreach (var controller in controllers)
+        {
+            if (controller != null)
+                controller.UpdateController(delta);
+        }
+        
+        // Then update all components (react to inputs)
         foreach (var comp in components)
             comp.Tick(delta);
 
@@ -59,6 +69,15 @@ public class CharacterCore : MonoBehaviour
     void FixedUpdate()
     {
         float fixedDelta = Time.fixedDeltaTime;
+        
+        // Update all controllers first in FixedUpdate
+        foreach (var controller in controllers)
+        {
+            if (controller != null)
+                controller.FixedUpdateController(fixedDelta);
+        }
+        
+        // Then update all components in FixedUpdate
         foreach (var comp in components)
             comp.PhysicsTick(fixedDelta);
     }
@@ -69,15 +88,20 @@ public class CharacterCore : MonoBehaviour
         OnEvent?.Invoke(type, data);
     }
 
-    // Initialize all components (called once at Awake)
+    // Initialize all components and controllers (called once at Awake)
     private void InitializeAllComponents()
     {
-        // Clear any existing components
+        // Clear any existing components and controllers
         components.Clear();
+        controllers.Clear();
 
         // Find all ICharacterComponent components on this GameObject
         var foundComponents = GetComponents<ICharacterComponent>();
         components.AddRange(foundComponents);
+
+        // Find all ICharacterController components on this GameObject
+        var foundControllers = GetComponents<ICharacterController>();
+        controllers.AddRange(foundControllers);
 
         // Initialize each component
         foreach (var comp in components)
@@ -92,10 +116,24 @@ public class CharacterCore : MonoBehaviour
             }
         }
 
-        Debug.Log($"CharacterCore: Initialized {components.Count} components");
+        // Initialize each controller
+        foreach (var controller in controllers)
+        {
+            try
+            {
+                controller.Initialize(this);
+                controller.Enable(); // Enable controllers by default
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Failed to initialize controller {controller.GetType().Name}: {e.Message}");
+            }
+        }
+
+        Debug.Log($"CharacterCore: Initialized {components.Count} components and {controllers.Count} controllers");
     }
 
-    // Reload all components (clean up and re-initialize)
+    // Reload all components and controllers (clean up and re-initialize)
     private void ReloadAllComponents()
     {
         if (config == null) return;
@@ -110,10 +148,17 @@ public class CharacterCore : MonoBehaviour
         // This prevents duplicate event handlers
         ClearAllEventSubscribers();
 
-        // Clear the component list and re-find all components
+        // Clear the component and controller lists
         components.Clear();
+        controllers.Clear();
+
+        // Re-find all components
         var foundComponents = GetComponents<ICharacterComponent>();
         components.AddRange(foundComponents);
+
+        // Re-find all controllers
+        var foundControllers = GetComponents<ICharacterController>();
+        controllers.AddRange(foundControllers);
 
         // Re-initialize all components
         foreach (var comp in components)
@@ -128,10 +173,24 @@ public class CharacterCore : MonoBehaviour
             }
         }
 
+        // Re-initialize all controllers
+        foreach (var controller in controllers)
+        {
+            try
+            {
+                controller.Initialize(this);
+                controller.Enable();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Failed to re-initialize controller {controller.GetType().Name}: {e.Message}");
+            }
+        }
+
         // Raise config changed event AFTER all components are re-initialized
         RaiseEvent("config_changed", config);
 
-        Debug.Log($"CharacterCore: Reloaded {components.Count} components");
+        Debug.Log($"CharacterCore: Reloaded {components.Count} components and {controllers.Count} controllers");
     }
 
     // Clear all event subscribers to prevent accumulation
@@ -161,6 +220,73 @@ public class CharacterCore : MonoBehaviour
         return null;
     }
 
+    // Helper to get controllers
+    public T GetCharacterController<T>() where T : class, ICharacterController
+    {
+        foreach (var controller in controllers)
+        {
+            if (controller is T typedController)
+                return typedController;
+        }
+        return null;
+    }
+
+    // Add controller at runtime
+    public void AddController(ICharacterController controller)
+    {
+        if (controller != null && !controllers.Contains(controller))
+        {
+            controllers.Add(controller);
+            controller.Initialize(this);
+            controller.Enable();
+        }
+    }
+
+    // Remove controller at runtime
+    public void RemoveController(ICharacterController controller)
+    {
+        if (controller != null && controllers.Contains(controller))
+        {
+            controller.Disable();
+            controllers.Remove(controller);
+        }
+    }
+
+    // Enable/disable specific controller type
+    public void EnableController<T>() where T : ICharacterController
+    {
+        foreach (var controller in controllers)
+        {
+            if (controller is T)
+            {
+                controller.Enable();
+            }
+        }
+    }
+
+    public void DisableController<T>() where T : ICharacterController
+    {
+        foreach (var controller in controllers)
+        {
+            if (controller is T)
+            {
+                controller.Disable();
+            }
+        }
+    }
+
+    // Switch controllers (enable one, disable others)
+    public void SwitchToController<T>() where T : ICharacterController
+    {
+        foreach (var controller in controllers)
+        {
+            if (controller is T)
+                controller.Enable();
+            else
+                controller.Disable();
+        }
+    }
+
     // Create a default config for testing
     private CharacterConfig CreateDefaultConfig()
     {
@@ -173,13 +299,29 @@ public class CharacterCore : MonoBehaviour
     void OnDestroy()
     {
         ClearAllEventSubscribers();
+        
+        // Disable all controllers
+        foreach (var controller in controllers)
+        {
+            controller?.Disable();
+        }
     }
 }
 
-// Base interface for all character systems
+// Base interface for all character systems - these listen for event calls from a charactercontroller and apply effects
 public interface ICharacterComponent
 {
     void Initialize(CharacterCore character);
     void Tick(float deltaTime);
     void PhysicsTick(float fixedDeltaTime);
+}
+
+// Base interface for all character controllers - these generate event calls for the components
+public interface ICharacterController
+{
+    void Initialize(CharacterCore character);
+    void UpdateController(float deltaTime);
+    void FixedUpdateController(float fixedDeltaTime);
+    void Enable();
+    void Disable();
 }

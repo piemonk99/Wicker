@@ -2,32 +2,34 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class PlayerInput : MonoBehaviour
+public class PlayerInput : MonoBehaviour, ICharacterController
 {
     [Header("Input Settings")]
     public InputActionAsset inputAsset;
 
-    [Header("Character")]
-    public CharacterCore character;
-
     [Header("Auto-Detection Settings")]
-    [Tooltip("Prefix to remove from action names (e.g., 'Player/' or 'Gameplay/')")]
     public string actionNamePrefix = "";
-
-    [Tooltip("Convert action names to lowercase for event names")]
     public bool useLowercaseEvents = true;
-
-    [Tooltip("Action map to use (leave empty for first found)")]
     public string targetActionMap = "Player";
 
     [Header("Debug")]
     [SerializeField] private bool logEvents = false;
 
+    // Controller state
+    private CharacterCore character;
+    private bool isEnabled = true;
+    public bool IsEnabled => isEnabled;
+
+    // Input system state
     private List<InputActionMapping> actionMappings = new List<InputActionMapping>();
     private InputActionMap currentActionMap;
+    private Vector2 reusableMoveVector = new Vector2();
 
-    void Start()
+    // Initialize is called by CharacterControllerManager or whatever sets up the controller
+    public void Initialize(CharacterCore characterCore)
     {
+        this.character = characterCore;
+
         if (inputAsset == null)
         {
             Debug.LogError("No InputActionAsset assigned!");
@@ -38,6 +40,30 @@ public class PlayerInput : MonoBehaviour
         SetupAutoDetectedActions();
     }
 
+    public void Enable() => isEnabled = true;
+    public void Disable() => isEnabled = false;
+
+    public void UpdateController(float deltaTime)
+    {
+        if (!isEnabled || character == null) return;
+
+        // Only handle non-movement inputs in Update
+        foreach (var mapping in actionMappings)
+        {
+            if (mapping.eventName == "move") continue;
+            mapping.Update(character, logEvents);
+        }
+    }
+
+    public void FixedUpdateController(float fixedDeltaTime)
+    {
+        if (!isEnabled || character == null) return;
+
+        // Handle movement ONLY in FixedUpdate
+        HandleMovementContinuous();
+    }
+
+    // All the input setup methods remain the same
     void SetupAutoDetectedActions()
     {
         // Find the action map
@@ -149,7 +175,12 @@ public class PlayerInput : MonoBehaviour
         }
     }
 
-    void OnEnable() => EnableAllActions();
+    // MonoBehaviour lifecycle - handle enabling/disabling the Input System
+    void OnEnable()
+    {
+        EnableAllActions();
+    }
+
     void OnDisable()
     {
         if (currentActionMap != null)
@@ -157,29 +188,6 @@ public class PlayerInput : MonoBehaviour
             currentActionMap.Disable();
         }
     }
-
-    void Update()
-    {
-        if (character == null) return;
-
-        // Only handle non-movement inputs in Update
-        foreach (var mapping in actionMappings)
-        {
-            if (mapping.eventName == "move") continue;
-            mapping.Update(character, logEvents);
-        }
-    }
-
-    void FixedUpdate()
-    {
-        if (character == null) return;
-
-        // Handle movement ONLY in FixedUpdate
-        HandleMovementContinuous();
-    }
-
-    // Movement vector to save move input to each update, so we are not creating a new one each update.
-    private Vector2 reusableMoveVector = new Vector2();
 
     private void HandleMovementContinuous()
     {
@@ -193,7 +201,6 @@ public class PlayerInput : MonoBehaviour
             reusableMoveVector.y = 0;
             character.RaiseEvent("move_input", reusableMoveVector);
 
-            // Send move_input event with the current value (even if it's 0)
             if (logEvents && Mathf.Abs(currentValue) > 0.01f)
             {
                 Debug.Log($"Movement continuous: {currentValue}");
@@ -205,6 +212,7 @@ public class PlayerInput : MonoBehaviour
         }
     }
 }
+
 
 // Updated InputActionMapping class with proper 1D Axis support
 [System.Serializable]

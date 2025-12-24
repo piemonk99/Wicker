@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class SimpleEnemyAI : MonoBehaviour, ICharacterComponent
+public class SimpleEnemyAI : MonoBehaviour, ICharacterController
 {
     [Header("Patrol Settings")]
     [SerializeField] private float patrolSpeed = 2f;
@@ -11,27 +11,47 @@ public class SimpleEnemyAI : MonoBehaviour, ICharacterComponent
     [SerializeField] private float groundCheckDistance = 0.5f;
     [SerializeField] private LayerMask groundLayer;
 
+    // Controller state
     private CharacterCore character;
+    private bool isEnabled = true;
+    public bool IsEnabled => isEnabled;
+
+    // AI state
     private float currentDirection = 1f;
     private float directionChangeTimer = 0f;
 
-    public void Initialize(CharacterCore core)
+    // Reusable vector to avoid allocations
+    private Vector2 moveInputVector = new Vector2();
+
+    public void Initialize(CharacterCore characterCore)
     {
-        character = core;
+        this.character = characterCore;
 
         // Start moving in a random direction
         currentDirection = Random.value > 0.5f ? 1f : -1f;
-        character.RaiseEvent("move_input", new Vector2(currentDirection, 0));
+
+        // Send initial movement
+        moveInputVector.x = currentDirection;
+        moveInputVector.y = 0;
+        character.RaiseEvent("move_input", moveInputVector);
     }
 
-    public void Tick(float deltaTime)
+    public void Enable() => isEnabled = true;
+    public void Disable() => isEnabled = false;
+
+    public void UpdateController(float deltaTime)
     {
+        if (!isEnabled || character == null) return;
+
+        // Timer updates in Update for accuracy
         directionChangeTimer -= deltaTime;
-        
     }
 
-    public void PhysicsTick(float fixedDeltaTime)
+    public void FixedUpdateController(float fixedDeltaTime)
     {
+        if (!isEnabled || character == null) return;
+
+        // Do patrol logic in physics tick for consistency
         Patrol();
     }
 
@@ -51,8 +71,10 @@ public class SimpleEnemyAI : MonoBehaviour, ICharacterComponent
             }
         }
 
-        // Move in current direction (scale speed appropriately)
-        character.RaiseEvent("move_input", new Vector2(currentDirection, 0));
+        // Move in current direction
+        moveInputVector.x = currentDirection;
+        moveInputVector.y = 0;
+        character.RaiseEvent("move_input", moveInputVector);
 
         // Update facing direction
         transform.localScale = new Vector3(
@@ -96,6 +118,8 @@ public class SimpleEnemyAI : MonoBehaviour, ICharacterComponent
 
     private void OnDrawGizmos()
     {
+        if (!isEnabled) return;
+
         // Draw ground check ray
         Gizmos.color = Color.red;
         Vector3 rayStart = transform.position + Vector3.right * currentDirection * forwardRaycastOffset;
