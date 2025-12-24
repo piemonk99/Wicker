@@ -3,7 +3,6 @@ using UnityEngine;
 public class SimpleEnemyAI : MonoBehaviour, ICharacterController
 {
     [Header("Patrol Settings")]
-    [SerializeField] private float patrolSpeed = 2f;
     [SerializeField] private float directionChangeDelay = 0.5f;
 
     [Header("Platform Detection")]
