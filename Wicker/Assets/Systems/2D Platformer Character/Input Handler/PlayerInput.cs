@@ -178,6 +178,9 @@ public class PlayerInput : MonoBehaviour
         HandleMovementContinuous();
     }
 
+    // Movement vector to save move input to each update, so we are not creating a new one each update.
+    private Vector2 reusableMoveVector = new Vector2();
+
     private void HandleMovementContinuous()
     {
         var moveAction = currentActionMap?.FindAction("Move");
@@ -185,17 +188,16 @@ public class PlayerInput : MonoBehaviour
 
         try
         {
-            // Read the current value every frame
             float currentValue = moveAction.ReadValue<float>();
+            reusableMoveVector.x = currentValue;
+            reusableMoveVector.y = 0;
+            character.RaiseEvent("move_input", reusableMoveVector);
 
             // Send move_input event with the current value (even if it's 0)
             if (logEvents && Mathf.Abs(currentValue) > 0.01f)
             {
                 Debug.Log($"Movement continuous: {currentValue}");
             }
-
-            // Always send the event, even when input is 0
-            character.RaiseEvent("move_input", new Vector2(currentValue, 0));
         }
         catch (System.Exception e)
         {
