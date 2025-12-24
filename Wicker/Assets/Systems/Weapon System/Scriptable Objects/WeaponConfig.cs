@@ -30,8 +30,8 @@ public class WeaponMechanicsConfig
     [Header("Velocity Scaling")]
     public bool scalesWithVelocity = true;
 
-    [Tooltip("Minimum velocity required to start getting damage bonus")]
-    public float minimumVelocityForBonus = 0f;
+    [Tooltip("Minimum velocity required to start getting damage multiplier")]
+    public float minimumVelocityForMultiplier = 0f;
 
     [Tooltip("Velocity at which we reach maximum damage multiplier")]
     public float maxVelocityForMultiplier = 20f;
@@ -206,7 +206,7 @@ public class WeaponConfig : ScriptableObject
             baseDamage = source.baseDamage,
             canAttackWhileMoving = source.canAttackWhileMoving,
             scalesWithVelocity = source.scalesWithVelocity,
-            minimumVelocityForBonus = source.minimumVelocityForBonus,
+            minimumVelocityForMultiplier = source.minimumVelocityForMultiplier,
             maxVelocityForMultiplier = source.maxVelocityForMultiplier,
             maxVelocityMultiplier = source.maxVelocityMultiplier,
             hitboxSize = source.hitboxSize,
@@ -252,7 +252,7 @@ public class WeaponConfig : ScriptableObject
             baseDamage = source.baseDamage,
             canAttackWhileMoving = source.canAttackWhileMoving,
             scalesWithVelocity = source.scalesWithVelocity,
-            minimumVelocityForBonus = source.minimumVelocityForBonus,
+            minimumVelocityForMultiplier = source.minimumVelocityForMultiplier,
             maxVelocityForMultiplier = source.maxVelocityForMultiplier,
             maxVelocityMultiplier = source.maxVelocityMultiplier,
             orbitRadius = source.orbitRadius,
@@ -305,7 +305,7 @@ public class WeaponConfig : ScriptableObject
             baseDamage = source.baseDamage,
             canAttackWhileMoving = source.canAttackWhileMoving,
             scalesWithVelocity = source.scalesWithVelocity,
-            minimumVelocityForBonus = source.minimumVelocityForBonus,
+            minimumVelocityForMultiplier = source.minimumVelocityForMultiplier,
             maxVelocityForMultiplier = source.maxVelocityForMultiplier,
             maxVelocityMultiplier = source.maxVelocityMultiplier,
             detectionRadius = source.detectionRadius,

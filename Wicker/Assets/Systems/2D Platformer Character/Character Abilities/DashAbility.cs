@@ -168,9 +168,9 @@ public class DashAbility : CharacterAbility
                 canJump: true,
                 gravityMultiplier: 1f,
                 groundAccelerationMultiplier: 1f,
-                groundDecelerationMultiplier: ((config.postDashDecelerationMultilplier - 1) / 10) + 1,
+                groundDecelerationMultiplier: config.postDashGroundDecelerationMultilplier,
                 airAccelerationMultiplier: 1f,
-                airDecelerationMultiplier: config.postDashDecelerationMultilplier,
+                airDecelerationMultiplier: config.postDashAirDecelerationMultilplier,
                 jumpForceMultiplier: 1f,
                 maxSpeedMultiplier: 1f
             ));

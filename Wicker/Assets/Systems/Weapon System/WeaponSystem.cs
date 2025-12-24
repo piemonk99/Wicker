@@ -172,13 +172,13 @@ public abstract class WeaponSystem : MonoBehaviour, ICharacterComponent
     private float CalculateVelocityMultiplier(float currentVelocity, WeaponMechanicsConfig mechanics)
     {
         // If velocity is 0 or below minimum threshold, return base multiplier (1x)
-        if (currentVelocity <= mechanics.minimumVelocityForBonus)
+        if (currentVelocity <= mechanics.minimumVelocityForMultiplier)
             return 1f;
 
         // Calculate normalized velocity (0 to 1) within our scaling range
         float normalizedVelocity = Mathf.Clamp01(
-            (currentVelocity - mechanics.minimumVelocityForBonus) /
-            (mechanics.maxVelocityForMultiplier - mechanics.minimumVelocityForBonus)
+            (currentVelocity - mechanics.minimumVelocityForMultiplier) /
+            (mechanics.maxVelocityForMultiplier - mechanics.minimumVelocityForMultiplier)
         );
 
         // Lerp between base multiplier (1x) and max multiplier

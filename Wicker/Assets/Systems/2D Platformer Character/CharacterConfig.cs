@@ -65,7 +65,8 @@ public class DashConfig
 
     [Header("Post-Dash Effects")]
     public bool applyPostDashDeceleration = false;
-    public float postDashDecelerationMultilplier = 10f;
+    public float postDashGroundDecelerationMultilplier = 2f;
+    public float postDashAirDecelerationMultilplier = 20f;
     public float postDashDecelerationDuration = 0.3f;
 
     [Header("Visual Feedback")]
