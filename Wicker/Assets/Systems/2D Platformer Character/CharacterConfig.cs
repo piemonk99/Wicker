@@ -6,10 +6,10 @@ public class CharacterConfig : ScriptableObject
 {
     [Header("Movement Settings")]
     public float maxSpeed = 15f;
-    public float groundAcceleration = 5f;
-    public float airAcceleration = 0.8f;
-    public float groundDeceleration = 1f;
-    public float airDeceleration = .5f;
+    public float groundAcceleration = 60f;
+    public float airAcceleration = 48f;
+    public float groundDeceleration = 48f;
+    public float airDeceleration = 4.8f;
 
     [Header("Jump/Gravity")]
     public float jumpForce = 20f;

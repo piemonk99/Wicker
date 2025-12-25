@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "AI/Enemy Config")]
-public class EnemyConfig : ScriptableObject
+[CreateAssetMenu(menuName = "AI/AI Config")]
+public class AIConfig : ScriptableObject
 {
     [System.Serializable]
     public class Transition

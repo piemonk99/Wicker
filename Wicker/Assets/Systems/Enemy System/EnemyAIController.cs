@@ -4,7 +4,7 @@ using UnityEngine;
 public class EnemyAIController : MonoBehaviour, ICharacterController
 {
     [Header("Configuration")]
-    [SerializeField] private EnemyConfig config;
+    [SerializeField] private AIConfig config;
 
     // Runtime state
     private AIBehavior currentBehavior;
@@ -19,13 +19,13 @@ public class EnemyAIController : MonoBehaviour, ICharacterController
 
         if (config == null)
         {
-            Debug.LogError($"No EnemyConfig assigned to {gameObject.name}");
+            Debug.LogError($"No AIConfig assigned to {gameObject.name}");
             return;
         }
 
         if (!config.IsValid())
         {
-            Debug.LogError($"Invalid EnemyConfig on {gameObject.name}");
+            Debug.LogError($"Invalid AIConfig on {gameObject.name}");
             return;
         }
 

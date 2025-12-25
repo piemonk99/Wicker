@@ -1,4 +1,3 @@
-// CharacterCondition.cs
 using UnityEngine;
 using TMPro;
 using System.Collections;
@@ -13,11 +12,10 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
     public float invulnerabilityDuration = 0.5f;
 
     [Header("Damage Text")]
-    public GameObject damageTextPrefab;
     public Vector2 textOffset = new Vector2(0, 1f);
-    public float textDuration = 2f;
     public Color damageColor = Color.red;
     public Color healColor = Color.green;
+    public Color critColor = Color.yellow;
 
     [Header("Death Settings")]
     public bool destroyOnDeath = true;
@@ -47,12 +45,6 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
         this.character = character;
         currentHealth = maxHealth;
 
-        // Create default damage text prefab if none exists
-        if (damageTextPrefab == null)
-        {
-            CreateDefaultDamageTextPrefab();
-        }
-
         Debug.Log($"CharacterCondition initialized for {character.gameObject.name}");
     }
 
@@ -73,8 +65,8 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
 
     public void PhysicsTick(float fixedDeltaTime) { }
 
-    // Health Management
-    public void TakeDamage(float damage, Vector3? hitPosition = null)
+    
+    public void TakeDamage(float damage, Vector3? hitPosition = null, bool isCritical = false)
     {
         if (isInvulnerable || isDead || damage <= 0) return;
 
@@ -84,8 +76,9 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
         // Calculate actual hit position
         Vector3 position = hitPosition ?? transform.position;
 
-        // Show damage text
-        ShowDamageText(damage, position, damageColor);
+        // Show damage text with crit indication
+        Color textColor = isCritical ? critColor : damageColor;
+        ShowDamageText(damage, position, textColor, isCritical);
 
         // Apply damage
         currentHealth -= damage;
@@ -121,7 +114,10 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
         if (actualHeal > 0)
         {
             // Show heal text
-            ShowDamageText(actualHeal, transform.position, healColor);
+            if (WorldSpaceTextManager.Instance != null)
+            {
+                WorldSpaceTextManager.Instance.ShowHeal(actualHeal, transform.position + (Vector3)textOffset, healColor);
+            }
 
             // Raise event
             OnHealthChanged?.Invoke(currentHealth / maxHealth);
@@ -130,52 +126,22 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
         }
     }
 
-    private void ShowDamageText(float amount, Vector3 position, Color color)
+    private void ShowDamageText(float amount, Vector3 position, Color color, bool isCrit = false)
     {
-        if (damageTextPrefab == null) return;
+        if (WorldSpaceTextManager.Instance == null)
+        {
+            Debug.LogWarning("WorldSpaceTextManager not found. Text will not be displayed.");
+            return;
+        }
 
-        // Create text at position with offset
         Vector3 textPosition = position + (Vector3)textOffset;
-        GameObject textObj = Instantiate(damageTextPrefab, textPosition, Quaternion.identity);
 
-        // Set text
-        TextMeshPro textMesh = textObj.GetComponent<TextMeshPro>();
-        if (textMesh != null)
-        {
-            textMesh.text = amount.ToString("F0");
-            textMesh.color = color;
-        }
-
-        // Start fade/destroy coroutine
-        StartCoroutine(DestroyTextAfterDelay(textObj, textDuration));
-    }
-
-    private IEnumerator DestroyTextAfterDelay(GameObject textObj, float delay)
-    {
-        float elapsed = 0f;
-        TextMeshPro textMesh = textObj.GetComponent<TextMeshPro>();
-        Vector3 startPosition = textObj.transform.position;
-
-        while (elapsed < delay)
-        {
-            elapsed += Time.deltaTime;
-            float t = elapsed / delay;
-
-            // Move upward
-            textObj.transform.position = startPosition + Vector3.up * (t * 0.5f);
-
-            // Fade out
-            if (textMesh != null)
-            {
-                Color color = textMesh.color;
-                color.a = Mathf.Lerp(1f, 0f, t);
-                textMesh.color = color;
-            }
-
-            yield return null;
-        }
-
-        Destroy(textObj);
+        WorldSpaceTextManager.Instance.ShowDamage(
+            amount,
+            textPosition,
+            color,
+            isCrit
+        );
     }
 
     private void StartInvulnerability()
@@ -298,24 +264,6 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
         }
 
         return modifiedHealing;
-    }
-
-    private void CreateDefaultDamageTextPrefab()
-    {
-        // Create a simple default text prefab
-        GameObject textObj = new GameObject("DefaultDamageText");
-        TextMeshPro textMesh = textObj.AddComponent<TextMeshPro>();
-
-        textMesh.text = "0";
-        textMesh.fontSize = 3;
-        textMesh.alignment = TextAlignmentOptions.Center;
-        textMesh.sortingOrder = 1000;
-
-        // Make it a prefab in memory
-        damageTextPrefab = textObj;
-        textObj.SetActive(false);
-
-        Debug.Log("Created default damage text prefab");
     }
 
     // Public API

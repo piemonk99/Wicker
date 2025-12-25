@@ -22,7 +22,7 @@ public class WeaponSoundManager
     /// <summary>
     /// Play the weapon swing sound.
     /// </summary>
-    public void PlaySwingSound(float velocityMagnitude = 0f)
+    public void PlaySwingSound(float velocityMagnitude = 0f, bool isCritical = false)
     {
         if (config == null || config.weaponSoundSet == null) return;
 
@@ -33,12 +33,12 @@ public class WeaponSoundManager
 
         // Check for crit in auto-attack weapons
         var autoSoundConfig = config as AutoAttackWeaponSoundConfig;
-        if (autoSoundConfig != null && velocityMagnitude > autoSoundConfig.critVelocityThreshold)
+        if (autoSoundConfig != null && isCritical)
         {
             soundNode = config.weaponSoundSet.GetChildNode("Crit");
 
             if (soundNode != null)
-                Debug.Log($"Playing CRIT sound (velocity: {velocityMagnitude:F1})");
+                Debug.Log($"Playing CRIT sound");
         }
 
         // Fallback to swing sound
@@ -51,7 +51,7 @@ public class WeaponSoundManager
                 soundNode = config.weaponSoundSet;
             }
 
-            Debug.Log($"Playing swing sound (velocity: {velocityMagnitude:F1})");
+            Debug.Log($"Playing swing sound");
         }
 
         // Play the sound

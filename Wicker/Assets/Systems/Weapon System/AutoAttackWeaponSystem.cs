@@ -272,9 +272,10 @@ public class AutoAttackWeaponSystem : WeaponSystem
 
         // Play swing sound based on current velocity
         float currentVelocity = rb != null ? rb.linearVelocity.magnitude : 0f;
+        bool isCritical = currentVelocity >= autoAttackMechanics.maxVelocityForMultiplier;
         if (soundManager != null)
         {
-            soundManager.PlaySwingSound(currentVelocity);
+            soundManager.PlaySwingSound(currentVelocity, isCritical);
         }
 
         foreach (var enemy in enemies)
@@ -293,8 +294,11 @@ public class AutoAttackWeaponSystem : WeaponSystem
             // Add velocity bonus
             damage = CalculateDamage(damage);
 
+            // Round down
+            damage = Mathf.Floor(damage);
+
             // Apply damage
-            ApplyDamage(enemy, damage);
+            ApplyDamage(enemy, damage, isCritical);
 
             // Add to recent hits with timestamp
             recentHits.Add(new RecentHit(enemy, Time.time));
@@ -305,14 +309,14 @@ public class AutoAttackWeaponSystem : WeaponSystem
         }
     }
 
-    private void ApplyDamage(GameObject target, float damage)
+    private void ApplyDamage(GameObject target, float damage, bool isCritical)
     {
         if (target == null) return;
 
         var condition = target.GetComponent<CharacterCondition>();
         if (condition != null)
         {
-            condition.TakeDamage(damage, target.transform.position);
+            condition.TakeDamage(damage, target.transform.position, isCritical);
 
             character.RaiseEvent("enemy_hit", new
             {
