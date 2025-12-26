@@ -99,7 +99,7 @@ public class PlayerInput : MonoBehaviour, ICharacterController
 
             actionMappings.Add(mapping);
 
-            Debug.Log($"Auto-detected action: {action.name} -> {eventName} ({action.type})");
+            //Debug.Log($"Auto-detected action: {action.name} -> {eventName} ({action.type})");
         }
 
         EnableAllActions();

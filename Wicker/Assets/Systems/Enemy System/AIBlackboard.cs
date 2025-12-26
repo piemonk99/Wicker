@@ -20,6 +20,26 @@ public class AIBlackboard : MonoBehaviour
         return default;
     }
 
+    public bool HasKey(string key)
+    {
+        return data.ContainsKey(key);
+    }
+
+    public bool Has<T>(string key)
+    {
+        if (!data.ContainsKey(key)) return false;
+
+        try
+        {
+            var value = (T)data[key];
+            return value != null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public bool Has(string key) => data.ContainsKey(key);
 
     public void Remove(string key) => data.Remove(key);

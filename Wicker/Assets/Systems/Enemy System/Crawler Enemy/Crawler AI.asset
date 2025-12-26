@@ -10,16 +10,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f61f1349dc6488542aebdb8087df45a9, type: 3}
-  m_Name: Crawler AI Config
+  m_Name: Crawler AI
   m_EditorClassIdentifier: Assembly-CSharp::EnemyConfig
+  behaviors: []
   initialState: {fileID: 11400000, guid: a56bc83810a711b4c98073dd7fd4670f, type: 2}
   transitions:
-  - fromBehavior: {fileID: 11400000, guid: a56bc83810a711b4c98073dd7fd4670f, type: 2}
+  - fromBehaviors:
+    - {fileID: 11400000, guid: a56bc83810a711b4c98073dd7fd4670f, type: 2}
     toBehavior: {fileID: 11400000, guid: a3115de0a5d1bc543b06865ba67518a3, type: 2}
-    condition: {fileID: 11400000, guid: e8e203896573d0442b47e8166098aea6, type: 2}
+    conditions:
+    - {fileID: 11400000, guid: e8e203896573d0442b47e8166098aea6, type: 2}
     priority: 0
-  - fromBehavior: {fileID: 11400000, guid: a3115de0a5d1bc543b06865ba67518a3, type: 2}
+    enabled: 1
+  - fromBehaviors:
+    - {fileID: 11400000, guid: a3115de0a5d1bc543b06865ba67518a3, type: 2}
     toBehavior: {fileID: 11400000, guid: a56bc83810a711b4c98073dd7fd4670f, type: 2}
-    condition: {fileID: 11400000, guid: e050ea2e790ec914b9ed91caf039e8df, type: 2}
+    conditions:
+    - {fileID: 11400000, guid: e050ea2e790ec914b9ed91caf039e8df, type: 2}
     priority: 0
+    enabled: 1
   logTransitions: 1

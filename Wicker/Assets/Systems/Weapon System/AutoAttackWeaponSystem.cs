@@ -66,13 +66,6 @@ public class AutoAttackWeaponSystem : WeaponSystem
 
         // Set debug mode
         showDebugInfo = autoAttackVisual.enableDebugVisualization;
-
-        Debug.Log($"AutoAttackWeaponSystem initialized: {config.weaponName}");
-        Debug.Log($"  Detection Radius: {autoAttackMechanics.detectionRadius}");
-        Debug.Log($"  Max Grapple Range: {autoAttackMechanics.maxGrappleRange}");
-        Debug.Log($"  Attack Interval: {autoAttackMechanics.attackInterval}");
-        Debug.Log($"  Enemy Layers: {autoAttackMechanics.enemyLayers.value}");
-        Debug.Log($"  Debug Visualization: {autoAttackVisual.enableDebugVisualization}");
     }
 
     protected override void TryAttack()

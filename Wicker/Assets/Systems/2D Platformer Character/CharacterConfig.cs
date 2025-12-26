@@ -113,13 +113,31 @@ public class GrappleDashConfig
 public class LungeConfig
 {
     public bool isEnabled = false;
-    public float horizontalForce = 20f;
-    public float verticalForce = 5f;
+
+    [Header("Force Settings")]
+    public Vector2 force = new Vector2(20f, 5f);
     public float duration = 0.3f;
     public float cooldown = 2f;
+
+    [Header("Force Application")]
+    public bool applyInstantForce = true;
+    public bool applyContinuousForce = false;
+    public float continuousForceMultiplier = 1f;
+    public bool massDependent = false;
+
+    [Header("Velocity Preservation")]
+    [Range(0f, 1f)] public float preserveHorizontalVelocity = 0f;
+    [Range(0f, 1f)] public float preserveVerticalVelocity = 0f;
     public bool cancelVerticalVelocity = true;
 
+    [Header("Post-Lunge Effects")]
+    public bool applyPostLungeDeceleration = false;
+    public float postLungeGroundDecelerationMultilplier = 2f;
+    public float postLungeAirDecelerationMultilplier = 20f;
+    public float postLungeDecelerationDuration = 0.3f;
+
     [Header("Visual Feedback")]
+    public GameObject trailPrefab;
     public ParticleSystem particles;
     public AudioClip sound;
 }

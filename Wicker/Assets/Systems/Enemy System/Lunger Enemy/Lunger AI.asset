@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f61f1349dc6488542aebdb8087df45a9, type: 3}
+  m_Name: Lunger AI
+  m_EditorClassIdentifier: Assembly-CSharp::AIConfig
+  behaviors: []
+  initialState: {fileID: 11400000, guid: ce40331887645d74d8f40f4ab61d33c6, type: 2}
+  transitions:
+  - fromBehaviors:
+    - {fileID: 11400000, guid: ce40331887645d74d8f40f4ab61d33c6, type: 2}
+    toBehavior: {fileID: 11400000, guid: 7270cc3ba4de74749ad3afac2d79c0d7, type: 2}
+    conditions:
+    - {fileID: 11400000, guid: 43bd40c372a1a21499c7b589ab4b6ed5, type: 2}
+    priority: 0
+    enabled: 1
+  - fromBehaviors:
+    - {fileID: 11400000, guid: 7270cc3ba4de74749ad3afac2d79c0d7, type: 2}
+    toBehavior: {fileID: 11400000, guid: ce40331887645d74d8f40f4ab61d33c6, type: 2}
+    conditions:
+    - {fileID: 11400000, guid: 7299ecfe448fcb44090b67ea596ad598, type: 2}
+    priority: 0
+    enabled: 1
+  - fromBehaviors:
+    - {fileID: 11400000, guid: 7270cc3ba4de74749ad3afac2d79c0d7, type: 2}
+    - {fileID: 11400000, guid: ce40331887645d74d8f40f4ab61d33c6, type: 2}
+    toBehavior: {fileID: 11400000, guid: 424c801a20f7833408ce65d05087c52b, type: 2}
+    conditions:
+    - {fileID: 11400000, guid: 79df9c2a6664d6748b22daf97b90b80f, type: 2}
+    - {fileID: 11400000, guid: 1ab7a235d540e314a82824615a896dfe, type: 2}
+    priority: 0
+    enabled: 1
+  logTransitions: 1

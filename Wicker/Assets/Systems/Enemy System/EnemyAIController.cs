@@ -45,6 +45,9 @@ public class EnemyAIController : MonoBehaviour, ICharacterController
             blackboard.Set("player", player.transform);
         }
 
+        // Subscribe to character events for ability tracking
+        character.OnEvent += HandleCharacterEvent;
+
         // Start with initial behavior
         currentBehavior = config.GetInitialState();
         if (currentBehavior != null)
@@ -124,18 +127,44 @@ public class EnemyAIController : MonoBehaviour, ICharacterController
     {
         if (currentBehavior == null) return;
 
-        foreach (var transition in config.GetTransitions())
+        // Get all transitions that apply to current behavior
+        var applicableTransitions = config.GetTransitionsForState(currentBehavior);
+
+        // Check each transition (sorted by priority)
+        foreach (var transition in applicableTransitions)
         {
-            // Check if this transition starts from current behavior
-            if (transition.fromBehavior == currentBehavior)
+            // Evaluate all conditions (AND logic)
+            if (transition.EvaluateConditions(blackboard))
             {
-                // Check condition
-                if (transition.condition.Evaluate(blackboard))
-                {
-                    // Found a valid transition
-                    SwitchToBehavior(transition.toBehavior);
-                    break; // Only take the first valid transition
-                }
+                // Found a valid transition
+                SwitchToBehavior(transition.toBehavior);
+                break; // Only take the highest priority valid transition
+            }
+        }
+    }
+
+    // In the HandleCharacterEvent method, update the ability event check:
+    private void HandleCharacterEvent(string type, object data)
+    {
+        if (!isEnabled) return;
+
+        // Track ability events for LungeBehavior
+        if (currentBehavior is Lunge lungeBehavior)
+        {
+            if (type == "ability_ended" && data is string abilityName && abilityName == "lunge")
+            {
+                // The lunge ability ended
+                lungeBehavior.OnAbilityEvent(type);
+            }
+        }
+
+        // Track player velocity for prediction (optional)
+        if (type == "velocity_changed" && data is Vector2 velocity)
+        {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null)
+            {
+                blackboard.Set("player_velocity", velocity);
             }
         }
     }
@@ -143,6 +172,15 @@ public class EnemyAIController : MonoBehaviour, ICharacterController
     // ICharacterController implementation
     public void Enable() => isEnabled = true;
     public void Disable() => isEnabled = false;
+
+    // Clean up
+    void OnDestroy()
+    {
+        if (character != null)
+        {
+            character.OnEvent -= HandleCharacterEvent;
+        }
+    }
 
     // Debug drawing - ALWAYS draw in Scene view when selected
     void OnDrawGizmosSelected()

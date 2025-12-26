@@ -45,7 +45,8 @@ MonoBehaviour:
     preserveHorizontalVelocity: 0
     preserveVerticalVelocity: 0
     applyPostDashDeceleration: 1
-    postDashDecelerationMultilplier: 10
+    postDashGroundDecelerationMultilplier: 2
+    postDashAirDecelerationMultilplier: 20
     postDashDecelerationDuration: 0.3
     trailPrefab: {fileID: 0}
     sound: {fileID: 0}
@@ -68,10 +69,20 @@ MonoBehaviour:
     dashColor: {r: 0, g: 1, b: 1, a: 1}
   lunge:
     isEnabled: 1
-    horizontalForce: 20
-    verticalForce: 5
-    duration: 0.3
+    force: {x: 50, y: 15}
+    duration: 0.2
     cooldown: 2
+    applyInstantForce: 1
+    applyContinuousForce: 1
+    continuousForceMultiplier: 1
+    massDependent: 0
+    preserveHorizontalVelocity: 0
+    preserveVerticalVelocity: 0
     cancelVerticalVelocity: 1
+    applyPostLungeDeceleration: 0
+    postLungeGroundDecelerationMultilplier: 2
+    postLungeAirDecelerationMultilplier: 20
+    postLungeDecelerationDuration: 0.3
+    trailPrefab: {fileID: 0}
     particles: {fileID: 0}
     sound: {fileID: 0}
