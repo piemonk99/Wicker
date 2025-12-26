@@ -2218,7 +2218,7 @@ GameObject:
   - component: {fileID: 1402099620}
   - component: {fileID: 1402099619}
   - component: {fileID: 1402099618}
-  - component: {fileID: 1402099617}
+  - component: {fileID: 1402099626}
   m_Layer: 7
   m_Name: Enemy (2)
   m_TagString: Enemy
@@ -2226,19 +2226,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1402099617
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1402099616}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 377469ddcd4bfe8419b912be04b463c6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EnemyAIController
-  config: {fileID: 11400000, guid: de387f121f1deb449b414e5747f5df12, type: 2}
 --- !u!114 &1402099618
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2277,7 +2264,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 55545cdbc9083984d8faed6cc6c4cbf4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CharacterCore
-  config: {fileID: 11400000, guid: 3fabdde4cfc06fb438525fae9076fd61, type: 2}
+  config: {fileID: 11400000, guid: 2d937313ac709834ebc66f21c3e585a9, type: 2}
 --- !u!114 &1402099621
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2448,6 +2435,33 @@ Transform:
   - {fileID: 1354338742}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1402099626
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1402099616}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5461e7b4bccd2c4a8aca29def45444b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CrawlerStateMachine
+  patrolSettings:
+    directionChangeDelay: 0.5
+    forwardRaycastOffset: 3
+    groundCheckDistance: 2
+    wallCheckDistance: 3
+    groundLayer:
+      serializedVersion: 2
+      m_Bits: 64
+    debugDraw: 1
+    rememberLastDirection: 1
+    minPatrolTime: 5
+    maxPatrolTime: 8
+  idleSettings:
+    minIdleTime: 2
+    maxIdleTime: 4
 --- !u!1 &1535560104
 GameObject:
   m_ObjectHideFlags: 0

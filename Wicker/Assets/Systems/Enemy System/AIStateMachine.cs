@@ -1,225 +1,155 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public abstract class AIStateMachine : MonoBehaviour
+public abstract class AIStateMachine : MonoBehaviour, ICharacterController
 {
     [System.Serializable]
-    public class StateDefinition
+    public class Transition
     {
-        public string name;
-        public System.Type behaviorType;
-        public object behaviorSettings;
+        public List<AIBehavior> fromStates = new List<AIBehavior>();
+        public AIBehavior toState;
+        public List<AICondition> conditions = new List<AICondition>();
+        public int priority = 0;
+        public bool enabled = true;
+
+        public bool Evaluate(AIBehavior currentState, AIBlackboard blackboard)
+        {
+            if (!enabled) return false;
+            if (!fromStates.Contains(currentState)) return false;
+            
+            foreach (var condition in conditions)
+            {
+                if (!condition.Evaluate(blackboard))
+                    return false;
+            }
+            return true;
+        }
     }
 
     [System.Serializable]
-    public class TransitionDefinition
+    public class StateMachineData
     {
-        public List<string> fromStates;
-        public string toState;
-        public List<ConditionDefinition> conditions;
-        public int priority;
+        public AIBehavior initialState;
+        public List<Transition> transitions = new List<Transition>();
+        public bool logTransitions = true;
     }
 
-    [System.Serializable]
-    public class ConditionDefinition
+    // Runtime state
+    protected AIBehavior currentState;
+    protected AIBlackboard blackboard;
+    protected CharacterCore character;
+    
+    // Configuration (set in derived class)
+    protected abstract StateMachineData GetStateMachineData();
+
+    // Event handling
+    private bool isEnabled = true;
+    private StateMachineData config;
+
+    public void Initialize(CharacterCore characterCore)
     {
-        public enum LogicType
+        character = characterCore;
+        
+        // Get or create blackboard
+        blackboard = GetComponent<AIBlackboard>();
+        if (blackboard == null)
+            blackboard = gameObject.AddComponent<AIBlackboard>();
+
+        // Initialize blackboard
+        blackboard.Set("transform", transform);
+        blackboard.Set("character", character);
+        
+        // Find player
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+            blackboard.Set("player", player.transform);
+
+        // Get configuration from derived class
+        config = GetStateMachineData();
+        
+        // Start with initial state
+        if (config.initialState != null)
         {
-            Condition,
-            NOT,
-            AND,
-            OR
-        }
-
-        public LogicType type = LogicType.Condition;
-        public string conditionName;
-        public object conditionSettings;
-        public List<ConditionDefinition> subConditions; // For AND/OR
-    }
-
-    protected abstract List<StateDefinition> GetStateDefinitions();
-    protected abstract List<TransitionDefinition> GetTransitionDefinitions();
-
-    private AIConfig runtimeConfig;
-    private Dictionary<string, AIBehavior> behaviorCache = new Dictionary<string, AIBehavior>();
-
-    public void BuildRuntimeConfig()
-    {
-        runtimeConfig = ScriptableObject.CreateInstance<AIConfig>();
-        runtimeConfig.name = name + "_RuntimeConfig";
-
-        // Build behaviors
-        var states = GetStateDefinitions();
-        foreach (var stateDef in states)
-        {
-            var behavior = CreateBehavior(stateDef);
-            behaviorCache[stateDef.name] = behavior;
-            runtimeConfig.AddBehavior(behavior);
-        }
-
-        // Set initial state
-        if (states.Count > 0)
-        {
-            runtimeConfig.SetInitialState(behaviorCache[states[0].name]);
-        }
-
-        // Build transitions
-        var transitions = GetTransitionDefinitions();
-        foreach (var transDef in transitions)
-        {
-            var transition = CreateTransition(transDef);
-            runtimeConfig.AddTransition(transition);
+            SwitchToState(config.initialState);
         }
     }
 
-    public AIConfig GetRuntimeConfig()
+    public void UpdateController(float deltaTime)
     {
-        if (runtimeConfig == null)
-            BuildRuntimeConfig();
-        return runtimeConfig;
+        if (!isEnabled || currentState == null) return;
+
+        // Update blackboard timers
+        blackboard.UpdateTimers(deltaTime);
+
+        // Update current state
+        currentState.Tick(blackboard, deltaTime);
+
+        // Check for transitions
+        CheckTransitions();
     }
 
-    private AIBehavior CreateBehavior(StateDefinition def)
+    public void FixedUpdateController(float fixedDeltaTime)
     {
-        // This is simplified - in reality you'd need to use reflection or a factory
-        // But for now, let's assume we have a few known types
-        AIBehavior behavior = null;
+        if (!isEnabled || currentState == null) return;
 
-        switch (def.name)
+        // Update current state (physics)
+        currentState.PhysicsTick(blackboard, fixedDeltaTime);
+
+        // Send movement input from blackboard
+        SendMovementInput();
+    }
+
+    private void SendMovementInput()
+    {
+        if (character == null) return;
+
+        Vector2 currentMovement = blackboard.GetMovementInput();
+        character.RaiseEvent("move_input", currentMovement);
+    }
+
+    private void CheckTransitions()
+    {
+        if (currentState == null) return;
+
+        // Sort transitions by priority (highest first)
+        var sortedTransitions = new List<Transition>(config.transitions);
+        sortedTransitions.Sort((a, b) => b.priority.CompareTo(a.priority));
+
+        foreach (var transition in sortedTransitions)
         {
-            case "Patrol":
-                behavior = ScriptableObject.CreateInstance<Patrol>();
-                if (def.behaviorSettings is Patrol.Settings)
-                    ((Patrol)behavior).settings = (Patrol.Settings)def.behaviorSettings;
+            if (transition.Evaluate(currentState, blackboard))
+            {
+                SwitchToState(transition.toState);
                 break;
-            case "Chase":
-                behavior = ScriptableObject.CreateInstance<Chase>();
-                if (def.behaviorSettings is Chase.ChaseSettings)
-                    ((Chase)behavior).settings = (Chase.ChaseSettings)def.behaviorSettings;
-                break;
-            case "Lunge":
-                behavior = ScriptableObject.CreateInstance<Lunge>();
-                if (def.behaviorSettings is Lunge.LungeSettings)
-                    ((Lunge)behavior).settings = (Lunge.LungeSettings)def.behaviorSettings;
-                break;
-            case "Idle":
-                behavior = ScriptableObject.CreateInstance<Idle>();
-                break;
+            }
         }
-
-        if (behavior != null)
-            behavior.behaviorName = def.name;
-
-        return behavior;
     }
 
-    private AIConfig.Transition CreateTransition(TransitionDefinition def)
+    private void SwitchToState(AIBehavior newState)
     {
-        var transition = new AIConfig.Transition();
+        if (newState == null) return;
 
-        // Set from behaviors
-        foreach (var fromState in def.fromStates)
+        // Deactivate current state
+        if (currentState != null)
         {
-            if (behaviorCache.ContainsKey(fromState))
-                transition.fromBehaviors.Add(behaviorCache[fromState]);
+            currentState.OnDeactivate(blackboard);
+            
+            if (config.logTransitions)
+                Debug.Log($"{gameObject.name}: Exiting {currentState.behaviorName}");
         }
 
-        // Set to behavior
-        if (behaviorCache.ContainsKey(def.toState))
-            transition.toBehavior = behaviorCache[def.toState];
+        // Activate new state
+        currentState = newState;
+        currentState.OnActivate(blackboard);
 
-        // Set conditions
-        foreach (var condDef in def.conditions)
-        {
-            var condition = CreateCondition(condDef);
-            if (condition != null)
-                transition.conditions.Add(condition);
-        }
+        if (config.logTransitions)
+            Debug.Log($"{gameObject.name}: Entering {currentState.behaviorName}");
 
-        transition.priority = def.priority;
-        return transition;
+        character?.RaiseEvent("ai_state_changed", currentState.behaviorName);
     }
 
-    private AICondition CreateCondition(ConditionDefinition def)
-    {
-        switch (def.type)
-        {
-            case ConditionDefinition.LogicType.Condition:
-                return CreateSingleCondition(def);
-            case ConditionDefinition.LogicType.NOT:
-                return CreateNOTCondition(def);
-            case ConditionDefinition.LogicType.AND:
-                return CreateANDCondition(def);
-            case ConditionDefinition.LogicType.OR:
-                return CreateORCondition(def);
-        }
-        return null;
-    }
-
-    private AICondition CreateSingleCondition(ConditionDefinition def)
-    {
-        AICondition condition = null;
-
-        switch (def.conditionName)
-        {
-            case "TimerExpired":
-                condition = ScriptableObject.CreateInstance<TimerExpiredCondition>();
-                break;
-            case "PlayerDistance":
-                condition = ScriptableObject.CreateInstance<PlayerDistanceCondition>();
-                if (def.conditionSettings is PlayerDistanceCondition.ComparisonType)
-                    ((PlayerDistanceCondition)condition).comparison = (PlayerDistanceCondition.ComparisonType)def.conditionSettings;
-                break;
-            case "PlayerDirection":
-                condition = ScriptableObject.CreateInstance<PlayerDirectionCondition>();
-                if (def.conditionSettings is PlayerDirectionCondition.DirectionType)
-                    ((PlayerDirectionCondition)condition).directionType = (PlayerDirectionCondition.DirectionType)def.conditionSettings;
-                break;
-            case "AbilityReady":
-                condition = ScriptableObject.CreateInstance<AbilityReadyCondition>();
-                break;
-        }
-
-        if (condition != null)
-            condition.conditionName = def.conditionName;
-
-        return condition;
-    }
-
-    private AICondition CreateNOTCondition(ConditionDefinition def)
-    {
-        // You'd need to create a NOT condition class
-        // For now, return null
-        return null;
-    }
-
-    private AICondition CreateANDCondition(ConditionDefinition def)
-    {
-        var andCondition = ScriptableObject.CreateInstance<CompositeCondition>();
-        andCondition.logicType = CompositeCondition.LogicType.AND;
-
-        foreach (var subDef in def.subConditions)
-        {
-            var subCondition = CreateCondition(subDef);
-            if (subCondition != null)
-                andCondition.conditions.Add(subCondition);
-        }
-
-        return andCondition;
-    }
-
-    private AICondition CreateORCondition(ConditionDefinition def)
-    {
-        var orCondition = ScriptableObject.CreateInstance<CompositeCondition>();
-        orCondition.logicType = CompositeCondition.LogicType.OR;
-
-        foreach (var subDef in def.subConditions)
-        {
-            var subCondition = CreateCondition(subDef);
-            if (subCondition != null)
-                orCondition.conditions.Add(subCondition);
-        }
-
-        return orCondition;
-    }
+    // ICharacterController implementation
+    public void Enable() => isEnabled = true;
+    public void Disable() => isEnabled = false;
 }
