@@ -95,35 +95,42 @@ public class TimerExpiredCondition : AICondition
 public class PlayerDistanceCondition : AICondition
 {
     public enum ComparisonType { LessThan, GreaterThan, WithinRange }
-    
-    public ComparisonType comparison = ComparisonType.LessThan;
-    public float distance = 5f;
-    public float minDistance = 2f;
-    public float maxDistance = 5f;
-    
-    public PlayerDistanceCondition(float distance = 5f, ComparisonType comparison = ComparisonType.LessThan)
+
+    [System.Serializable]
+    public class Settings
     {
-        this.distance = distance;
-        this.comparison = comparison;
-        conditionName = $"PlayerDistance_{comparison}_{distance}";
+        public ComparisonType comparison = ComparisonType.LessThan;
+        public float distance = 5f;
+        public float minDistance = 2f;
+        public float maxDistance = 5f;
     }
-    
+
+    public PlayerDistanceCondition(Settings settings)
+    {
+        this.settings = settings;
+        conditionName = $"PlayerDistance_{settings.comparison}_{settings.distance}";
+    }
+
+    public Settings settings = new Settings();
+
     public override bool Evaluate(AIBlackboard blackboard)
     {
-        Transform self = blackboard.Get<Transform>("transform");
-        Transform player = blackboard.Get<Transform>("player");
-        
-        if (self == null || player == null) return false;
-        
-        float currentDistance = Vector2.Distance(self.position, player.position);
-        blackboard.Set("player_distance", currentDistance);
-        
-        switch (comparison)
+        // Distance is auto-updated in blackboard
+        float currentDistance = blackboard.Get<float>("player_distance", Mathf.Infinity);
+
+        switch (settings.comparison)
         {
-            case ComparisonType.LessThan: return currentDistance < distance;
-            case ComparisonType.GreaterThan: return currentDistance > distance;
-            case ComparisonType.WithinRange: return currentDistance >= minDistance && currentDistance <= maxDistance;
-            default: return false;
+            case ComparisonType.LessThan:
+                return currentDistance < settings.distance;
+
+            case ComparisonType.GreaterThan:
+                return currentDistance > settings.distance;
+
+            case ComparisonType.WithinRange:
+                return currentDistance >= settings.minDistance && currentDistance <= settings.maxDistance;
+
+            default:
+                return false;
         }
     }
 }
@@ -131,50 +138,47 @@ public class PlayerDistanceCondition : AICondition
 // Player Direction Condition
 public class PlayerDirectionCondition : AICondition
 {
-    public enum DirectionType { InFront, Behind, EitherSide }
-    
-    public DirectionType directionType = DirectionType.InFront;
-    public float maxAngle = 45f;
-    
-    public PlayerDirectionCondition(DirectionType directionType = DirectionType.InFront)
+    public enum DirectionType { InFront, Behind, InView }
+
+    [System.Serializable]
+    public class Settings
     {
-        this.directionType = directionType;
-        conditionName = $"PlayerDirection_{directionType}";
+        public DirectionType directionType = DirectionType.InFront;
+        public float maxAngle = 45f; // For InFront/InView types
     }
-    
+
+    public Settings settings = new Settings();
+
+    // Default constructor
+    public PlayerDirectionCondition() { }
+
+    // Constructor for code-based settings
+    public PlayerDirectionCondition(Settings settings)
+    {
+        this.settings = settings;
+        conditionName = $"PlayerDirection_{settings.directionType}";
+    }
+
     public override bool Evaluate(AIBlackboard blackboard)
     {
-        Transform self = blackboard.Get<Transform>("transform");
-        Transform player = blackboard.Get<Transform>("player");
-        
-        if (self == null || player == null) return false;
-        
+        // Get pre-calculated data from blackboard
         float facingDirection = blackboard.Get<float>("facing_direction", 1f);
-        Vector2 toPlayer = player.position - self.position;
-        float playerDirection = Mathf.Sign(toPlayer.x);
-        
-        blackboard.Set("player_direction", playerDirection);
-        
-        switch (directionType)
+        float playerAngle = blackboard.Get<float>("player_angle", 180f);
+        float playerDirection = blackboard.Get<float>("player_direction", 0f);
+
+        // For InView: just check angle
+        if (settings.directionType == DirectionType.InView)
         {
-            case DirectionType.InFront:
-                bool sameDirection = Mathf.Sign(facingDirection) == Mathf.Sign(playerDirection);
-                if (maxAngle < 180f && sameDirection)
-                {
-                    Vector2 facingVector = new Vector2(facingDirection, 0);
-                    float angle = Vector2.Angle(facingVector, toPlayer);
-                    return angle <= maxAngle;
-                }
-                return sameDirection;
-                
-            case DirectionType.Behind:
-                return Mathf.Sign(facingDirection) != Mathf.Sign(playerDirection);
-                
-            case DirectionType.EitherSide:
-                return true;
-                
-            default: return false;
+            return playerAngle <= settings.maxAngle;
         }
+
+        // For InFront/Behind: check both angle and direction
+        bool withinAngle = playerAngle <= settings.maxAngle;
+        bool sameDirection = Mathf.Sign(facingDirection) == Mathf.Sign(playerDirection);
+
+        return settings.directionType == DirectionType.InFront
+            ? (sameDirection && withinAngle)
+            : (!sameDirection || !withinAngle);
     }
 }
 

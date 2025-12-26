@@ -1290,7 +1290,7 @@ MonoBehaviour:
       serializedVersion: 2
       m_Bits: 64
     debugDraw: 1
-    rememberLastDirection: 0
+    rememberLastDirection: 1
     minPatrolTime: 5
     maxPatrolTime: 8
   idleSettings:
@@ -1298,13 +1298,34 @@ MonoBehaviour:
     maxIdleTime: 4
   chaseSettings:
     speedMultiplier: 1.2
-    checkInterval: 0.2
     drawDebug: 1
   lungeSettings:
     windupDuration: 0.3
-    recoveryDuration: 1
+    lungeDuration: 1
+    recoveryDuration: 0
     stopDuringWindup: 1
     drawDebug: 1
+  chaseStartSettings:
+    comparison: 0
+    distance: 25
+    minDistance: 2
+    maxDistance: 5
+  chaseEndSettings:
+    comparison: 1
+    distance: 30
+    minDistance: 2
+    maxDistance: 5
+  lungeRangeSettings:
+    comparison: 0
+    distance: 18
+    minDistance: 2
+    maxDistance: 5
+  playerInViewSettings:
+    directionType: 0
+    maxAngle: 45
+  playerInFrontSettings:
+    directionType: 0
+    maxAngle: 10
 --- !u!4 &594937072 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 1761109115653349558, guid: b2f7f180506c83e43995e3e28207fcdb, type: 3}

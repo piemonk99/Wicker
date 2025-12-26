@@ -17,7 +17,7 @@ public abstract class AIStateMachine : MonoBehaviour, ICharacterController
         {
             if (!enabled) return false;
             if (!fromStates.Contains(currentState)) return false;
-            
+
             foreach (var condition in conditions)
             {
                 if (!condition.Evaluate(blackboard))
@@ -39,7 +39,7 @@ public abstract class AIStateMachine : MonoBehaviour, ICharacterController
     protected AIBehavior currentState;
     protected AIBlackboard blackboard;
     protected CharacterCore character;
-    
+
     // Configuration (set in derived class)
     protected abstract StateMachineData GetStateMachineData();
 
@@ -50,24 +50,18 @@ public abstract class AIStateMachine : MonoBehaviour, ICharacterController
     public void Initialize(CharacterCore characterCore)
     {
         character = characterCore;
-        
+
         // Get or create blackboard
         blackboard = GetComponent<AIBlackboard>();
         if (blackboard == null)
             blackboard = gameObject.AddComponent<AIBlackboard>();
 
-        // Initialize blackboard
-        blackboard.Set("transform", transform);
-        blackboard.Set("character", character);
-        
-        // Find player
-        GameObject player = GameObject.FindGameObjectWithTag("Player");
-        if (player != null)
-            blackboard.Set("player", player.transform);
+        // Blackboard will auto-initialize references in Start()
+        // No need to manually set transform, character, player here
 
         // Get configuration from derived class
         config = GetStateMachineData();
-        
+
         // Start with initial state
         if (config.initialState != null)
         {
@@ -79,8 +73,8 @@ public abstract class AIStateMachine : MonoBehaviour, ICharacterController
     {
         if (!isEnabled || currentState == null) return;
 
-        // Update blackboard timers
-        blackboard.UpdateTimers(deltaTime);
+        // Update ALL blackboard data (player, movement, abilities, timers)
+        blackboard.UpdateBlackboard(deltaTime);
 
         // Update current state
         currentState.Tick(blackboard, deltaTime);
@@ -134,7 +128,7 @@ public abstract class AIStateMachine : MonoBehaviour, ICharacterController
         if (currentState != null)
         {
             currentState.OnDeactivate(blackboard);
-            
+
             if (config.logTransitions)
                 Debug.Log($"{gameObject.name}: Exiting {currentState.behaviorName}");
         }

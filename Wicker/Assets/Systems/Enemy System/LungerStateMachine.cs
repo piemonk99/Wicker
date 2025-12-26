@@ -9,6 +9,36 @@ public class LungerStateMachine : AIStateMachine
     public ChaseBehavior.Settings chaseSettings = new ChaseBehavior.Settings();
     public LungeBehavior.Settings lungeSettings = new LungeBehavior.Settings();
 
+    [Header("Condition Settings")]
+    public PlayerDistanceCondition.Settings chaseStartSettings = new PlayerDistanceCondition.Settings
+    {
+        comparison = PlayerDistanceCondition.ComparisonType.LessThan,
+        distance = 15f
+    };
+
+    public PlayerDistanceCondition.Settings chaseEndSettings = new PlayerDistanceCondition.Settings{
+        comparison = PlayerDistanceCondition.ComparisonType.GreaterThan,
+        distance = 18f
+    };
+
+    public PlayerDistanceCondition.Settings lungeRangeSettings = new PlayerDistanceCondition.Settings
+    {
+        comparison = PlayerDistanceCondition.ComparisonType.LessThan,
+        distance = 10f
+    };
+
+    public PlayerDirectionCondition.Settings playerInViewSettings = new PlayerDirectionCondition.Settings
+    {
+        directionType = PlayerDirectionCondition.DirectionType.InFront,
+        maxAngle = 45f  // 45 degree cone
+    };
+
+    public PlayerDirectionCondition.Settings playerInFrontSettings = new PlayerDirectionCondition.Settings
+    {
+        directionType = PlayerDirectionCondition.DirectionType.InFront,
+        maxAngle = 10f  // 10 degree cone (more precise)
+    };
+
     private PatrolBehavior patrolBehavior;
     private IdleBehavior idleBehavior;
     private ChaseBehavior chaseBehavior;
@@ -17,10 +47,11 @@ public class LungerStateMachine : AIStateMachine
     private TimerExpiredCondition patrolTimer;
     private TimerExpiredCondition idleTimer;
     private TimerExpiredCondition lungeTimer;
-    private PlayerDistanceCondition playerInRange;      // Player < 8f away
-    private PlayerDistanceCondition playerOutOfRange;   // Player > 10f away
-    private PlayerDistanceCondition playerClose;        // Player < 3f away
-    private PlayerDirectionCondition playerInFront;
+    private PlayerDistanceCondition playerInChaseStartRange;    // Player < 15f away
+    private PlayerDistanceCondition playerOutOfChaseEndRange;   // Player > 18f away
+    private PlayerDistanceCondition playerInLungeRange;         // Player < 10f away
+    private PlayerDirectionCondition playerInView;      // Player within 45 degree cone of vision
+    private PlayerDirectionCondition playerInFront;     // Player within 10 degree cone in front
     private AbilityReadyCondition lungeReady;
 
     protected override StateMachineData GetStateMachineData()
@@ -36,10 +67,11 @@ public class LungerStateMachine : AIStateMachine
         idleTimer = new TimerExpiredCondition("Idle_Timer");
         lungeTimer = new TimerExpiredCondition("Lunge_Timer");
 
-        playerInRange = new PlayerDistanceCondition(8f, PlayerDistanceCondition.ComparisonType.LessThan);
-        playerOutOfRange = new PlayerDistanceCondition(10f, PlayerDistanceCondition.ComparisonType.GreaterThan);
-        playerClose = new PlayerDistanceCondition(3f, PlayerDistanceCondition.ComparisonType.LessThan);
-        playerInFront = new PlayerDirectionCondition(PlayerDirectionCondition.DirectionType.InFront);
+        playerInChaseStartRange = new PlayerDistanceCondition(chaseStartSettings);
+        playerOutOfChaseEndRange = new PlayerDistanceCondition(chaseEndSettings);
+        playerInLungeRange = new PlayerDistanceCondition(lungeRangeSettings);
+        playerInView = new PlayerDirectionCondition(playerInViewSettings);
+        playerInFront = new PlayerDirectionCondition(playerInFrontSettings);
         lungeReady = new AbilityReadyCondition("lunge");
 
         return new StateMachineData
@@ -69,7 +101,7 @@ public class LungerStateMachine : AIStateMachine
                 {
                     fromStates = new List<AIBehavior> { patrolBehavior, idleBehavior },
                     toState = chaseBehavior,
-                    conditions = new List<AICondition> { playerInRange },
+                    conditions = new List<AICondition> { playerInChaseStartRange, playerInView },
                     priority = 1
                 },
                 
@@ -78,7 +110,7 @@ public class LungerStateMachine : AIStateMachine
                 {
                     fromStates = new List<AIBehavior> { chaseBehavior },
                     toState = patrolBehavior,  // Could also go to idle if preferred
-                    conditions = new List<AICondition> { playerOutOfRange },
+                    conditions = new List<AICondition> { playerOutOfChaseEndRange },
                     priority = 0
                 },
                 
@@ -89,18 +121,18 @@ public class LungerStateMachine : AIStateMachine
                     toState = lungeBehavior,
                     conditions = new List<AICondition>
                     {
-                        playerClose,
+                        playerInLungeRange,
                         playerInFront,
                         lungeReady
                     },
                     priority = 2
                 },
                 
-                // Lunge -> Idle (recovery)
+                // Lunge -> Chase (recovery)
                 new Transition
                 {
                     fromStates = new List<AIBehavior> { lungeBehavior },
-                    toState = idleBehavior,
+                    toState = chaseBehavior,
                     conditions = new List<AICondition> { lungeTimer },
                     priority = 0
                 }
