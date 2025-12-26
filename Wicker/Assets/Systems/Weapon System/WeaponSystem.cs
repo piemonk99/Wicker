@@ -106,8 +106,6 @@ public abstract class WeaponSystem : MonoBehaviour, ICharacterComponent
         {
             soundManager = new WeaponSoundManager(config.SoundConfig, this);
         }
-
-        Debug.Log($"WeaponSystem initialized with config: {config.weaponName}");
     }
 
     protected virtual void CleanupManagers()

@@ -51,8 +51,6 @@ public class LungeBehavior : AIBehavior
         // Start the overall lunge timer (windup + lunge duration + recovery)
         float totalLungeTime = settings.windupDuration + settings.lungeDuration + settings.recoveryDuration;
         blackboard.StartTimer("Lunge_Timer", totalLungeTime);
-
-        Debug.Log($"{behaviorName}: Starting lunge (total: {totalLungeTime:F2}s)");
     }
 
     public override void OnDeactivate(AIBlackboard blackboard)

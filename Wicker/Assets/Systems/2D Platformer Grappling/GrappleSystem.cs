@@ -82,11 +82,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
 
         // Get initial grapple config from equipment
         currentConfig = equipment.CurrentGrappleHook;
-        if (currentConfig == null)
-        {
-            Debug.LogWarning("No grapple hook equipped on initialization. GrappleSystem will be inactive until one is equipped.");
-        }
-        else
+        if (currentConfig != null)
         {
             InitializeWithConfig(currentConfig);
         }
@@ -125,8 +121,6 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
             config.soundConfig,
             this
         );
-
-        Debug.Log($"GrappleSystem initialized with config: {config.GrappleName}");
     }
 
     private void OnGrappleHookChanged(GrappleConfig newConfig)

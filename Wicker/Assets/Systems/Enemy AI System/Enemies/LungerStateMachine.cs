@@ -111,7 +111,7 @@ public class LungerStateMachine : AIStateMachine
         return new StateMachineData
         {
             initialState = patrolBehavior,
-            logTransitions = true,
+            logTransitions = showDebug,
             transitions = new List<Transition>
             {
                 // Patrol <-> Idle cycle

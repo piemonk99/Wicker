@@ -54,8 +54,6 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
 
         // Subscribe to events
         character.OnEvent += HandleCharacterEvent;
-
-        Debug.Log($"CharacterEquipment initialized for {character.gameObject.name}");
     }
 
     public void Tick(float deltaTime)

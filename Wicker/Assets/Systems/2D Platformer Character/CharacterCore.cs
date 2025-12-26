@@ -129,16 +129,12 @@ public class CharacterCore : MonoBehaviour
                 Debug.LogError($"Failed to initialize controller {controller.GetType().Name}: {e.Message}");
             }
         }
-
-        Debug.Log($"CharacterCore: Initialized {components.Count} components and {controllers.Count} controllers");
     }
 
     // Reload all components and controllers (clean up and re-initialize)
     private void ReloadAllComponents()
     {
         if (config == null) return;
-
-        Debug.Log($"CharacterCore: Reloading all components with config: {config.name}");
 
 #if UNITY_EDITOR
             UnityEditor.AssetDatabase.Refresh();
@@ -189,8 +185,6 @@ public class CharacterCore : MonoBehaviour
 
         // Raise config changed event AFTER all components are re-initialized
         RaiseEvent("config_changed", config);
-
-        Debug.Log($"CharacterCore: Reloaded {components.Count} components and {controllers.Count} controllers");
     }
 
     // Clear all event subscribers to prevent accumulation

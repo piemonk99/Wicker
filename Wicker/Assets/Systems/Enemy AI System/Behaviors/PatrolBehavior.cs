@@ -43,8 +43,6 @@ public class PatrolBehavior : AIBehavior
 
         // Set facing direction
         blackboard.SetFacing(currentDirection);
-
-        Debug.Log($"{behaviorName}: Starting patrol, direction: {currentDirection}");
     }
 
     public override void OnDeactivate(AIBlackboard blackboard)

@@ -20,16 +20,12 @@ public class ChaseBehavior : AIBehavior
     {
         behaviorName = "Chase";
         currentDirection = 0f;
-
-        Debug.Log($"{behaviorName}: Started chasing");
     }
 
     public override void OnDeactivate(AIBlackboard blackboard)
     {
         blackboard.ClearMovementInput();
         currentDirection = 0f;
-
-        Debug.Log($"{behaviorName}: Stopped chasing");
     }
 
     public override void Tick(AIBlackboard blackboard, float deltaTime)

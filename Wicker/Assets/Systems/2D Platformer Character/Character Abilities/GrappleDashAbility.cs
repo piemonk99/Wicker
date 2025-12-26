@@ -31,7 +31,6 @@ public class GrappleDashAbility : CharacterAbility
         if (IsEnabled)
         {
             character.OnEvent += HandleEvent;
-            Debug.Log($"GrappleDash ability loaded: Enabled={IsEnabled}, Force={config.force}");
         }
     }
 

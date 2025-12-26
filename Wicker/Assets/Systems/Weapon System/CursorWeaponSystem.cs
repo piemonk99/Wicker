@@ -62,11 +62,6 @@ public class CursorWeaponSystem : WeaponSystem
 
         // Set debug mode
         showDebugInfo = cursorVisual.enableDebugVisualization;
-
-        Debug.Log($"CursorWeaponSystem initialized: {config.weaponName}");
-        Debug.Log($"  Orbit Radius: {cursorMechanics.orbitRadius}");
-        Debug.Log($"  Sword Mass: {cursorMechanics.swordMass}");
-        Debug.Log($"  Debug Visualization: {cursorVisual.enableDebugVisualization}");
     }
 
     protected override void TryAttack()
@@ -93,12 +88,10 @@ public class CursorWeaponSystem : WeaponSystem
             }
 
             character.RaiseEvent("cursor_weapon_swing_started", currentConfig.weaponName);
-            Debug.Log($"Cursor weapon: Started swinging");
         }
         else
         {
             character.RaiseEvent("cursor_weapon_swing_stopped", currentConfig.weaponName);
-            Debug.Log("Cursor weapon: Stopped swinging");
         }
     }
 

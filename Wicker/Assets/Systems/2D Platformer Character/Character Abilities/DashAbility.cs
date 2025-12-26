@@ -37,7 +37,6 @@ public class DashAbility : CharacterAbility
         if (IsEnabled)
         {
             character.OnEvent += HandleEvent;
-            Debug.Log($"Dash ability loaded: Enabled={IsEnabled}, Force={config.force}");
         }
     }
 

@@ -35,6 +35,9 @@ public abstract class AIStateMachine : MonoBehaviour, ICharacterController
         public bool logTransitions = true;
     }
 
+    // Enable/disable debugging
+    [SerializeField] protected bool showDebug = false;
+
     [Header("Condition Settings")]
     [SerializeField] protected List<AICondition> conditions = new List<AICondition>();
 
@@ -49,6 +52,8 @@ public abstract class AIStateMachine : MonoBehaviour, ICharacterController
     // Event handling
     private bool isEnabled = true;
     private StateMachineData config;
+
+    
 
     public void Initialize(CharacterCore characterCore)
     {

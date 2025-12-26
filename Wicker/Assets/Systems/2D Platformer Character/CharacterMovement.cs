@@ -141,8 +141,6 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         // Initialize with default base state
         currentBaseState = defaultBaseState;
         UpdateEffectiveState();
-
-        Debug.Log($"CharacterMovement initialized with two-tier state system");
     }
 
     private void LoadConfig(CharacterConfig config)

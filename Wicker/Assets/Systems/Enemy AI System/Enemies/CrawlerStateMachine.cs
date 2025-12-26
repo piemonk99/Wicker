@@ -45,7 +45,7 @@ public class CrawlerStateMachine : AIStateMachine
         return new StateMachineData
         {
             initialState = patrolBehavior,
-            logTransitions = true,
+            logTransitions = showDebug,
             transitions = new List<Transition>
             {
                 // Patrol -> Idle (when patrol timer expires)

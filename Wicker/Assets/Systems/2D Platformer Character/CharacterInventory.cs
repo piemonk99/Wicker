@@ -44,8 +44,6 @@ public class CharacterInventory : MonoBehaviour, ICharacterComponent
             Debug.LogError("CharacterInventory requires CharacterEquipment component on the same GameObject");
             return;
         }
-
-        Debug.Log($"CharacterInventory initialized for {character.gameObject.name}");
     }
 
     public void Tick(float deltaTime) { }

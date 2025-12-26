@@ -78,8 +78,6 @@ public class GameSetup : MonoBehaviour
                     inventory.AddGrappleHook(grappleHook);
             }
         }
-
-        Debug.Log("Equipment initialization complete");
     }
 
     // Public API for switching equipment (could be called from UI)

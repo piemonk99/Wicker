@@ -44,8 +44,6 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
     {
         this.character = character;
         currentHealth = maxHealth;
-
-        Debug.Log($"CharacterCondition initialized for {character.gameObject.name}");
     }
 
     public void Tick(float deltaTime)

@@ -56,18 +56,10 @@ public class HitboxWeaponSystem : WeaponSystem
                 Quaternion.identity,
                 weaponOrigin
             );
-
-            Debug.Log($"Created weapon instance: {weaponInstance.name}");
         }
 
         // Set debug mode
         showDebugInfo = hitboxVisual.enableDebugVisualization;
-
-        Debug.Log($"HitboxWeaponSystem initialized: {config.weaponName}");
-        Debug.Log($"  Attack Duration: {hitboxMechanics.attackDuration}");
-        Debug.Log($"  Cooldown: {hitboxMechanics.attackCooldown}");
-        Debug.Log($"  Hitbox Size: {hitboxMechanics.hitboxSize}");
-        Debug.Log($"  Debug Visualization: {hitboxVisual.enableDebugVisualization}");
     }
 
     /// <summary>
@@ -164,8 +156,6 @@ public class HitboxWeaponSystem : WeaponSystem
 
         // Raise attack event
         character.RaiseEvent("weapon_attack_started", currentConfig.weaponName);
-
-        Debug.Log($"Hitbox weapon attack started toward cursor (direction: {lastAttackDirection})");
     }
 
     protected override void StopAttack() // Add "override" keyword
@@ -178,8 +168,6 @@ public class HitboxWeaponSystem : WeaponSystem
 
         // Raise attack ended event
         character.RaiseEvent("weapon_attack_ended", currentConfig.weaponName);
-
-        Debug.Log("Hitbox weapon attack ended");
     }
 
     private void CheckHitbox()

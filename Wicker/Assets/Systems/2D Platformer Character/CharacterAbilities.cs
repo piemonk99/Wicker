@@ -29,8 +29,6 @@ public class CharacterAbilities : MonoBehaviour, ICharacterComponent
         if (dash.IsEnabled) allAbilities.Add(dash);
         if (grappleDash.IsEnabled) allAbilities.Add(grappleDash);
         if (lunge.IsEnabled) allAbilities.Add(lunge);
-
-        Debug.Log($"CharacterAbilities initialized with {allAbilities.Count} enabled abilities");
     }
 
     public void Tick(float deltaTime)

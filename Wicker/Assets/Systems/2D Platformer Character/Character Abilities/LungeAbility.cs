@@ -33,7 +33,6 @@ public class LungeAbility : CharacterAbility
         if (IsEnabled)
         {
             character.OnEvent += HandleEvent;
-            Debug.Log($"Lunge ability loaded: Enabled={IsEnabled}, Force=({config.force.x}, {config.force.y})");
         }
     }
 
