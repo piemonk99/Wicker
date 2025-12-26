@@ -1,0 +1,88 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a88b4f26568c6b4da648d249d7a3ec0, type: 3}
+  m_Name: Lunger Config
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterConfig
+  maxSpeed: 12
+  groundAcceleration: 60
+  airAcceleration: 48
+  groundDeceleration: 48
+  airDeceleration: 4.8
+  jumpForce: 20
+  gravity: 30
+  coyoteTime: 0.1
+  jumpBufferTime: 0.05
+  enableVariableJump: 1
+  jumpCutMultiplier: 0.5
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 64
+  groundCheckRadius: 0.2
+  attack:
+    isEnabled: 0
+    damage: 1
+    range: 1
+    cooldown: 0.5
+    hitboxPrefab: {fileID: 0}
+  dash:
+    isEnabled: 0
+    force: 25
+    duration: 0.2
+    cooldown: 1
+    applyInstantForce: 1
+    applyContinuousForce: 0
+    continuousForceMultiplier: 1
+    massDependent: 0
+    preserveHorizontalVelocity: 1
+    preserveVerticalVelocity: 1
+    applyPostDashDeceleration: 0
+    postDashGroundDecelerationMultilplier: 2
+    postDashAirDecelerationMultilplier: 20
+    postDashDecelerationDuration: 0.3
+    trailPrefab: {fileID: 0}
+    sound: {fileID: 0}
+  grappleDash:
+    isEnabled: 0
+    force: 30
+    duration: 0.15
+    cooldown: 0.8
+    minRopeRatioThreshold: 0.01
+    maxAngleDifference: 90
+    preserveAllVelocityOnTangentDash: 1
+    normalPreserveHorizontalVelocity: 1
+    normalPreserveVerticalVelocity: 1
+    applyInstantForce: 1
+    applyContinuousForce: 0
+    continuousForceMultiplier: 1
+    massDependent: 0
+    trailPrefab: {fileID: 0}
+    sound: {fileID: 0}
+    dashColor: {r: 0, g: 1, b: 1, a: 1}
+  lunge:
+    isEnabled: 1
+    force: {x: 50, y: 15}
+    duration: 0.3
+    cooldown: 2
+    applyInstantForce: 1
+    applyContinuousForce: 0
+    continuousForceMultiplier: 1
+    massDependent: 0
+    preserveHorizontalVelocity: 0
+    preserveVerticalVelocity: 0
+    cancelVerticalVelocity: 1
+    applyPostLungeDeceleration: 0
+    postLungeGroundDecelerationMultilplier: 2
+    postLungeAirDecelerationMultilplier: 20
+    postLungeDecelerationDuration: 0.3
+    trailPrefab: {fileID: 0}
+    particles: {fileID: 0}
+    sound: {fileID: 0}

@@ -1052,7 +1052,7 @@ GameObject:
   - component: {fileID: 538821688}
   - component: {fileID: 538821687}
   - component: {fileID: 538821686}
-  - component: {fileID: 538821685}
+  - component: {fileID: 538821694}
   m_Layer: 7
   m_Name: Enemy
   m_TagString: Enemy
@@ -1060,19 +1060,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &538821685
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 538821684}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 377469ddcd4bfe8419b912be04b463c6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EnemyAIController
-  config: {fileID: 11400000, guid: aa14af4d1f0af1d4bbc55c220d3387e7, type: 2}
 --- !u!114 &538821686
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1111,7 +1098,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 55545cdbc9083984d8faed6cc6c4cbf4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CharacterCore
-  config: {fileID: 11400000, guid: 3fabdde4cfc06fb438525fae9076fd61, type: 2}
+  config: {fileID: 11400000, guid: c5beebba0ce0cdf4eb7da41066e06555, type: 2}
 --- !u!114 &538821689
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1275,13 +1262,49 @@ Transform:
   m_GameObject: {fileID: 538821684}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 35.5, y: -7.7, z: 0}
+  m_LocalPosition: {x: 29.74, y: 2.53, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1538004298}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &538821694
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 538821684}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d300591dc071f7a459d3667672faaef6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LungerStateMachine
+  patrolSettings:
+    directionChangeDelay: 0.5
+    forwardRaycastOffset: 3
+    groundCheckDistance: 2
+    wallCheckDistance: 3
+    groundLayer:
+      serializedVersion: 2
+      m_Bits: 64
+    debugDraw: 1
+    rememberLastDirection: 0
+    minPatrolTime: 5
+    maxPatrolTime: 8
+  idleSettings:
+    minIdleTime: 2
+    maxIdleTime: 4
+  chaseSettings:
+    speedMultiplier: 1.2
+    checkInterval: 0.2
+    drawDebug: 1
+  lungeSettings:
+    windupDuration: 0.3
+    recoveryDuration: 1
+    stopDuringWindup: 1
+    drawDebug: 1
 --- !u!4 &594937072 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 1761109115653349558, guid: b2f7f180506c83e43995e3e28207fcdb, type: 3}
@@ -2428,7 +2451,7 @@ Transform:
   m_GameObject: {fileID: 1402099616}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 24.72, y: 1.8, z: 0}
+  m_LocalPosition: {x: 32.3, y: -7.97, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:

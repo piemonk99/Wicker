@@ -5,14 +5,24 @@ public class LungeBehavior : AIBehavior
     [System.Serializable]
     public class Settings
     {
+        [Header("Windup")]
         public float windupDuration = 0.3f;
+
+        [Header("Lunge Duration")]
+        public float lungeDuration = 1.3f; 
+
+        [Header("Recovery")]
         public float recoveryDuration = 1f;
+
+        [Header("Movement During Windup")]
         public bool stopDuringWindup = true;
+
+        [Header("Debug")]
         public bool drawDebug = true;
     }
 
     public Settings settings = new Settings();
-    
+
     private enum LungePhase { Windup, Lunging, Recovery, Complete }
     private LungePhase currentPhase = LungePhase.Complete;
     private float phaseTimer = 0f;
@@ -20,23 +30,29 @@ public class LungeBehavior : AIBehavior
     public override void OnActivate(AIBlackboard blackboard)
     {
         behaviorName = "Lunge";
-        
+
         currentPhase = LungePhase.Windup;
         phaseTimer = settings.windupDuration;
-        
+
         if (settings.stopDuringWindup)
             blackboard.SetMovementInput(Vector2.zero);
 
         // Face player
         Transform self = blackboard.Get<Transform>("transform");
         Transform player = blackboard.Get<Transform>("player");
-        
+
         if (self != null && player != null)
         {
             float direction = Mathf.Sign(player.position.x - self.position.x);
             blackboard.Set("facing_direction", direction);
             UpdateFacingDirection(self, direction);
         }
+
+        // Start the overall lunge timer (windup + lunge duration + recovery)
+        float totalLungeTime = settings.windupDuration + settings.lungeDuration + settings.recoveryDuration;
+        blackboard.StartTimer("Lunge_Timer", totalLungeTime);
+
+        Debug.Log($"{behaviorName}: Starting lunge (total: {totalLungeTime:F2}s)");
     }
 
     public override void OnDeactivate(AIBlackboard blackboard)
@@ -54,14 +70,13 @@ public class LungeBehavior : AIBehavior
                 if (phaseTimer <= 0f)
                     ExecuteLunge(blackboard);
                 break;
-                
+
             case LungePhase.Lunging:
-                CheckLungeComplete(blackboard);
+                UpdateLunging(blackboard, deltaTime);
                 break;
-                
+
             case LungePhase.Recovery:
-                if (phaseTimer <= 0f)
-                    currentPhase = LungePhase.Complete;
+                UpdateRecovery(blackboard, deltaTime);
                 break;
         }
     }
@@ -73,20 +88,14 @@ public class LungeBehavior : AIBehavior
         {
             character.RaiseEvent("lunge_pressed", null);
             currentPhase = LungePhase.Lunging;
+            phaseTimer = settings.lungeDuration;  // Set lunge duration timer
         }
     }
 
-    private void CheckLungeComplete(AIBlackboard blackboard)
+    private void UpdateLunging(AIBlackboard blackboard, float deltaTime)
     {
-        CharacterCore character = blackboard.Get<CharacterCore>("character");
-        if (character == null)
-        {
-            StartRecovery(blackboard);
-            return;
-        }
-
-        CharacterAbilities abilities = character.GetCharacterComponent<CharacterAbilities>();
-        if (abilities == null || !abilities.IsLunging())
+        // Check if lunge duration is complete
+        if (phaseTimer <= 0f)
         {
             StartRecovery(blackboard);
         }
@@ -96,9 +105,17 @@ public class LungeBehavior : AIBehavior
     {
         currentPhase = LungePhase.Recovery;
         phaseTimer = settings.recoveryDuration;
-        
+
         blackboard.SetMovementInput(Vector2.zero);
-        blackboard.StartTimer("Lunge_Timer", settings.recoveryDuration);
+        // Timer was already started in OnActivate, so no need to start it here
+    }
+
+    private void UpdateRecovery(AIBlackboard blackboard, float deltaTime)
+    {
+        if (phaseTimer <= 0f)
+        {
+            currentPhase = LungePhase.Complete;
+        }
     }
 
     private void UpdateFacingDirection(Transform self, float direction)
@@ -108,5 +125,10 @@ public class LungeBehavior : AIBehavior
             self.localScale.y,
             self.localScale.z
         );
+    }
+
+    public void OnAbilityEvent(string eventType)
+    {
+        // Optional: Could handle ability events here
     }
 }
