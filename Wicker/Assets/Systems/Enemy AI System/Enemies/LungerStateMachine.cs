@@ -62,6 +62,8 @@ public class LungerStateMachine : AIStateMachine
         maxAngle = 10f
     };
 
+    public PlayerRaycastCondition.Settings playerNotObscuredSettings = new PlayerRaycastCondition.Settings { };
+
     private PatrolBehavior patrolBehavior;
     private IdleBehavior idleBehavior;
     private ChaseBehavior chaseBehavior;
@@ -75,6 +77,9 @@ public class LungerStateMachine : AIStateMachine
     private PlayerDistanceCondition playerInLungeRange;
     private PlayerDirectionCondition playerInView;
     private PlayerDirectionCondition playerInFront;
+    private PlayerRaycastCondition playerNotObscured;
+    private NotCondition playerObscured;
+    private OrCondition playerEscaped;
     private AbilityReadyCondition lungeReady;
 
     protected override StateMachineData GetStateMachineData()
@@ -95,6 +100,9 @@ public class LungerStateMachine : AIStateMachine
         playerInLungeRange = new PlayerDistanceCondition(lungeRangeSettings);
         playerInView = new PlayerDirectionCondition(playerInViewSettings);
         playerInFront = new PlayerDirectionCondition(playerInFrontSettings);
+        playerNotObscured = new PlayerRaycastCondition(playerNotObscuredSettings);
+        playerObscured = new NotCondition(playerNotObscured);
+        playerEscaped = new OrCondition(new AICondition[] { playerObscured, playerOutOfChaseEndRange });
         lungeReady = new AbilityReadyCondition("lunge");
 
         // Start initial timer
@@ -127,7 +135,7 @@ public class LungerStateMachine : AIStateMachine
                 {
                     fromStates = new List<AIBehavior> { patrolBehavior, idleBehavior },
                     toState = chaseBehavior,
-                    conditions = new List<AICondition> { playerInChaseStartRange, playerInView },
+                    conditions = new List<AICondition> { playerInChaseStartRange, playerInView, playerNotObscured },
                     priority = 1
                 },
                 
@@ -136,7 +144,7 @@ public class LungerStateMachine : AIStateMachine
                 {
                     fromStates = new List<AIBehavior> { chaseBehavior },
                     toState = patrolBehavior,
-                    conditions = new List<AICondition> { playerOutOfChaseEndRange },
+                    conditions = new List<AICondition> { playerEscaped },
                     priority = 0
                 },
                 

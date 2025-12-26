@@ -1336,6 +1336,18 @@ MonoBehaviour:
   playerInFrontSettings:
     directionType: 0
     maxAngle: 10
+  playerNotObscuredSettings:
+    obstacleLayers:
+      serializedVersion: 2
+      m_Bits: 123
+    raycastOffsetY: 0.5
+    maxDistance: 20
+    usePersistence: 0
+    persistenceDuration: 0.1
+    checkInterval: 0.1
+    drawDebug: 1
+    clearColor: {r: 0, g: 1, b: 0, a: 1}
+    blockedColor: {r: 1, g: 0, b: 0, a: 1}
 --- !u!4 &594937072 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 1761109115653349558, guid: b2f7f180506c83e43995e3e28207fcdb, type: 3}
@@ -2513,13 +2525,13 @@ MonoBehaviour:
     rememberLastDirection: 1
   patrolTimerSettings:
     timerKey: Patrol_Timer
-    duration: 5
-    randomVariance: 2
+    duration: 8
+    randomVariance: 5
     autoRestart: 0
   idleTimerSettings:
     timerKey: Idle_Timer
-    duration: 3
-    randomVariance: 1
+    duration: 4
+    randomVariance: 2
     autoRestart: 0
 --- !u!1 &1535560104
 GameObject:
