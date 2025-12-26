@@ -12,10 +12,7 @@ public class PatrolBehavior : AIBehavior
         public LayerMask groundLayer;
         public bool debugDraw = true;
         public bool rememberLastDirection = false;
-
-        // Patrol duration
-        public float minPatrolTime = 5f;
-        public float maxPatrolTime = 8f;
+        // REMOVED: minPatrolTime, maxPatrolTime
     }
 
     public Settings settings = new Settings();
@@ -41,11 +38,10 @@ public class PatrolBehavior : AIBehavior
         blackboard.Set("patrol_direction", currentDirection);
         directionChangeTimer = 0f;
 
-        // Set patrol timer
-        float patrolTimer = Random.Range(settings.minPatrolTime, settings.maxPatrolTime);
-        blackboard.StartTimer("Patrol_Timer", patrolTimer);
+        // Timer is started by the state machine, not here
+        // The TimerExpiredCondition will handle the timing
 
-        // Set facing direction via blackboard helper
+        // Set facing direction
         blackboard.SetFacing(currentDirection);
 
         Debug.Log($"{behaviorName}: Starting patrol, direction: {currentDirection}");
@@ -87,7 +83,7 @@ public class PatrolBehavior : AIBehavior
             }
         }
 
-        // Set movement (blackboard handles facing direction automatically)
+        // Set movement
         blackboard.SetMovementInput(new Vector2(currentDirection, 0));
     }
 

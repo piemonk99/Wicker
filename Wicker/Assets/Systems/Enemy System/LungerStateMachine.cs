@@ -5,38 +5,61 @@ public class LungerStateMachine : AIStateMachine
 {
     [Header("Behavior Settings")]
     public PatrolBehavior.Settings patrolSettings = new PatrolBehavior.Settings();
-    public IdleBehavior.Settings idleSettings = new IdleBehavior.Settings();
     public ChaseBehavior.Settings chaseSettings = new ChaseBehavior.Settings();
     public LungeBehavior.Settings lungeSettings = new LungeBehavior.Settings();
 
-    [Header("Condition Settings")]
+    [Header("Timer Settings")]
+    public TimerExpiredCondition.Settings patrolTimerSettings = new TimerExpiredCondition.Settings
+    {
+        timerKey = "Patrol_Timer",
+        duration = 8f,
+        randomVariance = 5f
+    };
+
+    public TimerExpiredCondition.Settings idleTimerSettings = new TimerExpiredCondition.Settings
+    {
+        timerKey = "Idle_Timer",
+        duration = 4f,
+        randomVariance = 2f
+    };
+
+    public TimerExpiredCondition.Settings lungeTimerSettings = new TimerExpiredCondition.Settings
+    {
+        timerKey = "Lunge_Timer",
+        duration = 1f,
+        randomVariance = 0f
+    };
+
+    [Header("Distance Conditions")]
     public PlayerDistanceCondition.Settings chaseStartSettings = new PlayerDistanceCondition.Settings
     {
         comparison = PlayerDistanceCondition.ComparisonType.LessThan,
-        distance = 15f
+        distance = 25f
     };
 
-    public PlayerDistanceCondition.Settings chaseEndSettings = new PlayerDistanceCondition.Settings{
+    public PlayerDistanceCondition.Settings chaseEndSettings = new PlayerDistanceCondition.Settings
+    {
         comparison = PlayerDistanceCondition.ComparisonType.GreaterThan,
-        distance = 18f
+        distance = 30f
     };
 
     public PlayerDistanceCondition.Settings lungeRangeSettings = new PlayerDistanceCondition.Settings
     {
         comparison = PlayerDistanceCondition.ComparisonType.LessThan,
-        distance = 10f
+        distance = 18f
     };
 
+    [Header("Direction Conditions")]
     public PlayerDirectionCondition.Settings playerInViewSettings = new PlayerDirectionCondition.Settings
     {
         directionType = PlayerDirectionCondition.DirectionType.InFront,
-        maxAngle = 45f  // 45 degree cone
+        maxAngle = 45f
     };
 
     public PlayerDirectionCondition.Settings playerInFrontSettings = new PlayerDirectionCondition.Settings
     {
         directionType = PlayerDirectionCondition.DirectionType.InFront,
-        maxAngle = 10f  // 10 degree cone (more precise)
+        maxAngle = 10f
     };
 
     private PatrolBehavior patrolBehavior;
@@ -47,25 +70,25 @@ public class LungerStateMachine : AIStateMachine
     private TimerExpiredCondition patrolTimer;
     private TimerExpiredCondition idleTimer;
     private TimerExpiredCondition lungeTimer;
-    private PlayerDistanceCondition playerInChaseStartRange;    // Player < 15f away
-    private PlayerDistanceCondition playerOutOfChaseEndRange;   // Player > 18f away
-    private PlayerDistanceCondition playerInLungeRange;         // Player < 10f away
-    private PlayerDirectionCondition playerInView;      // Player within 45 degree cone of vision
-    private PlayerDirectionCondition playerInFront;     // Player within 10 degree cone in front
+    private PlayerDistanceCondition playerInChaseStartRange;
+    private PlayerDistanceCondition playerOutOfChaseEndRange;
+    private PlayerDistanceCondition playerInLungeRange;
+    private PlayerDirectionCondition playerInView;
+    private PlayerDirectionCondition playerInFront;
     private AbilityReadyCondition lungeReady;
 
     protected override StateMachineData GetStateMachineData()
     {
         // Create behaviors
         patrolBehavior = new PatrolBehavior { settings = patrolSettings };
-        idleBehavior = new IdleBehavior { settings = idleSettings };
+        idleBehavior = new IdleBehavior();
         chaseBehavior = new ChaseBehavior { settings = chaseSettings };
         lungeBehavior = new LungeBehavior { settings = lungeSettings };
 
         // Create conditions
-        patrolTimer = new TimerExpiredCondition("Patrol_Timer");
-        idleTimer = new TimerExpiredCondition("Idle_Timer");
-        lungeTimer = new TimerExpiredCondition("Lunge_Timer");
+        patrolTimer = new TimerExpiredCondition(patrolTimerSettings);
+        idleTimer = new TimerExpiredCondition(idleTimerSettings);
+        lungeTimer = new TimerExpiredCondition(lungeTimerSettings);
 
         playerInChaseStartRange = new PlayerDistanceCondition(chaseStartSettings);
         playerOutOfChaseEndRange = new PlayerDistanceCondition(chaseEndSettings);
@@ -73,6 +96,9 @@ public class LungerStateMachine : AIStateMachine
         playerInView = new PlayerDirectionCondition(playerInViewSettings);
         playerInFront = new PlayerDirectionCondition(playerInFrontSettings);
         lungeReady = new AbilityReadyCondition("lunge");
+
+        // Start initial timer
+        patrolTimer.StartTimer(blackboard);
 
         return new StateMachineData
         {
@@ -96,7 +122,7 @@ public class LungerStateMachine : AIStateMachine
                     priority = 0
                 },
                 
-                // Patrol/Idle -> Chase (when player in range)
+                // Patrol/Idle -> Chase (when player in range and in view)
                 new Transition
                 {
                     fromStates = new List<AIBehavior> { patrolBehavior, idleBehavior },
@@ -105,11 +131,11 @@ public class LungerStateMachine : AIStateMachine
                     priority = 1
                 },
                 
-                // Chase -> Patrol/Idle (when player out of range)
+                // Chase -> Patrol (when player out of range)
                 new Transition
                 {
                     fromStates = new List<AIBehavior> { chaseBehavior },
-                    toState = patrolBehavior,  // Could also go to idle if preferred
+                    toState = patrolBehavior,
                     conditions = new List<AICondition> { playerOutOfChaseEndRange },
                     priority = 0
                 },
@@ -138,5 +164,25 @@ public class LungerStateMachine : AIStateMachine
                 }
             }
         };
+    }
+
+    // Override state switching to restart timers
+    protected override void SwitchToState(AIBehavior newState)
+    {
+        base.SwitchToState(newState);
+
+        // Restart appropriate timer when entering state
+        if (newState == patrolBehavior)
+        {
+            patrolTimer.StartTimer(blackboard);
+        }
+        else if (newState == idleBehavior)
+        {
+            idleTimer.StartTimer(blackboard);
+        }
+        else if (newState == lungeBehavior)
+        {
+            lungeTimer.StartTimer(blackboard);
+        }
     }
 }

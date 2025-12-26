@@ -1291,11 +1291,6 @@ MonoBehaviour:
       m_Bits: 64
     debugDraw: 1
     rememberLastDirection: 1
-    minPatrolTime: 5
-    maxPatrolTime: 8
-  idleSettings:
-    minIdleTime: 2
-    maxIdleTime: 4
   chaseSettings:
     speedMultiplier: 1.2
     drawDebug: 1
@@ -1305,6 +1300,21 @@ MonoBehaviour:
     recoveryDuration: 0
     stopDuringWindup: 1
     drawDebug: 1
+  patrolTimerSettings:
+    timerKey: Patrol_Timer
+    duration: 8
+    randomVariance: 5
+    autoRestart: 0
+  idleTimerSettings:
+    timerKey: Idle_Timer
+    duration: 4
+    randomVariance: 2
+    autoRestart: 0
+  lungeTimerSettings:
+    timerKey: Lunge_Timer
+    duration: 1
+    randomVariance: 0
+    autoRestart: 0
   chaseStartSettings:
     comparison: 0
     distance: 25
@@ -2501,11 +2511,16 @@ MonoBehaviour:
       m_Bits: 64
     debugDraw: 1
     rememberLastDirection: 1
-    minPatrolTime: 5
-    maxPatrolTime: 8
-  idleSettings:
-    minIdleTime: 2
-    maxIdleTime: 4
+  patrolTimerSettings:
+    timerKey: Patrol_Timer
+    duration: 5
+    randomVariance: 2
+    autoRestart: 0
+  idleTimerSettings:
+    timerKey: Idle_Timer
+    duration: 3
+    randomVariance: 1
+    autoRestart: 0
 --- !u!1 &1535560104
 GameObject:
   m_ObjectHideFlags: 0

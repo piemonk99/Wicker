@@ -35,6 +35,9 @@ public abstract class AIStateMachine : MonoBehaviour, ICharacterController
         public bool logTransitions = true;
     }
 
+    [Header("Condition Settings")]
+    [SerializeField] protected List<AICondition> conditions = new List<AICondition>();
+
     // Runtime state
     protected AIBehavior currentState;
     protected AIBlackboard blackboard;
@@ -55,9 +58,6 @@ public abstract class AIStateMachine : MonoBehaviour, ICharacterController
         blackboard = GetComponent<AIBlackboard>();
         if (blackboard == null)
             blackboard = gameObject.AddComponent<AIBlackboard>();
-
-        // Blackboard will auto-initialize references in Start()
-        // No need to manually set transform, character, player here
 
         // Get configuration from derived class
         config = GetStateMachineData();
@@ -120,7 +120,7 @@ public abstract class AIStateMachine : MonoBehaviour, ICharacterController
         }
     }
 
-    private void SwitchToState(AIBehavior newState)
+    protected virtual void SwitchToState(AIBehavior newState)
     {
         if (newState == null) return;
 
@@ -141,6 +141,17 @@ public abstract class AIStateMachine : MonoBehaviour, ICharacterController
             Debug.Log($"{gameObject.name}: Entering {currentState.behaviorName}");
 
         character?.RaiseEvent("ai_state_changed", currentState.behaviorName);
+    }
+
+    // Helper to get condition by type
+    protected T GetCondition<T>() where T : AICondition
+    {
+        foreach (var condition in conditions)
+        {
+            if (condition is T typedCondition)
+                return typedCondition;
+        }
+        return null;
     }
 
     // ICharacterController implementation
