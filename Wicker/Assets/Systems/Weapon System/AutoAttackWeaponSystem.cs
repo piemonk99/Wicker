@@ -3,6 +3,9 @@ using System.Collections.Generic;
 
 public class AutoAttackWeaponSystem : WeaponSystem
 {
+    // Component references
+    private GrappleSystem grappleSystem;
+
     // State
     private float attackTimer = 0f;
     private bool isEnabled = true;
@@ -43,6 +46,9 @@ public class AutoAttackWeaponSystem : WeaponSystem
         base.InitializeWithConfig(config);
 
         if (currentConfig == null) return;
+
+        // Get grapple system if it exists
+        grappleSystem = character.GetComponent<GrappleSystem>();
 
         // Get specific configs from the main config
         autoAttackMechanics = currentConfig.MechanicsConfig as AutoAttackWeaponMechanicsConfig;
@@ -137,7 +143,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
         if (autoAttackMechanics == null) return false;
 
         // Check if weapon is only active during grapple
-        if (autoAttackMechanics.onlyActiveDuringGrapple && !equipment.IsGrappling())
+        if (grappleSystem != null && autoAttackMechanics.onlyActiveDuringGrapple && !grappleSystem.IsGrappling())
         {
             return false;
         }
@@ -168,7 +174,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
         // Determine the actual detection radius based on grapple state
         float currentDetectionRadius = autoAttackMechanics.detectionRadius;
 
-        if (equipment.IsGrappling())
+        if (grappleSystem != null && grappleSystem.IsGrappling())
         {
             // Use the extended range when grappling
             currentDetectionRadius = autoAttackMechanics.maxGrappleRange;
@@ -279,7 +285,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
             float damage = autoAttackMechanics.baseDamage;
 
             // Apply grapple multiplier if grappling
-            if (equipment.IsGrappling())
+            if (grappleSystem != null && grappleSystem.IsGrappling())
             {
                 damage *= autoAttackMechanics.grappleDamageMultiplier;
             }
@@ -298,7 +304,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
 
             totalHits++;
 
-            Debug.Log($"  Hit {enemy.name} for {damage:F1} damage (Grappling: {equipment.IsGrappling()})");
+            Debug.Log($"  Hit {enemy.name} for {damage:F1} damage!");
         }
     }
 
@@ -318,7 +324,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
                 position = target.transform.position,
                 weaponType = "AutoAttack",
                 configName = currentConfig.weaponName,
-                isGrappling = equipment.IsGrappling()
+                isGrappling = grappleSystem != null && grappleSystem.IsGrappling()
             });
         }
     }
@@ -331,7 +337,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
         float drawRadius = autoAttackMechanics.detectionRadius;
         Color drawColor = autoAttackVisual.detectionRadiusColor;
 
-        if (equipment.IsGrappling() && autoAttackMechanics != null)
+        if (grappleSystem != null && grappleSystem.IsGrappling() && autoAttackMechanics != null)
         {
             drawRadius = autoAttackMechanics.maxGrappleRange;
             drawColor = autoAttackVisual.grappleRangeColor;
@@ -382,7 +388,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
         if (autoAttackMechanics == null) return "No config";
 
         float currentRadius = autoAttackMechanics.detectionRadius;
-        if (equipment.IsGrappling())
+        if (grappleSystem != null && grappleSystem.IsGrappling())
         {
             currentRadius = autoAttackMechanics.maxGrappleRange;
         }
@@ -392,7 +398,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
                $"Status: {(attackTimer <= 0 ? "READY" : $"Charging ({attackTimer:F2}s)")}\n" +
                $"Detection Radius: {currentRadius:F1}\n" +
                $"Velocity: {rb?.linearVelocity.magnitude:F1}/{autoAttackMechanics.velocityThreshold}\n" +
-               $"Grappling: {equipment.IsGrappling()}\n" +
+               $"Grappling: {grappleSystem != null && grappleSystem.IsGrappling()}\n" +
                $"Total Attacks: {totalAttacks}\n" +
                $"Total Hits: {totalHits}\n" +
                $"Recent Hits: {recentHits.Count}";

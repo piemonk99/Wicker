@@ -1,18 +1,18 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-
-// Handles tracking/usage of a character's currently equipped items.
+// CharacterEquipment handles equipping items and checks inventory
 public class CharacterEquipment : MonoBehaviour, ICharacterComponent
 {
     [Header("References")]
-    public Transform weaponOrigin; // Set this in inspector for weapon positioning
+    public Transform weaponOrigin;
 
     [Header("Debug")]
     public bool showWeaponDebug = false;
 
     // References
     private CharacterCore character;
+    private CharacterInventory inventory;
     private Rigidbody2D rb;
     private GrappleSystem grappleSystem;
 
@@ -20,13 +20,8 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
     private WeaponConfig currentWeapon;
     private GrappleConfig currentGrappleHook;
 
-    // Active Weapon System
+    // Active Systems
     private WeaponSystem currentWeaponSystem;
-
-    // Weapon State
-    private float attackCooldownTimer = 0f;
-    private Vector2 lastAttackDirection = Vector2.right;
-    private float currentVelocityMagnitude;
 
     // Events
     public event System.Action<WeaponConfig> OnWeaponChanged;
@@ -35,17 +30,20 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
     // Public Properties
     public WeaponConfig CurrentWeapon => currentWeapon;
     public GrappleConfig CurrentGrappleHook => currentGrappleHook;
-    public bool IsOnCooldown => attackCooldownTimer > 0;
-    public bool IsAttacking => currentWeaponSystem != null && currentWeaponSystem.IsAttacking;
-    public Transform WeaponOrigin => weaponOrigin;
 
     public void Initialize(CharacterCore character)
     {
         this.character = character;
         rb = character.GetComponent<Rigidbody2D>();
+        inventory = character.GetCharacterComponent<CharacterInventory>();
         grappleSystem = character.GetCharacterComponent<GrappleSystem>();
 
-        // Set up weapon origin if not set
+        if (inventory == null)
+        {
+            Debug.LogError("CharacterEquipment requires CharacterInventory component");
+            return;
+        }
+
         if (weaponOrigin == null)
         {
             weaponOrigin = transform;
@@ -58,18 +56,6 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
 
     public void Tick(float deltaTime)
     {
-        // Update cooldown
-        if (attackCooldownTimer > 0)
-        {
-            attackCooldownTimer -= deltaTime;
-        }
-
-        // Update current velocity for damage calculations
-        if (rb != null)
-        {
-            currentVelocityMagnitude = rb.linearVelocity.magnitude;
-        }
-
         // Tick current weapon system
         if (currentWeaponSystem != null)
         {
@@ -79,7 +65,6 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
 
     public void PhysicsTick(float fixedDeltaTime)
     {
-        // Physics tick for current weapon system
         if (currentWeaponSystem != null)
         {
             currentWeaponSystem.PhysicsTick(fixedDeltaTime);
@@ -91,132 +76,121 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
         switch (type)
         {
             case "attack_pressed":
-                if (!IsOnCooldown && currentWeapon != null && currentWeaponSystem != null)
+                if (currentWeapon != null && currentWeaponSystem != null)
                 {
-                    // Let the WeaponSystem handle the attack
                     character.RaiseEvent("weapon_attack_attempt", currentWeapon);
                 }
                 break;
 
-            case "weapon_equipped":
+            case "equip_weapon":
                 if (data is WeaponConfig weapon)
                 {
                     EquipWeapon(weapon);
                 }
                 break;
 
-            case "weapon_unequipped":
+            case "unequip_weapon":
                 UnequipWeapon();
                 break;
 
-            case "grapple_hook_equipped":
+            case "equip_grapple_hook":
                 if (data is GrappleConfig grappleHook)
                 {
                     EquipGrappleHook(grappleHook);
                 }
                 break;
-
-            case "config_changed":
-                // Re-initialize with current equipment if config changed
-                if (currentWeapon != null)
-                {
-                    EquipWeapon(currentWeapon);
-                }
-                break;
         }
     }
 
-    // Weapon Equipment Methods
-    public void EquipWeapon(WeaponConfig weapon)
+    // Public API for equipping weapons
+    public bool EquipWeapon(WeaponConfig weapon)
     {
-        if (weapon == currentWeapon) return;
+        if (weapon == null)
+        {
+            // Unequip if null is passed
+            UnequipWeapon();
+            return true;
+        }
+
+        if (weapon == currentWeapon) return true;
+
+        // Check if weapon is in inventory
+        if (inventory != null && !inventory.HasWeapon(weapon))
+        {
+            Debug.LogWarning($"Cannot equip {weapon.weaponName}: not in inventory");
+            return false;
+        }
 
         UnequipWeapon();
         currentWeapon = weapon;
 
-        if (weapon == null)
-        {
-            OnWeaponChanged?.Invoke(null);
-            character.RaiseEvent("weapon_equipped", null);
-            return;
-        }
+        // Create appropriate WeaponSystem
+        WeaponSystem weaponSystem = CreateWeaponSystem(weapon.weaponType);
 
-        // Determine which WeaponSystem to use based on weapon type
-        switch (weapon.weaponType)
-        {
-            case WeaponType.Hitbox:
-                currentWeaponSystem = gameObject.AddComponent<HitboxWeaponSystem>();
-                break;
-            case WeaponType.CursorWeapon:
-                currentWeaponSystem = gameObject.AddComponent<CursorWeaponSystem>();
-                break;
-            case WeaponType.AutoAttack:
-                currentWeaponSystem = gameObject.AddComponent<AutoAttackWeaponSystem>();
-                break;
-            default:
-                Debug.LogError($"Unknown weapon type: {weapon.weaponType}");
-                currentWeapon = null;
-                return;
-        }
-
-        if (currentWeaponSystem != null)
-        {
-            // Configure the weapon system
-            currentWeaponSystem.weaponOrigin = weaponOrigin;
-            currentWeaponSystem.showDebugInfo = showWeaponDebug;
-
-            // Initialize with character core
-            currentWeaponSystem.Initialize(character);
-
-            // Subscribe to weapon system events
-            currentWeaponSystem.OnWeaponChanged += HandleWeaponSystemChanged;
-
-            Debug.Log($"Equipped {weapon.weaponName} ({weapon.weaponType})");
-        }
-        else
+        if (weaponSystem == null)
         {
             Debug.LogError($"Failed to create WeaponSystem for {weapon.weaponName}");
             currentWeapon = null;
-            return;
+            return false;
         }
+
+        currentWeaponSystem = weaponSystem;
+
+        // Configure and initialize
+        currentWeaponSystem.weaponOrigin = weaponOrigin;
+        currentWeaponSystem.showDebugInfo = showWeaponDebug;
+        currentWeaponSystem.Initialize(character);
+        currentWeaponSystem.SetWeaponConfig(weapon);
+
+        Debug.Log($"Equipped {weapon.weaponName} ({weapon.weaponType})");
 
         OnWeaponChanged?.Invoke(weapon);
         character.RaiseEvent("weapon_equipped", weapon);
+
+        return true;
     }
 
-    private void HandleWeaponSystemChanged(WeaponConfig weapon)
+    private WeaponSystem CreateWeaponSystem(WeaponType weaponType)
     {
-        // Handle any weapon system configuration changes
-        Debug.Log($"Weapon system configuration changed: {weapon?.weaponName}");
+        return weaponType switch
+        {
+            WeaponType.Hitbox => gameObject.AddComponent<HitboxWeaponSystem>(),
+            WeaponType.CursorWeapon => gameObject.AddComponent<CursorWeaponSystem>(),
+            WeaponType.AutoAttack => gameObject.AddComponent<AutoAttackWeaponSystem>(),
+            _ => null
+        };
     }
 
     public void UnequipWeapon()
     {
         if (currentWeapon != null)
         {
-            // Clean up current weapon system
             if (currentWeaponSystem != null)
             {
-                // Unsubscribe from events
-                currentWeaponSystem.OnWeaponChanged -= HandleWeaponSystemChanged;
-
-                // Destroy the component
                 Destroy(currentWeaponSystem);
                 currentWeaponSystem = null;
             }
 
             Debug.Log($"Unequipped {currentWeapon.weaponName}");
-
-            currentWeapon = null;
             OnWeaponChanged?.Invoke(null);
             character.RaiseEvent("weapon_unequipped", null);
+
+            currentWeapon = null;
         }
     }
 
-    // Grapple Hook Equipment Methods
-    public void EquipGrappleHook(GrappleConfig grappleHook)
+    // Public API for equipping grapple hooks
+    public bool EquipGrappleHook(GrappleConfig grappleHook)
     {
-        if (grappleHook == null || grappleHook == currentGrappleHook) return;
+        if (grappleHook == null || grappleHook == currentGrappleHook)
+            return false;
+
+        // Check if grapple hook is in inventory
+        if (inventory != null && !inventory.HasGrappleHook(grappleHook))
+        {
+            Debug.LogWarning($"Cannot equip {grappleHook.GrappleName}: not in inventory");
+            return false;
+        }
 
         currentGrappleHook = grappleHook;
 
@@ -228,9 +202,10 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
 
         Debug.Log($"Equipped grapple hook: {grappleHook.GrappleName}");
 
-        // Raise event
         OnGrappleHookChanged?.Invoke(grappleHook);
         character.RaiseEvent("grapple_hook_changed", grappleHook);
+
+        return true;
     }
 
     public void UnequipGrappleHook()
@@ -243,31 +218,7 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
         }
     }
 
-    // Combat Methods - Now handled by WeaponSystem
-    // The actual attack logic is in the specific WeaponSystem components
-
-    // Helper methods for weapons
-    public float GetCurrentVelocityMagnitude() => currentVelocityMagnitude;
-
-    public bool IsGrappling() => grappleSystem?.IsGrappling() ?? false;
-
-    public Vector2 GetGrappleVelocity()
-    {
-        if (grappleSystem != null && rb != null)
-        {
-            return rb.linearVelocity;
-        }
-        return Vector2.zero;
-    }
-
-    public Vector2 GetAttackDirection() => lastAttackDirection;
-
-    public void SetAttackDirection(Vector2 direction)
-    {
-        lastAttackDirection = direction.normalized;
-    }
-
-    // Calculate damage with velocity scaling - now uses config manager
+    // Helper methods
     public float CalculateDamage(float baseDamage)
     {
         if (currentWeapon == null || currentWeaponSystem == null)
@@ -276,7 +227,6 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
         return currentWeaponSystem.CalculateDamage(baseDamage);
     }
 
-    // Public API for external systems
     public string GetCurrentWeaponInfo()
     {
         if (currentWeapon == null) return "No weapon equipped";
@@ -287,18 +237,8 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
         {
             info += " [Attacking]";
         }
-        else if (IsOnCooldown)
-        {
-            info += $" [Cooldown: {attackCooldownTimer:F2}s]";
-        }
 
         return info;
-    }
-
-    // Force update cooldown (can be called by WeaponSystem)
-    public void SetAttackCooldown(float cooldown)
-    {
-        attackCooldownTimer = cooldown;
     }
 
     // Cleanup
@@ -310,21 +250,7 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
         }
 
         UnequipWeapon();
-
-        // Clean up events
         OnWeaponChanged = null;
         OnGrappleHookChanged = null;
     }
-
-    // Unity Editor helper
-#if UNITY_EDITOR
-    void OnValidate()
-    {
-        // Ensure weapon origin is set
-        if (weaponOrigin == null)
-        {
-            weaponOrigin = transform;
-        }
-    }
-#endif
 }

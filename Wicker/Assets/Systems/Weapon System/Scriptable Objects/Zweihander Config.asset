@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2452199746c8b7a43a27f322dd446888, type: 3}
+  m_Name: Zweihander Config
+  m_EditorClassIdentifier: Assembly-CSharp::CursorWeaponConfig
+  mechanics:
+    baseDamage: 10
+    canAttackWhileMoving: 1
+    scalesWithVelocity: 1
+    minimumVelocityForMultiplier: 0
+    maxVelocityForMultiplier: 20
+    maxVelocityMultiplier: 2
+    orbitRadius: 2
+    orbitSpeed: 5
+    swordMass: 1
+    swordDrag: 0.5
+    maxSwordSpeed: 20
+    returnForce: 10
+    cursorFollowSpeed: 15
+    maxAnglePerSecond: 180
+    usePhysicsBasedMovement: 0
+    damagePerSpeedUnit: 0.2
+    minimumDamageSpeed: 2
+  visual:
+    weaponPrefab: {fileID: 8934781738576653438, guid: 483b4a9ecde21ce498f7b256aafad2f1, type: 3}
+    icon: {fileID: 0}
+    enableDebugVisualization: 0
+    orbitDebugColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    swordTrailColor: {r: 0, g: 1, b: 1, a: 1}
+  sound:
+    weaponSoundSet: {fileID: 0}
+    swooshSound: {fileID: 0}
+    swooshVelocityThreshold: 10
+    swooshVolume: 1

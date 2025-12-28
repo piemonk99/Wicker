@@ -7,9 +7,6 @@ public class IdleBehavior : AIBehavior
     {
         behaviorName = "Idle";
         blackboard.ClearMovementInput();
-
-        // Timer is started by the state machine via TimerExpiredCondition
-        Debug.Log($"{behaviorName}: Starting idle");
     }
 
     public override void OnDeactivate(AIBlackboard blackboard)

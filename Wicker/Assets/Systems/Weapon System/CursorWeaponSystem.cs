@@ -1,25 +1,30 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class CursorWeaponSystem : WeaponSystem
 {
-    // Sword physics
-    private Rigidbody2D swordRb;
+    // Sword references
     private Transform swordTransform;
-    private Vector2 targetPosition;
-    private Vector2 lastPosition;
+    private GameObject swordInstance;
+    private SpriteRenderer swordSpriteRenderer;
+
+    // Orbit state
+    private Vector2 targetPosition;  // Where cursor wants sword to be
+    private Vector2 currentOrbitPosition;  // Where sword actually is on orbit circle
     private float currentSwordSpeed;
+    private Vector2 lastPosition;
 
-    // State
-    private bool isSwinging = false;
-
-    // Debug
-    private Vector2 lastMousePosition;
-    private float debugDisplayTime = 0.1f;
+    // Attack state
+    private bool isActive = false;  // Sword is visible and active
+    private bool isSwinging = false;  // Sword can deal damage
 
     // Cached config references
     private CursorWeaponMechanicsConfig cursorMechanics;
     private CursorWeaponVisualConfig cursorVisual;
-    private CursorWeaponSoundConfig cursorSound;
+
+    // Debug
+    private Vector2 debugLastMousePosition;
+    private float debugDisplayTime = 0.1f;
 
     protected override void InitializeWithConfig(WeaponConfig config)
     {
@@ -27,71 +32,98 @@ public class CursorWeaponSystem : WeaponSystem
 
         if (currentConfig == null) return;
 
-        // Get specific configs from the main config
+        // Get specific configs
         cursorMechanics = currentConfig.MechanicsConfig as CursorWeaponMechanicsConfig;
         cursorVisual = currentConfig.VisualConfig as CursorWeaponVisualConfig;
-        cursorSound = currentConfig.SoundConfig as CursorWeaponSoundConfig;
 
         if (cursorMechanics == null || cursorVisual == null)
         {
-            Debug.LogError($"CursorWeaponSystem requires CursorWeapon configs");
+            Debug.LogError("CursorWeaponSystem requires CursorWeapon configs");
             return;
         }
 
-        // Setup sword GameObject
-        swordTransform = transform;
-
-        // Check if Rigidbody2D already exists
-        swordRb = GetComponent<Rigidbody2D>();
-        if (swordRb == null)
+        // Spawn sword prefab if one is specified
+        if (cursorVisual.weaponPrefab != null)
         {
-            // Add Rigidbody2D if it doesn't exist
-            swordRb = gameObject.AddComponent<Rigidbody2D>();
+            Debug.Log("Spawning sword");
+
+            swordInstance = Instantiate(cursorVisual.weaponPrefab, transform);
+            swordTransform = swordInstance.transform;
+            swordSpriteRenderer = swordInstance.GetComponent<SpriteRenderer>();
+
+            if (swordSpriteRenderer == null)
+            {
+                swordSpriteRenderer = swordInstance.GetComponentInChildren<SpriteRenderer>();
+            }
+
+            // Start with sword deactivated
+            SetSwordActive(false);
+        }
+        else
+        {
+            // If no prefab, use this transform
+            swordTransform = transform;
+            Debug.LogWarning("No sword prefab assigned in CursorWeaponVisualConfig");
         }
 
-        // Configure sword rigidbody
-        swordRb.mass = cursorMechanics.swordMass;
-        swordRb.linearDamping = cursorMechanics.swordDrag;
-        swordRb.gravityScale = 0f;
-        swordRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
-        swordRb.bodyType = RigidbodyType2D.Kinematic;
+        // Initialize orbit position
+        currentOrbitPosition = GetInitialOrbitPosition();
+        if (swordTransform != null)
+        {
+            swordTransform.position = (Vector2)character.transform.position + currentOrbitPosition;
+        }
 
-        // Set initial position
-        swordTransform.position = character.transform.position + (Vector3)Vector2.right * cursorMechanics.orbitRadius;
         lastPosition = swordTransform.position;
 
         // Set debug mode
         showDebugInfo = cursorVisual.enableDebugVisualization;
+
+        // Activate the sword
+        SetSwordActive(true);
+        isActive = true;
+    }
+
+    private Vector2 GetInitialOrbitPosition()
+    {
+        // Start sword to the right of the player
+        return Vector2.right * cursorMechanics.orbitRadius;
+    }
+
+    private void SetSwordActive(bool active)
+    {
+        if (swordInstance != null)
+        {
+            swordInstance.SetActive(active);
+        }
+
+        if (swordSpriteRenderer != null)
+        {
+            swordSpriteRenderer.enabled = active;
+        }
     }
 
     protected override void TryAttack()
     {
-        if (cursorMechanics == null) return;
+        if (cursorMechanics == null || !isActive) return;
 
-        // For cursor weapon, attacking toggles swinging mode
+        // Toggle swinging state
         isSwinging = !isSwinging;
 
         if (isSwinging)
         {
             // Play swing sound
-            float velocity = rb != null ? rb.linearVelocity.magnitude : 0f;
             if (soundManager != null)
             {
-                soundManager.PlaySwingSound(velocity);
-            }
-
-            // Apply initial force if needed
-            Vector2 swingDirection = (targetPosition - (Vector2)swordTransform.position).normalized;
-            if (swordRb != null && swingDirection.magnitude > 0.1f)
-            {
-                swordRb.AddForce(swordRb.linearVelocity.normalized * cursorMechanics.orbitSpeed, ForceMode2D.Impulse);
+                soundManager.PlaySwingSound(0f);
             }
 
             character.RaiseEvent("cursor_weapon_swing_started", currentConfig.weaponName);
+            Debug.Log("Cursor weapon started swinging");
         }
         else
         {
             character.RaiseEvent("cursor_weapon_swing_stopped", currentConfig.weaponName);
+            Debug.Log("Cursor weapon stopped swinging");
         }
     }
 
@@ -104,20 +136,19 @@ public class CursorWeaponSystem : WeaponSystem
     {
         base.Tick(deltaTime);
 
-        if (cursorMechanics == null || swordRb == null) return;
+        if (cursorMechanics == null || !isActive || swordTransform == null) return;
 
         // Update target position based on cursor
         UpdateTargetPosition(deltaTime);
 
-        // Calculate current sword speed for damage
-        if (swordTransform != null)
-        {
-            currentSwordSpeed = ((Vector2)swordTransform.position - lastPosition).magnitude / deltaTime;
-            lastPosition = swordTransform.position;
-        }
+        // Update sword position on orbit circle
+        UpdateSwordPosition(deltaTime);
 
-        // Apply control forces
-        ApplyControlForces(deltaTime);
+        // Calculate current sword speed for damage
+        currentSwordSpeed = CalculateSwordSpeed(deltaTime);
+
+        // Rotate sword to face outward
+        RotateSword();
 
         // Check for collisions and apply damage
         if (isSwinging && currentSwordSpeed > cursorMechanics.minimumDamageSpeed)
@@ -126,9 +157,10 @@ public class CursorWeaponSystem : WeaponSystem
         }
 
         // Play swoosh sound if moving fast
-        if (soundManager != null && cursorSound != null)
+        if (soundManager != null)
         {
-            soundManager.PlaySwooshSound(currentSwordSpeed);
+            // You might need to add a PlaySwooshSound method to WeaponSoundManager
+            // or implement it here
         }
 
         // Draw debug info
@@ -138,87 +170,137 @@ public class CursorWeaponSystem : WeaponSystem
         }
     }
 
+    public override void PhysicsTick(float fixedDeltaTime)
+    {
+        base.PhysicsTick(fixedDeltaTime);
+
+        // Physics updates could go here for the physics-based version
+    }
+
     private void UpdateTargetPosition(float deltaTime)
     {
         if (cursorMechanics == null || character == null) return;
 
-        // For player: target is cursor position
-        if (character.CompareTag("Player") && Camera.main != null)
-        {
-            Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            mouseWorldPos.z = 0;
-            lastMousePosition = mouseWorldPos;
+        Vector2 mouseWorldPos = GetMouseWorldPosition();
+        debugLastMousePosition = mouseWorldPos;
 
-            Vector2 toCursor = (Vector2)mouseWorldPos - (Vector2)character.transform.position;
-            toCursor = Vector2.ClampMagnitude(toCursor, cursorMechanics.orbitRadius);
+        // Calculate direction from player to cursor
+        Vector2 toCursor = mouseWorldPos - (Vector2)character.transform.position;
 
-            targetPosition = (Vector2)character.transform.position + toCursor;
-        }
-        else
-        {
-            // Enemy AI: orbit around character
-            float angle = Time.time * cursorMechanics.orbitSpeed;
-            targetPosition = (Vector2)character.transform.position +
-                           new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * cursorMechanics.orbitRadius;
-        }
+        // Clamp to orbit radius to get target position on circle
+        toCursor = Vector2.ClampMagnitude(toCursor, cursorMechanics.orbitRadius);
+
+        // Target position is on the orbit circle
+        targetPosition = (Vector2)character.transform.position + toCursor;
     }
 
-    private void ApplyControlForces(float deltaTime)
+    private Vector2 GetMouseWorldPosition()
     {
-        if (swordTransform == null || swordRb == null || cursorMechanics == null) return;
+        if (Camera.main == null) return Vector2.zero;
 
+        // Using Input System
+        Vector2 mouseScreenPos = Mouse.current.position.ReadValue();
+        Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(
+            new Vector3(mouseScreenPos.x, mouseScreenPos.y, Camera.main.nearClipPlane)
+        );
+        mouseWorldPos.z = 0;
+        return mouseWorldPos;
+    }
+
+    private void UpdateSwordPosition(float deltaTime)
+    {
+        if (character == null || swordTransform == null) return;
+
+        // Get direction from player to target (cursor position clamped to circle)
+        Vector2 playerToTarget = targetPosition - (Vector2)character.transform.position;
+
+        // Calculate the desired orbit position (normalized direction * radius)
+        Vector2 desiredOrbitPosition = playerToTarget.normalized * cursorMechanics.orbitRadius;
+
+        // Smoothly move current orbit position toward desired position
         if (!cursorMechanics.usePhysicsBasedMovement)
         {
-            // Simple lerp movement
-            swordTransform.position = Vector2.Lerp(
-                swordTransform.position,
-                targetPosition,
+            // Non-physics version: smooth interpolation
+            currentOrbitPosition = Vector2.Lerp(
+                currentOrbitPosition,
+                desiredOrbitPosition,
                 cursorMechanics.cursorFollowSpeed * deltaTime
             );
+
+            // Apply max angle constraint if needed
+            float angleDiff = Vector2.SignedAngle(currentOrbitPosition.normalized, desiredOrbitPosition.normalized);
+            float maxAngleDelta = cursorMechanics.maxAnglePerSecond * deltaTime;
+
+            if (Mathf.Abs(angleDiff) > maxAngleDelta)
+            {
+                float targetAngle = Mathf.Atan2(desiredOrbitPosition.y, desiredOrbitPosition.x) * Mathf.Rad2Deg;
+                float currentAngle = Mathf.Atan2(currentOrbitPosition.y, currentOrbitPosition.x) * Mathf.Rad2Deg;
+
+                // Move toward target angle with max speed
+                float newAngle = Mathf.MoveTowardsAngle(currentAngle, targetAngle, maxAngleDelta);
+                currentOrbitPosition = new Vector2(
+                    Mathf.Cos(newAngle * Mathf.Deg2Rad),
+                    Mathf.Sin(newAngle * Mathf.Deg2Rad)
+                ) * cursorMechanics.orbitRadius;
+            }
         }
         else
         {
-            // Physics-based movement with force
-            Vector2 toTarget = targetPosition - (Vector2)swordTransform.position;
-            float distance = toTarget.magnitude;
-
-            if (distance > 0.1f)
-            {
-                // Apply force towards target
-                Vector2 forceDirection = toTarget.normalized;
-                float forceMagnitude = distance * cursorMechanics.returnForce;
-
-                // Limit maximum force
-                forceMagnitude = Mathf.Min(forceMagnitude, cursorMechanics.maxSwordSpeed);
-
-                swordRb.AddForce(forceDirection * forceMagnitude);
-            }
-
-            // Limit maximum speed
-            if (swordRb.linearVelocity.magnitude > cursorMechanics.maxSwordSpeed)
-            {
-                swordRb.linearVelocity = swordRb.linearVelocity.normalized * cursorMechanics.maxSwordSpeed;
-            }
+            // For now, just use lerp. Physics version will be implemented later
+            currentOrbitPosition = desiredOrbitPosition;
         }
+
+        // Set sword position (player position + orbit offset)
+        swordTransform.position = (Vector2)character.transform.position + currentOrbitPosition;
+    }
+
+    private float CalculateSwordSpeed(float deltaTime)
+    {
+        if (swordTransform == null || deltaTime <= 0) return 0f;
+
+        Vector2 currentPos = swordTransform.position;
+        float speed = ((Vector2)currentPos - lastPosition).magnitude / deltaTime;
+        lastPosition = currentPos;
+
+        return speed;
+    }
+
+    private void RotateSword()
+    {
+        if (swordTransform == null) return;
+
+        // Face outward from player (point away from center)
+        Vector2 outwardDirection = currentOrbitPosition.normalized;
+
+        // Calculate angle in degrees
+        float angle = Mathf.Atan2(outwardDirection.y, outwardDirection.x) * Mathf.Rad2Deg;
+
+        // Apply rotation (adjust offset if your sword sprite faces a different direction)
+        swordTransform.rotation = Quaternion.Euler(0, 0, angle);
     }
 
     private void CheckCollisions()
     {
         if (swordTransform == null || cursorMechanics == null) return;
 
-        float checkRadius = 0.5f;
-        var hitColliders = Physics2D.OverlapCircleAll(swordTransform.position, checkRadius);
+        // Use a small circle check at sword position
+        float checkRadius = 0.5f; // Adjust based on sword size
+        Collider2D[] hitColliders = Physics2D.OverlapCircleAll(swordTransform.position, checkRadius);
 
-        foreach (var hit in hitColliders)
+        foreach (Collider2D hit in hitColliders)
         {
-            if (hit.gameObject == character.gameObject || hit.gameObject == gameObject)
+            // Skip self and character
+            if (hit.gameObject == gameObject ||
+                hit.gameObject == character.gameObject ||
+                (swordInstance != null && hit.gameObject == swordInstance))
                 continue;
 
             // Calculate damage based on sword speed
-            float speedDamage = (currentSwordSpeed - cursorMechanics.minimumDamageSpeed) * cursorMechanics.damagePerSpeedUnit;
+            float speedDamage = (currentSwordSpeed - cursorMechanics.minimumDamageSpeed) *
+                               cursorMechanics.damagePerSpeedUnit;
             float totalDamage = Mathf.Max(cursorMechanics.baseDamage, speedDamage);
 
-            // Add velocity bonus from character
+            // Apply velocity bonus from character movement
             totalDamage = CalculateDamage(totalDamage);
 
             // Apply damage
@@ -244,38 +326,49 @@ public class CursorWeaponSystem : WeaponSystem
                 configName = currentConfig.weaponName
             });
 
-            // Apply knockback based on sword velocity
+            // Optional: Apply knockback
             var targetRb = target.GetComponent<Rigidbody2D>();
-            if (targetRb != null && swordRb != null && swordRb.linearVelocity.magnitude > 0.1f)
+            if (targetRb != null)
             {
-                targetRb.AddForce(swordRb.linearVelocity.normalized * currentSwordSpeed * 0.5f, ForceMode2D.Impulse);
+                // Knockback in direction of sword movement
+                Vector2 knockbackDir = (swordTransform.position - (Vector3)lastPosition).normalized;
+                if (knockbackDir.magnitude < 0.1f)
+                {
+                    knockbackDir = currentOrbitPosition.normalized; // Fallback to outward direction
+                }
+
+                targetRb.AddForce(knockbackDir * currentSwordSpeed * 0.5f, ForceMode2D.Impulse);
             }
         }
     }
 
     private void DrawDebugInfo()
     {
-        if (swordTransform == null || character.transform == null || cursorVisual == null) return;
+        if (character == null || cursorVisual == null) return;
 
-        // Draw orbit radius
+        // Draw orbit circle
         DrawCircle(character.transform.position, cursorMechanics.orbitRadius, 32, cursorVisual.orbitDebugColor);
 
-        // Draw line to target
-        Debug.DrawLine(swordTransform.position, targetPosition, Color.green, debugDisplayTime);
-
-        // Draw line to character
-        Debug.DrawLine(swordTransform.position, character.transform.position, Color.cyan, debugDisplayTime);
-
-        // Draw sword velocity
-        if (swordRb != null)
+        // Draw line from player to sword
+        if (swordTransform != null)
         {
-            Debug.DrawRay(swordTransform.position, swordRb.linearVelocity.normalized * 0.5f, cursorVisual.swordTrailColor, debugDisplayTime);
+            Debug.DrawLine(character.transform.position, swordTransform.position, Color.cyan, debugDisplayTime);
         }
 
-        // Draw current speed indicator
-        Debug.DrawRay(swordTransform.position, Vector2.up * (currentSwordSpeed * 0.1f),
-                     currentSwordSpeed > cursorMechanics.minimumDamageSpeed ? Color.green : Color.gray,
-                     debugDisplayTime);
+        // Draw line from player to target (cursor)
+        Debug.DrawLine(character.transform.position, targetPosition, Color.green, debugDisplayTime);
+
+        // Draw sword speed indicator
+        if (swordTransform != null)
+        {
+            float speedBarLength = currentSwordSpeed * 0.1f;
+            Color speedColor = currentSwordSpeed > cursorMechanics.minimumDamageSpeed ? Color.green : Color.gray;
+            Debug.DrawRay(swordTransform.position, Vector2.up * speedBarLength, speedColor, debugDisplayTime);
+        }
+
+        // Draw mouse position
+        Debug.DrawRay(debugLastMousePosition, Vector2.up * 0.5f, Color.red, debugDisplayTime);
+        Debug.DrawRay(debugLastMousePosition, Vector2.right * 0.5f, Color.red, debugDisplayTime);
     }
 
     private void DrawCircle(Vector2 center, float radius, int segments, Color color)
@@ -299,8 +392,14 @@ public class CursorWeaponSystem : WeaponSystem
     protected override void CleanupManagers()
     {
         base.CleanupManagers();
+
+        // Destroy sword instance if we created it
+        if (swordInstance != null)
+        {
+            Destroy(swordInstance);
+        }
+
         cursorMechanics = null;
         cursorVisual = null;
-        cursorSound = null;
     }
 }

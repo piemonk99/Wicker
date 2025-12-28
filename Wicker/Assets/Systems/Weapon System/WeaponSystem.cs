@@ -30,9 +30,6 @@ public abstract class WeaponSystem : MonoBehaviour, ICharacterComponent
     // Public
     public bool IsAttacking { get; protected set; }
 
-    // Events
-    public event System.Action<WeaponConfig> OnWeaponChanged;
-
     //////////////////////// Initialization ////////////////////////
 
     public virtual void Initialize(CharacterCore core)
@@ -47,52 +44,21 @@ public abstract class WeaponSystem : MonoBehaviour, ICharacterComponent
             return;
         }
 
-        // Subscribe to equipment events
-        equipment.OnWeaponChanged += OnWeaponChangedHandler;
-
-        // Get initial weapon config from equipment
-        currentConfig = equipment.CurrentWeapon;
-        if (currentConfig == null)
-        {
-            Debug.LogWarning("No weapon equipped on initialization.");
-        }
-        else
-        {
-            InitializeWithConfig(currentConfig);
-        }
 
         // Register for character events
         character.OnEvent += HandleEvent;
     }
 
-    private void OnWeaponChangedHandler(WeaponConfig newConfig)
+    public void SetWeaponConfig(WeaponConfig config)
     {
-        if (newConfig == null)
+        if (config == null)
         {
-            Debug.Log("Weapon unequipped");
-
-            // Stop current attack if active
-            if (isAttacking)
-            {
-                StopAttack();
-            }
-
-            // Clean up managers
-            CleanupManagers();
-            currentConfig = null;
+            Debug.LogError("Cannot set null weapon config");
             return;
         }
 
-        Debug.Log($"Switching to weapon: {newConfig.weaponName}");
-
-        // Stop current attack if active
-        if (isAttacking)
-        {
-            StopAttack();
-        }
-
-        // Initialize with new config
-        InitializeWithConfig(newConfig);
+        currentConfig = config;
+        InitializeWithConfig(config);
     }
 
     protected virtual void InitializeWithConfig(WeaponConfig config)
@@ -194,10 +160,6 @@ public abstract class WeaponSystem : MonoBehaviour, ICharacterComponent
 
     protected virtual void OnDestroy()
     {
-        if (equipment != null)
-        {
-            equipment.OnWeaponChanged -= OnWeaponChangedHandler;
-        }
 
         if (character != null)
         {

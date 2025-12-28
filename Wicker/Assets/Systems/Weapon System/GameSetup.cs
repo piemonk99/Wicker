@@ -37,6 +37,7 @@ public class GameSetup : MonoBehaviour
         yield return null; // Wait one frame for initialization
 
         var inventory = GetComponent<CharacterInventory>();
+        var equipment = GetComponent<CharacterEquipment>();
         var condition = GetComponent<CharacterCondition>();
 
         if (inventory == null || condition == null)
@@ -49,14 +50,14 @@ public class GameSetup : MonoBehaviour
         if (startingWeapon != null)
         {
             inventory.AddWeapon(startingWeapon);
-            inventory.EquipWeapon(startingWeapon);
+            equipment.EquipWeapon(startingWeapon);
         }
 
         // Add starting grapple hook
         if (startingGrappleHook != null)
         {
             inventory.AddGrappleHook(startingGrappleHook);
-            inventory.EquipGrappleHook(startingGrappleHook);
+            equipment.EquipGrappleHook(startingGrappleHook);
         }
 
         // Add additional weapons
@@ -83,19 +84,19 @@ public class GameSetup : MonoBehaviour
     // Public API for switching equipment (could be called from UI)
     public void SwitchWeapon(WeaponConfig newWeapon)
     {
-        var inventory = GetComponent<CharacterInventory>();
-        if (inventory != null && newWeapon != null)
+        var equipment = GetComponent<CharacterEquipment>();
+        if (equipment != null && newWeapon != null)
         {
-            inventory.EquipWeapon(newWeapon);
+            equipment.EquipWeapon(newWeapon);
         }
     }
 
     public void SwitchGrappleHook(GrappleConfig newGrappleHook)
     {
-        var inventory = GetComponent<CharacterInventory>();
-        if (inventory != null && newGrappleHook != null)
+        var equipment = GetComponent<CharacterEquipment>();
+        if (equipment != null && newGrappleHook != null)
         {
-            inventory.EquipGrappleHook(newGrappleHook);
+            equipment.EquipGrappleHook(newGrappleHook);
         }
     }
 
