@@ -15,27 +15,39 @@ MonoBehaviour:
   mechanics:
     baseDamage: 10
     canAttackWhileMoving: 1
-    scalesWithVelocity: 1
+    scalesWithVelocity: 0
     minimumVelocityForMultiplier: 0
     maxVelocityForMultiplier: 20
     maxVelocityMultiplier: 2
-    orbitRadius: 2
-    orbitSpeed: 5
-    swordMass: 1
-    swordDrag: 0.5
-    maxSwordSpeed: 20
-    returnForce: 10
+    minOrbitRadius: 2
+    maxOrbitRadius: 2
+    movementMode: 0
     cursorFollowSpeed: 15
-    maxAnglePerSecond: 180
-    usePhysicsBasedMovement: 0
-    damagePerSpeedUnit: 0.2
-    minimumDamageSpeed: 2
+    angularAcceleration: 1080
+    angularDeceleration: 2160
+    maxAngularVelocity: 720
+    damagePerSpeedUnit: 0.5
+    minimumDamageSpeed: 0
+    baseKnockback: 1
+    speedKnockbackMultiplier: 0.001
+    maxKnockback: 3
+    enemyLayers:
+      serializedVersion: 2
+      m_Bits: 128
+    sweptCollisionAngleStep: 1
+    maxGhostCollidersPerFrame: 5
+    alwaysUseSweptCollision: 1
+    weaponWidth: 0.5
+    weaponLength: 1.5
   visual:
     weaponPrefab: {fileID: 8934781738576653438, guid: 483b4a9ecde21ce498f7b256aafad2f1, type: 3}
     icon: {fileID: 0}
-    enableDebugVisualization: 0
+    enableDebugVisualization: 1
     orbitDebugColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-    swordTrailColor: {r: 0, g: 1, b: 1, a: 1}
+    sweptCollisionDebugColor: {r: 1, g: 0.5, b: 0, a: 0.3}
+    angularMovementArcColor: {r: 0.015686274, g: 0.95134175, b: 1, a: 1}
+    targetAngleIndicatorColor: {r: 1, g: 0, b: 1, a: 1}
+    angularVelocityIndicatorColor: {r: 0, g: 1, b: 1, a: 1}
   sound:
     weaponSoundSet: {fileID: 0}
     swooshSound: {fileID: 0}

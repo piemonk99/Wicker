@@ -1,38 +1,48 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Collections.Generic;
 
 public class CursorWeaponSystem : WeaponSystem
 {
-    // Sword references
-    private Transform swordTransform;
-    private GameObject swordInstance;
-    private SpriteRenderer swordSpriteRenderer;
+    private Transform weaponTransform;
+    private GameObject weaponInstance;
+    private WeaponCollisionHandler weaponCollisionHandler;
+    private CapsuleCollider2D weaponCapsuleCollider;
 
     // Orbit state
-    private Vector2 targetPosition;  // Where cursor wants sword to be
-    private Vector2 currentOrbitPosition;  // Where sword actually is on orbit circle
-    private float currentSwordSpeed;
+    private Vector2 targetOrbitPosition;
+    private Vector2 currentOrbitPosition;
+    private float currentAngle;
+    private float previousAngle;
+    private float angularDistance;
+
+    // Acceleration mode
+    private float currentAngularVelocity;
+    private float targetAngle;
+
+    // Movement
+    private float currentWeaponSpeed;
     private Vector2 lastPosition;
+    private float currentOrbitRadius;
 
-    // Attack state
-    private bool isActive = false;  // Sword is visible and active
-    private bool isSwinging = false;  // Sword can deal damage
+    // Combat
+    private bool isSwinging = false;
+    private HashSet<Collider2D> hitThisFrame = new HashSet<Collider2D>();
+    private List<Vector2> ghostColliderPositions = new List<Vector2>();
 
-    // Cached config references
+    // Configs
     private CursorWeaponMechanicsConfig cursorMechanics;
     private CursorWeaponVisualConfig cursorVisual;
 
-    // Debug
-    private Vector2 debugLastMousePosition;
-    private float debugDisplayTime = 0.1f;
+    // Weapon capsule dimensions
+    private float weaponCapsuleWidth;
+    private float weaponCapsuleHeight;
 
     protected override void InitializeWithConfig(WeaponConfig config)
     {
         base.InitializeWithConfig(config);
-
         if (currentConfig == null) return;
 
-        // Get specific configs
         cursorMechanics = currentConfig.MechanicsConfig as CursorWeaponMechanicsConfig;
         cursorVisual = currentConfig.VisualConfig as CursorWeaponVisualConfig;
 
@@ -42,333 +52,352 @@ public class CursorWeaponSystem : WeaponSystem
             return;
         }
 
-        // Spawn sword prefab if one is specified
-        if (cursorVisual.weaponPrefab != null)
+        SpawnWeapon();
+        ExtractWeaponColliderDimensions();
+        InitializeWeaponPosition();
+        showDebugInfo = cursorVisual.enableDebugVisualization;
+    }
+
+    private void SpawnWeapon()
+    {
+        if (cursorVisual.weaponPrefab == null)
         {
-            Debug.Log("Spawning sword");
+            Debug.LogError("Weapon prefab required in CursorWeaponVisualConfig");
+            return;
+        }
 
-            swordInstance = Instantiate(cursorVisual.weaponPrefab, transform);
-            swordTransform = swordInstance.transform;
-            swordSpriteRenderer = swordInstance.GetComponent<SpriteRenderer>();
+        if (weaponInstance != null) Destroy(weaponInstance);
 
-            if (swordSpriteRenderer == null)
-            {
-                swordSpriteRenderer = swordInstance.GetComponentInChildren<SpriteRenderer>();
-            }
+        weaponInstance = Instantiate(cursorVisual.weaponPrefab, transform);
+        weaponTransform = weaponInstance.transform;
 
-            // Start with sword deactivated
-            SetSwordActive(false);
+        weaponCollisionHandler = weaponInstance.GetComponent<WeaponCollisionHandler>();
+        if (weaponCollisionHandler == null)
+            weaponCollisionHandler = weaponInstance.AddComponent<WeaponCollisionHandler>();
+        weaponCollisionHandler.Initialize(this);
+
+        // Ensure collider exists and is trigger
+        weaponCapsuleCollider = weaponInstance.GetComponent<CapsuleCollider2D>();
+        if (weaponCapsuleCollider != null)
+        {
+            weaponCapsuleCollider.isTrigger = true;
         }
         else
         {
-            // If no prefab, use this transform
-            swordTransform = transform;
-            Debug.LogWarning("No sword prefab assigned in CursorWeaponVisualConfig");
+            Debug.LogError("Weapon prefab must have a CapsuleCollider2D!");
+            weaponInstance.SetActive(false);
         }
-
-        // Initialize orbit position
-        currentOrbitPosition = GetInitialOrbitPosition();
-        if (swordTransform != null)
-        {
-            swordTransform.position = (Vector2)character.transform.position + currentOrbitPosition;
-        }
-
-        lastPosition = swordTransform.position;
-
-        // Set debug mode
-        showDebugInfo = cursorVisual.enableDebugVisualization;
-
-        // Activate the sword
-        SetSwordActive(true);
-        isActive = true;
     }
 
-    private Vector2 GetInitialOrbitPosition()
+    private void ExtractWeaponColliderDimensions()
     {
-        // Start sword to the right of the player
-        return Vector2.right * cursorMechanics.orbitRadius;
+        if (weaponCapsuleCollider == null) return;
+
+        weaponCapsuleWidth = weaponCapsuleCollider.size.x;
+        weaponCapsuleHeight = weaponCapsuleCollider.size.y;
     }
 
-    private void SetSwordActive(bool active)
+    private void InitializeWeaponPosition()
     {
-        if (swordInstance != null)
-        {
-            swordInstance.SetActive(active);
-        }
-
-        if (swordSpriteRenderer != null)
-        {
-            swordSpriteRenderer.enabled = active;
-        }
+        currentOrbitRadius = cursorMechanics.maxOrbitRadius;
+        currentOrbitPosition = Vector2.right * currentOrbitRadius;
+        targetOrbitPosition = currentOrbitPosition;
+        weaponTransform.position = (Vector2)character.transform.position + currentOrbitPosition;
+        lastPosition = weaponTransform.position;
+        currentAngle = 0f;
+        previousAngle = 0f;
+        targetAngle = 0f;
+        angularDistance = 0f;
+        currentAngularVelocity = 0f;
     }
 
     protected override void TryAttack()
     {
-        if (cursorMechanics == null || !isActive) return;
+        if (cursorMechanics == null) return;
 
-        // Toggle swinging state
         isSwinging = !isSwinging;
+        hitThisFrame.Clear();
+        ghostColliderPositions.Clear();
+
+        if (weaponInstance != null)
+            weaponInstance.SetActive(isSwinging);
 
         if (isSwinging)
         {
-            // Play swing sound
-            if (soundManager != null)
-            {
-                soundManager.PlaySwingSound(0f);
-            }
-
+            soundManager?.PlaySwingSound(0f);
             character.RaiseEvent("cursor_weapon_swing_started", currentConfig.weaponName);
-            Debug.Log("Cursor weapon started swinging");
         }
         else
         {
+            weaponCollisionHandler?.ClearCollisions();
             character.RaiseEvent("cursor_weapon_swing_stopped", currentConfig.weaponName);
-            Debug.Log("Cursor weapon stopped swinging");
         }
     }
 
     protected override void StopAttack()
     {
         isSwinging = false;
+        weaponCollisionHandler?.ClearCollisions();
+        if (weaponInstance != null) weaponInstance.SetActive(false);
     }
 
     public override void Tick(float deltaTime)
     {
         base.Tick(deltaTime);
+        if (cursorMechanics == null || weaponTransform == null) return;
 
-        if (cursorMechanics == null || !isActive || swordTransform == null) return;
+        UpdateTargetPosition();
 
-        // Update target position based on cursor
-        UpdateTargetPosition(deltaTime);
-
-        // Update sword position on orbit circle
-        UpdateSwordPosition(deltaTime);
-
-        // Calculate current sword speed for damage
-        currentSwordSpeed = CalculateSwordSpeed(deltaTime);
-
-        // Rotate sword to face outward
-        RotateSword();
-
-        // Check for collisions and apply damage
-        if (isSwinging && currentSwordSpeed > cursorMechanics.minimumDamageSpeed)
+        if (isSwinging)
         {
-            CheckCollisions();
+            hitThisFrame.Clear();
+            CheckNormalCollisions();
         }
 
-        // Play swoosh sound if moving fast
-        if (soundManager != null)
-        {
-            // You might need to add a PlaySwooshSound method to WeaponSoundManager
-            // or implement it here
-        }
-
-        // Draw debug info
-        if (showDebugInfo && cursorVisual != null)
-        {
-            DrawDebugInfo();
-        }
+        if (showDebugInfo) DrawDebugInfo();
     }
 
     public override void PhysicsTick(float fixedDeltaTime)
     {
         base.PhysicsTick(fixedDeltaTime);
+        if (cursorMechanics == null || weaponTransform == null) return;
 
-        // Physics updates could go here for the physics-based version
+        previousAngle = currentAngle;
+        UpdateWeaponPosition(fixedDeltaTime);
+        UpdateWeaponMetrics(fixedDeltaTime);
+
+        if (isSwinging && ShouldCheckSweptCollisions())
+            CheckSweptCollisions();
+
+        RotateWeapon();
     }
 
-    private void UpdateTargetPosition(float deltaTime)
+    private void UpdateTargetPosition()
     {
-        if (cursorMechanics == null || character == null) return;
+        if (character == null || Camera.main == null) return;
 
-        Vector2 mouseWorldPos = GetMouseWorldPosition();
-        debugLastMousePosition = mouseWorldPos;
-
-        // Calculate direction from player to cursor
-        Vector2 toCursor = mouseWorldPos - (Vector2)character.transform.position;
-
-        // Clamp to orbit radius to get target position on circle
-        toCursor = Vector2.ClampMagnitude(toCursor, cursorMechanics.orbitRadius);
-
-        // Target position is on the orbit circle
-        targetPosition = (Vector2)character.transform.position + toCursor;
-    }
-
-    private Vector2 GetMouseWorldPosition()
-    {
-        if (Camera.main == null) return Vector2.zero;
-
-        // Using Input System
         Vector2 mouseScreenPos = Mouse.current.position.ReadValue();
-        Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(
-            new Vector3(mouseScreenPos.x, mouseScreenPos.y, Camera.main.nearClipPlane)
-        );
+        Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, Camera.main.nearClipPlane));
         mouseWorldPos.z = 0;
-        return mouseWorldPos;
+
+        Vector2 toCursor = (Vector2)mouseWorldPos - (Vector2)character.transform.position;
+        float distance = Mathf.Clamp(toCursor.magnitude, cursorMechanics.minOrbitRadius, cursorMechanics.maxOrbitRadius);
+
+        targetOrbitPosition = distance > 0.001f ? toCursor.normalized * distance : Vector2.right * cursorMechanics.minOrbitRadius;
+        targetAngle = Mathf.Atan2(targetOrbitPosition.y, targetOrbitPosition.x) * Mathf.Rad2Deg;
     }
 
-    private void UpdateSwordPosition(float deltaTime)
+    private void UpdateWeaponPosition(float fixedDeltaTime)
     {
-        if (character == null || swordTransform == null) return;
+        if (cursorMechanics.movementMode == MovementMode.Direct)
+            UpdateDirectMode(fixedDeltaTime);
+        else
+            UpdateAccelerationMode(fixedDeltaTime);
 
-        // Get direction from player to target (cursor position clamped to circle)
-        Vector2 playerToTarget = targetPosition - (Vector2)character.transform.position;
+        // Apply radius constraints
+        float currentDistance = currentOrbitPosition.magnitude;
+        if (currentDistance < cursorMechanics.minOrbitRadius)
+            currentOrbitPosition = currentOrbitPosition.normalized * cursorMechanics.minOrbitRadius;
+        else if (currentDistance > cursorMechanics.maxOrbitRadius)
+            currentOrbitPosition = currentOrbitPosition.normalized * cursorMechanics.maxOrbitRadius;
 
-        // Calculate the desired orbit position (normalized direction * radius)
-        Vector2 desiredOrbitPosition = playerToTarget.normalized * cursorMechanics.orbitRadius;
+        currentOrbitRadius = currentOrbitPosition.magnitude;
+        weaponTransform.position = (Vector2)character.transform.position + currentOrbitPosition;
+    }
 
-        // Smoothly move current orbit position toward desired position
-        if (!cursorMechanics.usePhysicsBasedMovement)
+    private void UpdateDirectMode(float fixedDeltaTime)
+    {
+        currentOrbitPosition = Vector2.Lerp(currentOrbitPosition, targetOrbitPosition, cursorMechanics.cursorFollowSpeed * fixedDeltaTime);
+        currentAngle = Mathf.Atan2(currentOrbitPosition.y, currentOrbitPosition.x) * Mathf.Rad2Deg;
+    }
+
+    private void UpdateAccelerationMode(float fixedDeltaTime)
+    {
+        float angleDiff = Mathf.DeltaAngle(currentAngle, targetAngle);
+        float desiredDirection = Mathf.Sign(angleDiff);
+        float absAngleDiff = Mathf.Abs(angleDiff);
+
+        // Calculate braking distance and determine if we should brake
+        float brakingDistance = (currentAngularVelocity * currentAngularVelocity) / (2f * cursorMechanics.angularDeceleration);
+        bool shouldBrake = brakingDistance >= absAngleDiff;
+
+        if (shouldBrake)
         {
-            // Non-physics version: smooth interpolation
-            currentOrbitPosition = Vector2.Lerp(
-                currentOrbitPosition,
-                desiredOrbitPosition,
-                cursorMechanics.cursorFollowSpeed * deltaTime
-            );
-
-            // Apply max angle constraint if needed
-            float angleDiff = Vector2.SignedAngle(currentOrbitPosition.normalized, desiredOrbitPosition.normalized);
-            float maxAngleDelta = cursorMechanics.maxAnglePerSecond * deltaTime;
-
-            if (Mathf.Abs(angleDiff) > maxAngleDelta)
-            {
-                float targetAngle = Mathf.Atan2(desiredOrbitPosition.y, desiredOrbitPosition.x) * Mathf.Rad2Deg;
-                float currentAngle = Mathf.Atan2(currentOrbitPosition.y, currentOrbitPosition.x) * Mathf.Rad2Deg;
-
-                // Move toward target angle with max speed
-                float newAngle = Mathf.MoveTowardsAngle(currentAngle, targetAngle, maxAngleDelta);
-                currentOrbitPosition = new Vector2(
-                    Mathf.Cos(newAngle * Mathf.Deg2Rad),
-                    Mathf.Sin(newAngle * Mathf.Deg2Rad)
-                ) * cursorMechanics.orbitRadius;
-            }
+            // Braking phase
+            float deceleration = cursorMechanics.angularDeceleration;
+            if (currentAngularVelocity > 0)
+                currentAngularVelocity = Mathf.Max(0f, currentAngularVelocity - deceleration * fixedDeltaTime);
+            else if (currentAngularVelocity < 0)
+                currentAngularVelocity = Mathf.Min(0f, currentAngularVelocity + deceleration * fixedDeltaTime);
         }
         else
         {
-            // For now, just use lerp. Physics version will be implemented later
-            currentOrbitPosition = desiredOrbitPosition;
+            // Accelerating phase
+            if (absAngleDiff > 0.1f)
+            {
+                currentAngularVelocity += desiredDirection * cursorMechanics.angularAcceleration * fixedDeltaTime;
+                currentAngularVelocity = Mathf.Clamp(currentAngularVelocity, -cursorMechanics.maxAngularVelocity, cursorMechanics.maxAngularVelocity);
+            }
+            else
+            {
+                currentAngularVelocity = Mathf.Lerp(currentAngularVelocity, 0f, 5f * fixedDeltaTime);
+            }
         }
 
-        // Set sword position (player position + orbit offset)
-        swordTransform.position = (Vector2)character.transform.position + currentOrbitPosition;
+        // Apply movement
+        currentAngle += currentAngularVelocity * fixedDeltaTime;
+        currentAngle = Mathf.Repeat(currentAngle, 360f);
+
+        // Lerp radius toward target
+        float targetRadius = targetOrbitPosition.magnitude;
+        currentOrbitRadius = Mathf.Lerp(currentOrbitRadius, targetRadius, cursorMechanics.cursorFollowSpeed * fixedDeltaTime);
+
+        currentOrbitPosition = new Vector2(Mathf.Cos(currentAngle * Mathf.Deg2Rad), Mathf.Sin(currentAngle * Mathf.Deg2Rad)) * currentOrbitRadius;
     }
 
-    private float CalculateSwordSpeed(float deltaTime)
+    private void UpdateWeaponMetrics(float fixedDeltaTime)
     {
-        if (swordTransform == null || deltaTime <= 0) return 0f;
-
-        Vector2 currentPos = swordTransform.position;
-        float speed = ((Vector2)currentPos - lastPosition).magnitude / deltaTime;
+        Vector2 currentPos = weaponTransform.position;
+        currentWeaponSpeed = ((Vector2)currentPos - lastPosition).magnitude / fixedDeltaTime;
         lastPosition = currentPos;
-
-        return speed;
+        angularDistance = Mathf.DeltaAngle(previousAngle, currentAngle);
     }
 
-    private void RotateSword()
+    private void RotateWeapon()
     {
-        if (swordTransform == null) return;
-
-        // Face outward from player (point away from center)
         Vector2 outwardDirection = currentOrbitPosition.normalized;
-
-        // Calculate angle in degrees
-        float angle = Mathf.Atan2(outwardDirection.y, outwardDirection.x) * Mathf.Rad2Deg;
-
-        // Apply rotation (adjust offset if your sword sprite faces a different direction)
-        swordTransform.rotation = Quaternion.Euler(0, 0, angle);
+        weaponTransform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(outwardDirection.y, outwardDirection.x) * Mathf.Rad2Deg);
     }
 
-    private void CheckCollisions()
+    private void CheckNormalCollisions()
     {
-        if (swordTransform == null || cursorMechanics == null) return;
+        if (weaponCollisionHandler == null) return;
+        foreach (var collider in weaponCollisionHandler.GetCurrentCollisions())
+            if (collider != null && !hitThisFrame.Contains(collider))
+                ApplyDamage(collider.gameObject);
+    }
 
-        // Use a small circle check at sword position
-        float checkRadius = 0.5f; // Adjust based on sword size
-        Collider2D[] hitColliders = Physics2D.OverlapCircleAll(swordTransform.position, checkRadius);
+    private bool ShouldCheckSweptCollisions()
+    {
+        return cursorMechanics.alwaysUseSweptCollision || Mathf.Abs(angularDistance) > cursorMechanics.sweptCollisionAngleStep;
+    }
 
-        foreach (Collider2D hit in hitColliders)
+    private void CheckSweptCollisions()
+    {
+        if (Mathf.Abs(angularDistance) < 0.1f) return;
+        ghostColliderPositions.Clear();
+
+        float absAngularDistance = Mathf.Abs(angularDistance);
+        float angleStep = cursorMechanics.sweptCollisionAngleStep;
+        int maxColliders = cursorMechanics.maxGhostCollidersPerFrame;
+
+        // If angular distance is too large for our step size, increase step
+        if (absAngularDistance > angleStep * maxColliders)
+            angleStep = absAngularDistance / maxColliders;
+
+        int steps = Mathf.Min(maxColliders, Mathf.CeilToInt(absAngularDistance / angleStep));
+
+        // Place ghost colliders along the arc between previous and current positions
+        for (int i = 1; i <= steps; i++)
         {
-            // Skip self and character
-            if (hit.gameObject == gameObject ||
-                hit.gameObject == character.gameObject ||
-                (swordInstance != null && hit.gameObject == swordInstance))
-                continue;
+            float t = i / (float)(steps + 1);
+            float intermediateAngle = Mathf.LerpAngle(previousAngle, currentAngle, t);
 
-            // Calculate damage based on sword speed
-            float speedDamage = (currentSwordSpeed - cursorMechanics.minimumDamageSpeed) *
-                               cursorMechanics.damagePerSpeedUnit;
-            float totalDamage = Mathf.Max(cursorMechanics.baseDamage, speedDamage);
+            // Calculate position on orbit circle at this angle
+            Vector2 intermediatePosition = (Vector2)character.transform.position +
+                new Vector2(Mathf.Cos(intermediateAngle * Mathf.Deg2Rad), Mathf.Sin(intermediateAngle * Mathf.Deg2Rad)) * currentOrbitRadius;
 
-            // Apply velocity bonus from character movement
-            totalDamage = CalculateDamage(totalDamage);
-
-            // Apply damage
-            ApplyDamage(hit.gameObject, totalDamage);
-
-            Debug.Log($"Cursor weapon hit {hit.gameObject.name} for {totalDamage:F1} damage (speed: {currentSwordSpeed:F1})");
+            // Check collision with properly oriented capsule
+            CheckGhostCollider(intermediatePosition, intermediateAngle);
+            ghostColliderPositions.Add(intermediatePosition);
         }
+
+        // Also check at current position
+        CheckGhostCollider(weaponTransform.position, currentAngle);
     }
 
-    private void ApplyDamage(GameObject target, float damage)
+    private void CheckGhostCollider(Vector2 position, float angle)
     {
+        if (cursorMechanics == null || weaponCapsuleCollider == null) return;
+
+        // Create capsule check at the ghost position with proper rotation
+        Collider2D[] hits = Physics2D.OverlapCapsuleAll(
+            position,
+            new Vector2(weaponCapsuleWidth, weaponCapsuleHeight),
+            weaponCapsuleCollider.direction,
+            angle,
+            cursorMechanics.enemyLayers
+        );
+
+        foreach (var hit in hits)
+            if (hit != null && !hitThisFrame.Contains(hit))
+                ApplyDamage(hit.gameObject);
+    }
+
+    private void ApplyDamage(GameObject target)
+    {
+        if (target == character.gameObject || target == gameObject || target == weaponInstance) return;
+        if (currentWeaponSpeed < cursorMechanics.minimumDamageSpeed) return;
+
+        // Calculate damage
+        float speedDamage = (currentWeaponSpeed - cursorMechanics.minimumDamageSpeed) * cursorMechanics.damagePerSpeedUnit;
+        float totalDamage = Mathf.Max(cursorMechanics.baseDamage, speedDamage);
+        totalDamage = CalculateDamage(totalDamage);
+
+        // Apply to target
         var condition = target.GetComponent<CharacterCondition>();
         if (condition != null)
         {
-            condition.TakeDamage(damage, target.transform.position);
-
+            condition.TakeDamage(totalDamage, target.transform.position);
             character.RaiseEvent("enemy_hit", new
             {
                 enemy = target,
-                damage = damage,
+                damage = totalDamage,
                 position = target.transform.position,
                 weaponType = "CursorWeapon",
                 configName = currentConfig.weaponName
             });
 
-            // Optional: Apply knockback
+            // Apply knockback
             var targetRb = target.GetComponent<Rigidbody2D>();
             if (targetRb != null)
             {
-                // Knockback in direction of sword movement
-                Vector2 knockbackDir = (swordTransform.position - (Vector3)lastPosition).normalized;
-                if (knockbackDir.magnitude < 0.1f)
-                {
-                    knockbackDir = currentOrbitPosition.normalized; // Fallback to outward direction
-                }
+                float knockbackForce = Mathf.Min(
+                    cursorMechanics.baseKnockback + (currentWeaponSpeed * cursorMechanics.speedKnockbackMultiplier),
+                    cursorMechanics.maxKnockback
+                );
 
-                targetRb.AddForce(knockbackDir * currentSwordSpeed * 0.5f, ForceMode2D.Impulse);
+                Vector2 knockbackDir = (weaponTransform.position - character.transform.position).normalized;
+                if (knockbackDir.magnitude < 0.1f) knockbackDir = currentOrbitPosition.normalized;
+                targetRb.AddForce(knockbackDir * knockbackForce, ForceMode2D.Impulse);
             }
         }
+
+        hitThisFrame.Add(target.GetComponent<Collider2D>());
     }
 
+    // Weapon collision callbacks
+    public void OnWeaponTriggerEnter(Collider2D other) => TryHitCollider(other);
+    public void OnWeaponTriggerStay(Collider2D other) => TryHitCollider(other);
+    private void TryHitCollider(Collider2D other)
+    {
+        if (isSwinging && !hitThisFrame.Contains(other))
+            ApplyDamage(other.gameObject);
+    }
+
+    // Debug visualization
     private void DrawDebugInfo()
     {
-        if (character == null || cursorVisual == null) return;
+        if (character == null) return;
+        DrawOrbitCircles();
+        DrawGhostColliders();
+    }
 
-        // Draw orbit circle
-        DrawCircle(character.transform.position, cursorMechanics.orbitRadius, 32, cursorVisual.orbitDebugColor);
-
-        // Draw line from player to sword
-        if (swordTransform != null)
-        {
-            Debug.DrawLine(character.transform.position, swordTransform.position, Color.cyan, debugDisplayTime);
-        }
-
-        // Draw line from player to target (cursor)
-        Debug.DrawLine(character.transform.position, targetPosition, Color.green, debugDisplayTime);
-
-        // Draw sword speed indicator
-        if (swordTransform != null)
-        {
-            float speedBarLength = currentSwordSpeed * 0.1f;
-            Color speedColor = currentSwordSpeed > cursorMechanics.minimumDamageSpeed ? Color.green : Color.gray;
-            Debug.DrawRay(swordTransform.position, Vector2.up * speedBarLength, speedColor, debugDisplayTime);
-        }
-
-        // Draw mouse position
-        Debug.DrawRay(debugLastMousePosition, Vector2.up * 0.5f, Color.red, debugDisplayTime);
-        Debug.DrawRay(debugLastMousePosition, Vector2.right * 0.5f, Color.red, debugDisplayTime);
+    private void DrawOrbitCircles()
+    {
+        Vector2 center = character.transform.position;
+        DrawCircle(center, cursorMechanics.minOrbitRadius, 24, cursorVisual.minOrbitDebugColor);
+        DrawCircle(center, cursorMechanics.maxOrbitRadius, 36, cursorVisual.maxOrbitDebugColor);
     }
 
     private void DrawCircle(Vector2 center, float radius, int segments, Color color)
@@ -379,26 +408,57 @@ public class CursorWeaponSystem : WeaponSystem
         for (int i = 1; i <= segments; i++)
         {
             float angle = angleStep * i;
-            Vector2 nextPoint = center + new Vector2(
-                Mathf.Cos(angle * Mathf.Deg2Rad) * radius,
-                Mathf.Sin(angle * Mathf.Deg2Rad) * radius
+            Vector2 nextPoint = center + new Vector2(Mathf.Cos(angle * Mathf.Deg2Rad), Mathf.Sin(angle * Mathf.Deg2Rad)) * radius;
+            Debug.DrawLine(prevPoint, nextPoint, color);
+            prevPoint = nextPoint;
+        }
+    }
+
+    private void DrawGhostColliders()
+    {
+        if (ghostColliderPositions.Count == 0) return;
+
+        foreach (Vector2 ghostPos in ghostColliderPositions)
+        {
+            // Draw center indicator
+            float crossSize = 0.1f;
+            Debug.DrawLine(ghostPos - Vector2.up * crossSize, ghostPos + Vector2.up * crossSize,
+                         cursorVisual.sweptCollisionDebugColor);
+            Debug.DrawLine(ghostPos - Vector2.right * crossSize, ghostPos + Vector2.right * crossSize,
+                         cursorVisual.sweptCollisionDebugColor);
+
+            // Calculate angle from player to this ghost position
+            Vector2 toGhost = ghostPos - (Vector2)character.transform.position;
+            float angle = Mathf.Atan2(toGhost.y, toGhost.x) * Mathf.Rad2Deg;
+
+            Vector2 direction = new Vector2(
+                Mathf.Cos(angle * Mathf.Deg2Rad),
+                Mathf.Sin(angle * Mathf.Deg2Rad)
             );
 
-            Debug.DrawLine(prevPoint, nextPoint, color, debugDisplayTime);
-            prevPoint = nextPoint;
+            // Horizontal capsule: width along direction, height perpendicular
+            Vector2 perpendicular = new Vector2(-direction.y, direction.x) * weaponCapsuleHeight * 0.5f;
+            Vector2 capsuleStart = ghostPos;
+            Vector2 capsuleEnd = ghostPos + direction * weaponCapsuleWidth;
+
+            // Draw capsule sides
+            Debug.DrawLine(capsuleStart - perpendicular, capsuleEnd - perpendicular,
+                         cursorVisual.sweptCollisionDebugColor);
+            Debug.DrawLine(capsuleStart + perpendicular, capsuleEnd + perpendicular,
+                         cursorVisual.sweptCollisionDebugColor);
+
+            // Draw capsule caps
+            Debug.DrawLine(capsuleStart - perpendicular, capsuleStart + perpendicular,
+                         cursorVisual.sweptCollisionDebugColor);
+            Debug.DrawLine(capsuleEnd - perpendicular, capsuleEnd + perpendicular,
+                         cursorVisual.sweptCollisionDebugColor);
         }
     }
 
     protected override void CleanupManagers()
     {
         base.CleanupManagers();
-
-        // Destroy sword instance if we created it
-        if (swordInstance != null)
-        {
-            Destroy(swordInstance);
-        }
-
+        if (weaponInstance != null) Destroy(weaponInstance);
         cursorMechanics = null;
         cursorVisual = null;
     }

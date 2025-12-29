@@ -243,33 +243,38 @@ public class WeaponConfig : ScriptableObject
         };
     }
 
-    private CursorWeaponMechanicsConfig CloneCursorMechanics(CursorWeaponMechanicsConfig source)
-    {
-        if (source == null) return null;
+	private CursorWeaponMechanicsConfig CloneCursorMechanics(CursorWeaponMechanicsConfig source)
+	{
+		if (source == null) return null;
 
-        return new CursorWeaponMechanicsConfig()
-        {
-            baseDamage = source.baseDamage,
-            canAttackWhileMoving = source.canAttackWhileMoving,
-            scalesWithVelocity = source.scalesWithVelocity,
-            minimumVelocityForMultiplier = source.minimumVelocityForMultiplier,
-            maxVelocityForMultiplier = source.maxVelocityForMultiplier,
-            maxVelocityMultiplier = source.maxVelocityMultiplier,
-            orbitRadius = source.orbitRadius,
-            orbitSpeed = source.orbitSpeed,
-            swordMass = source.swordMass,
-            swordDrag = source.swordDrag,
-            maxSwordSpeed = source.maxSwordSpeed,
-            returnForce = source.returnForce,
-            cursorFollowSpeed = source.cursorFollowSpeed,
-            maxAnglePerSecond = source.maxAnglePerSecond,
-            usePhysicsBasedMovement = source.usePhysicsBasedMovement,
-            damagePerSpeedUnit = source.damagePerSpeedUnit,
-            minimumDamageSpeed = source.minimumDamageSpeed
-        };
-    }
+		return new CursorWeaponMechanicsConfig()
+		{
+			baseDamage = source.baseDamage,
+			canAttackWhileMoving = source.canAttackWhileMoving,
+			scalesWithVelocity = source.scalesWithVelocity,
+			minimumVelocityForMultiplier = source.minimumVelocityForMultiplier,
+			maxVelocityForMultiplier = source.maxVelocityForMultiplier,
+			maxVelocityMultiplier = source.maxVelocityMultiplier,
+			minOrbitRadius = source.minOrbitRadius,
+			maxOrbitRadius = source.maxOrbitRadius,
+			movementMode = source.movementMode,
+			cursorFollowSpeed = source.cursorFollowSpeed,
+			angularAcceleration = source.angularAcceleration,
+			angularDeceleration = source.angularDeceleration,
+			maxAngularVelocity = source.maxAngularVelocity,
+			damagePerSpeedUnit = source.damagePerSpeedUnit,
+			minimumDamageSpeed = source.minimumDamageSpeed,
+			baseKnockback = source.baseKnockback,
+			speedKnockbackMultiplier = source.speedKnockbackMultiplier,
+			maxKnockback = source.maxKnockback,
+			enemyLayers = source.enemyLayers,
+			sweptCollisionAngleStep = source.sweptCollisionAngleStep,
+			maxGhostCollidersPerFrame = source.maxGhostCollidersPerFrame,
+			alwaysUseSweptCollision = source.alwaysUseSweptCollision
+		};
+	}
 
-    private CursorWeaponVisualConfig CloneCursorVisual(CursorWeaponVisualConfig source)
+	private CursorWeaponVisualConfig CloneCursorVisual(CursorWeaponVisualConfig source)
     {
         if (source == null) return null;
 
@@ -278,8 +283,8 @@ public class WeaponConfig : ScriptableObject
             weaponPrefab = source.weaponPrefab,
             icon = source.icon,
             enableDebugVisualization = source.enableDebugVisualization,
-            orbitDebugColor = source.orbitDebugColor,
-            swordTrailColor = source.swordTrailColor
+            minOrbitDebugColor = source.minOrbitDebugColor,
+            maxOrbitDebugColor = source.maxOrbitDebugColor
         };
     }
 
