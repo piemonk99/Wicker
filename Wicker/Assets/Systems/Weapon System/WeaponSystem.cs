@@ -45,8 +45,12 @@ public abstract class WeaponSystem : MonoBehaviour, ICharacterComponent
         }
 
 
-        // Register for character events
-        character.OnEvent += HandleEvent;
+        // Clear old subscriptions before adding new ones
+        if (character != null)
+        {
+            character.OnEvent -= HandleEvent;
+            character.OnEvent += HandleEvent;
+        }
     }
 
     public void SetWeaponConfig(WeaponConfig config)
@@ -167,5 +171,10 @@ public abstract class WeaponSystem : MonoBehaviour, ICharacterComponent
         }
 
         CleanupManagers();
+
+        character = null;
+        equipment = null;
+        rb = null;
+        currentConfig = null;
     }
 }

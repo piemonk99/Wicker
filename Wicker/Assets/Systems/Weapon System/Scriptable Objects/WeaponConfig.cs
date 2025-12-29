@@ -243,38 +243,43 @@ public class WeaponConfig : ScriptableObject
         };
     }
 
-	private CursorWeaponMechanicsConfig CloneCursorMechanics(CursorWeaponMechanicsConfig source)
-	{
-		if (source == null) return null;
+    private CursorWeaponMechanicsConfig CloneCursorMechanics(CursorWeaponMechanicsConfig source)
+    {
+        if (source == null) return null;
 
-		return new CursorWeaponMechanicsConfig()
-		{
-			baseDamage = source.baseDamage,
-			canAttackWhileMoving = source.canAttackWhileMoving,
-			scalesWithVelocity = source.scalesWithVelocity,
-			minimumVelocityForMultiplier = source.minimumVelocityForMultiplier,
-			maxVelocityForMultiplier = source.maxVelocityForMultiplier,
-			maxVelocityMultiplier = source.maxVelocityMultiplier,
-			minOrbitRadius = source.minOrbitRadius,
-			maxOrbitRadius = source.maxOrbitRadius,
-			movementMode = source.movementMode,
-			cursorFollowSpeed = source.cursorFollowSpeed,
-			angularAcceleration = source.angularAcceleration,
-			angularDeceleration = source.angularDeceleration,
-			maxAngularVelocity = source.maxAngularVelocity,
-			damagePerSpeedUnit = source.damagePerSpeedUnit,
-			minimumDamageSpeed = source.minimumDamageSpeed,
-			baseKnockback = source.baseKnockback,
-			speedKnockbackMultiplier = source.speedKnockbackMultiplier,
-			maxKnockback = source.maxKnockback,
-			enemyLayers = source.enemyLayers,
-			sweptCollisionAngleStep = source.sweptCollisionAngleStep,
-			maxGhostCollidersPerFrame = source.maxGhostCollidersPerFrame,
-			alwaysUseSweptCollision = source.alwaysUseSweptCollision
-		};
-	}
+        return new CursorWeaponMechanicsConfig()
+        {
+            baseDamage = source.baseDamage,
+            canAttackWhileMoving = source.canAttackWhileMoving,
+            scalesWithVelocity = source.scalesWithVelocity,
+            minimumVelocityForMultiplier = source.minimumVelocityForMultiplier,
+            maxVelocityForMultiplier = source.maxVelocityForMultiplier,
+            maxVelocityMultiplier = source.maxVelocityMultiplier,
+            minOrbitRadius = source.minOrbitRadius,
+            maxOrbitRadius = source.maxOrbitRadius,
+            movementMode = source.movementMode,
+            cursorFollowSpeed = source.cursorFollowSpeed,
+            directModeSmoothing = source.directModeSmoothing,
+            angularAcceleration = source.angularAcceleration,
+            angularDeceleration = source.angularDeceleration,
+            maxAngularVelocity = source.maxAngularVelocity,
+            damagePerSpeedUnit = source.damagePerSpeedUnit,
+            minimumDamageSpeed = source.minimumDamageSpeed,
+            speedAverageFrames = source.speedAverageFrames,
+            currentFrameWeight = source.currentFrameWeight,
+            useAverageSpeedForDamage = source.useAverageSpeedForDamage,
+            useAverageSpeedForKnockback = source.useAverageSpeedForKnockback,
+            baseKnockback = source.baseKnockback,
+            speedKnockbackMultiplier = source.speedKnockbackMultiplier,
+            maxKnockback = source.maxKnockback,
+            enemyLayers = source.enemyLayers,
+            sweptCollisionAngleStep = source.sweptCollisionAngleStep,
+            maxGhostCollidersPerFrame = source.maxGhostCollidersPerFrame,
+            alwaysUseSweptCollision = source.alwaysUseSweptCollision
+        };
+    }
 
-	private CursorWeaponVisualConfig CloneCursorVisual(CursorWeaponVisualConfig source)
+    private CursorWeaponVisualConfig CloneCursorVisual(CursorWeaponVisualConfig source)
     {
         if (source == null) return null;
 

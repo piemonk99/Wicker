@@ -21,9 +21,14 @@ public class CursorWeaponSystem : WeaponSystem
     private float targetAngle;
 
     // Movement
-    private float currentWeaponSpeed;
+    private float currentWeaponSpeed;           // Instantaneous speed
+    private float smoothedWeaponSpeed;          // Averaged speed
     private Vector2 lastPosition;
     private float currentOrbitRadius;
+
+    // Speed averaging system
+    private Queue<float> speedHistory = new Queue<float>();
+    private float speedSum = 0f;
 
     // Combat
     private bool isSwinging = false;
@@ -38,11 +43,16 @@ public class CursorWeaponSystem : WeaponSystem
     private float weaponCapsuleWidth;
     private float weaponCapsuleHeight;
 
+    // Oscillation damping
+    private const float DEADZONE_ANGLE = 0.5f;
+
     protected override void InitializeWithConfig(WeaponConfig config)
     {
         base.InitializeWithConfig(config);
+
         if (currentConfig == null) return;
 
+        // Get specific configs
         cursorMechanics = currentConfig.MechanicsConfig as CursorWeaponMechanicsConfig;
         cursorVisual = currentConfig.VisualConfig as CursorWeaponVisualConfig;
 
@@ -52,10 +62,34 @@ public class CursorWeaponSystem : WeaponSystem
             return;
         }
 
+        // Clean up existing weapon instance before creating new one
+        if (weaponInstance != null)
+        {
+            Destroy(weaponInstance);
+            weaponInstance = null;
+        }
+
+        // Initialize speed averaging system
+        InitializeSpeedAveraging();
+
         SpawnWeapon();
         ExtractWeaponColliderDimensions();
         InitializeWeaponPosition();
         showDebugInfo = cursorVisual.enableDebugVisualization;
+    }
+
+    private void InitializeSpeedAveraging()
+    {
+        speedHistory.Clear();
+        speedSum = 0f;
+        currentWeaponSpeed = 0f;
+        smoothedWeaponSpeed = 0f;
+
+        // Pre-fill with zeros
+        for (int i = 0; i < cursorMechanics.speedAverageFrames; i++)
+        {
+            speedHistory.Enqueue(0f);
+        }
     }
 
     private void SpawnWeapon()
@@ -71,6 +105,9 @@ public class CursorWeaponSystem : WeaponSystem
         weaponInstance = Instantiate(cursorVisual.weaponPrefab, transform);
         weaponTransform = weaponInstance.transform;
 
+        // Start inactive - will be activated when swinging starts
+        weaponInstance.SetActive(false);
+
         weaponCollisionHandler = weaponInstance.GetComponent<WeaponCollisionHandler>();
         if (weaponCollisionHandler == null)
             weaponCollisionHandler = weaponInstance.AddComponent<WeaponCollisionHandler>();
@@ -85,7 +122,6 @@ public class CursorWeaponSystem : WeaponSystem
         else
         {
             Debug.LogError("Weapon prefab must have a CapsuleCollider2D!");
-            weaponInstance.SetActive(false);
         }
     }
 
@@ -124,6 +160,9 @@ public class CursorWeaponSystem : WeaponSystem
 
         if (isSwinging)
         {
+            // Reset speed averaging when starting a new swing
+            InitializeSpeedAveraging();
+
             soundManager?.PlaySwingSound(0f);
             character.RaiseEvent("cursor_weapon_swing_started", currentConfig.weaponName);
         }
@@ -148,6 +187,16 @@ public class CursorWeaponSystem : WeaponSystem
 
         UpdateTargetPosition();
 
+        // Direct mode runs in Update for smooth visuals when not swinging
+        if (cursorMechanics.movementMode == MovementMode.Direct && !isSwinging)
+        {
+            previousAngle = currentAngle;
+            UpdateWeaponPosition(deltaTime);
+            UpdateWeaponMetrics(deltaTime);
+            RotateWeapon();
+        }
+
+        // Always check normal collisions in Update when swinging
         if (isSwinging)
         {
             hitThisFrame.Clear();
@@ -162,14 +211,19 @@ public class CursorWeaponSystem : WeaponSystem
         base.PhysicsTick(fixedDeltaTime);
         if (cursorMechanics == null || weaponTransform == null) return;
 
-        previousAngle = currentAngle;
-        UpdateWeaponPosition(fixedDeltaTime);
-        UpdateWeaponMetrics(fixedDeltaTime);
+        // Acceleration mode and combat always run in FixedUpdate for consistency
+        if (cursorMechanics.movementMode == MovementMode.Acceleration || isSwinging)
+        {
+            previousAngle = currentAngle;
+            UpdateWeaponPosition(fixedDeltaTime);
+            UpdateWeaponMetrics(fixedDeltaTime);
+            UpdateSpeedAverage();
 
-        if (isSwinging && ShouldCheckSweptCollisions())
-            CheckSweptCollisions();
+            if (isSwinging && ShouldCheckSweptCollisions())
+                CheckSweptCollisions();
 
-        RotateWeapon();
+            RotateWeapon();
+        }
     }
 
     private void UpdateTargetPosition()
@@ -187,12 +241,12 @@ public class CursorWeaponSystem : WeaponSystem
         targetAngle = Mathf.Atan2(targetOrbitPosition.y, targetOrbitPosition.x) * Mathf.Rad2Deg;
     }
 
-    private void UpdateWeaponPosition(float fixedDeltaTime)
+    private void UpdateWeaponPosition(float deltaTime)
     {
         if (cursorMechanics.movementMode == MovementMode.Direct)
-            UpdateDirectMode(fixedDeltaTime);
+            UpdateDirectMode(deltaTime);
         else
-            UpdateAccelerationMode(fixedDeltaTime);
+            UpdateAccelerationMode(deltaTime);
 
         // Apply radius constraints
         float currentDistance = currentOrbitPosition.magnitude;
@@ -205,62 +259,223 @@ public class CursorWeaponSystem : WeaponSystem
         weaponTransform.position = (Vector2)character.transform.position + currentOrbitPosition;
     }
 
-    private void UpdateDirectMode(float fixedDeltaTime)
+    private void UpdateDirectMode(float deltaTime)
     {
-        currentOrbitPosition = Vector2.Lerp(currentOrbitPosition, targetOrbitPosition, cursorMechanics.cursorFollowSpeed * fixedDeltaTime);
-        currentAngle = Mathf.Atan2(currentOrbitPosition.y, currentOrbitPosition.x) * Mathf.Rad2Deg;
-    }
+        if (cursorMechanics == null) return;
 
-    private void UpdateAccelerationMode(float fixedDeltaTime)
-    {
-        float angleDiff = Mathf.DeltaAngle(currentAngle, targetAngle);
-        float desiredDirection = Mathf.Sign(angleDiff);
-        float absAngleDiff = Mathf.Abs(angleDiff);
+        float maxDistance = cursorMechanics.cursorFollowSpeed * deltaTime;
+        Vector2 direction = targetOrbitPosition - currentOrbitPosition;
+        float distance = direction.magnitude;
 
-        // Calculate braking distance and determine if we should brake
-        float brakingDistance = (currentAngularVelocity * currentAngularVelocity) / (2f * cursorMechanics.angularDeceleration);
-        bool shouldBrake = brakingDistance >= absAngleDiff;
+        // Check if we're at minimum radius and trying to move through center
+        bool isAtMinRadius = Mathf.Abs(currentOrbitPosition.magnitude - cursorMechanics.minOrbitRadius) < 0.01f;
 
-        if (shouldBrake)
+        if (isAtMinRadius)
         {
-            // Braking phase
-            float deceleration = cursorMechanics.angularDeceleration;
-            if (currentAngularVelocity > 0)
-                currentAngularVelocity = Mathf.Max(0f, currentAngularVelocity - deceleration * fixedDeltaTime);
-            else if (currentAngularVelocity < 0)
-                currentAngularVelocity = Mathf.Min(0f, currentAngularVelocity + deceleration * fixedDeltaTime);
-        }
-        else
-        {
-            // Accelerating phase
-            if (absAngleDiff > 0.1f)
+            // Calculate the angle between current and target positions
+            float currentAngleRad = Mathf.Atan2(currentOrbitPosition.y, currentOrbitPosition.x);
+            float targetAngleRad = Mathf.Atan2(targetOrbitPosition.y, targetOrbitPosition.x);
+            float angleDiff = Mathf.DeltaAngle(currentAngleRad * Mathf.Rad2Deg, targetAngleRad * Mathf.Rad2Deg);
+
+            // If the angular difference is large (close to 180°), we're trying to go through center
+            bool isMovingThroughCenter = Mathf.Abs(angleDiff) > 150f;
+
+            if (isMovingThroughCenter && distance > maxDistance)
             {
-                currentAngularVelocity += desiredDirection * cursorMechanics.angularAcceleration * fixedDeltaTime;
-                currentAngularVelocity = Mathf.Clamp(currentAngularVelocity, -cursorMechanics.maxAngularVelocity, cursorMechanics.maxAngularVelocity);
+                // Special case: Move around the circle instead of through center
+                // Convert to angular movement around the fixed minimum radius
+
+                // Calculate how much angle we should move this frame
+                float angleToMove = maxDistance / cursorMechanics.minOrbitRadius * Mathf.Rad2Deg;
+
+                // Apply smoothing to angular movement
+                if (cursorMechanics.directModeSmoothing > 0f)
+                {
+                    // Use exponential smoothing for angular movement
+                    float smoothing = Mathf.Clamp01(cursorMechanics.directModeSmoothing);
+                    angleToMove *= (1f - smoothing * 0.3f); // Reduce max speed with smoothing
+                }
+
+                // Move in the direction that gives shortest path around circle
+                float moveAngle = Mathf.Sign(angleDiff) * Mathf.Min(angleToMove, Mathf.Abs(angleDiff));
+
+                // Update angle
+                currentAngleRad += moveAngle * Mathf.Deg2Rad;
+
+                // Update position (staying at min radius)
+                currentOrbitPosition = new Vector2(
+                    Mathf.Cos(currentAngleRad),
+                    Mathf.Sin(currentAngleRad)
+                ) * cursorMechanics.minOrbitRadius;
+
+                currentAngle = currentAngleRad * Mathf.Rad2Deg;
+                currentOrbitRadius = cursorMechanics.minOrbitRadius;
+                return;
+            }
+        }
+
+        // Normal movement (either not at min radius, or not moving through center)
+        if (distance > maxDistance)
+        {
+            // Apply smoothing to movement
+            if (cursorMechanics.directModeSmoothing > 0f)
+            {
+                // Use exponential decay smoothing for frame-rate independence
+                // This prevents teleporting at high speeds
+
+                float smoothing = Mathf.Clamp01(cursorMechanics.directModeSmoothing);
+
+                // Calculate the smoothing factor using exponential decay formula
+                // This ensures smooth movement regardless of framerate
+                float smoothFactor = 1f - Mathf.Exp(-cursorMechanics.cursorFollowSpeed * (1f - smoothing * 0.7f) * deltaTime);
+
+                // Clamp the factor to prevent jumps at very high framerates
+                smoothFactor = Mathf.Min(smoothFactor, 0.95f);
+
+                // Move toward target with smooth interpolation
+                currentOrbitPosition = Vector2.Lerp(currentOrbitPosition, targetOrbitPosition, smoothFactor);
             }
             else
             {
-                currentAngularVelocity = Mathf.Lerp(currentAngularVelocity, 0f, 5f * fixedDeltaTime);
+                // No smoothing - direct movement (clamped to max distance)
+                currentOrbitPosition += direction.normalized * maxDistance;
+            }
+        }
+        else
+        {
+            // Apply smoothing even when close to target
+            if (cursorMechanics.directModeSmoothing > 0f)
+            {
+                // Use stronger smoothing when close to target
+                float smoothing = Mathf.Clamp01(cursorMechanics.directModeSmoothing);
+                float smoothFactor = 1f - Mathf.Exp(-cursorMechanics.cursorFollowSpeed * (1f - smoothing * 0.9f) * deltaTime);
+                smoothFactor = Mathf.Min(smoothFactor, 0.98f);
+
+                currentOrbitPosition = Vector2.Lerp(currentOrbitPosition, targetOrbitPosition, smoothFactor);
+            }
+            else
+            {
+                // No smoothing - snap to target
+                currentOrbitPosition = targetOrbitPosition;
             }
         }
 
-        // Apply movement
-        currentAngle += currentAngularVelocity * fixedDeltaTime;
-        currentAngle = Mathf.Repeat(currentAngle, 360f);
+        // Apply radius constraints (in case we moved outside bounds)
+        float currentDist = currentOrbitPosition.magnitude;
+        if (currentDist < cursorMechanics.minOrbitRadius)
+        {
+            currentOrbitPosition = currentOrbitPosition.normalized * cursorMechanics.minOrbitRadius;
+        }
+        else if (currentDist > cursorMechanics.maxOrbitRadius)
+        {
+            currentOrbitPosition = currentOrbitPosition.normalized * cursorMechanics.maxOrbitRadius;
+        }
+
+        currentOrbitRadius = currentOrbitPosition.magnitude;
+        currentAngle = Mathf.Atan2(currentOrbitPosition.y, currentOrbitPosition.x) * Mathf.Rad2Deg;
+    }
+
+    private void UpdateAccelerationMode(float deltaTime)
+    {
+        float angleDiff = Mathf.DeltaAngle(currentAngle, targetAngle);
+        float absAngleDiff = Mathf.Abs(angleDiff);
+        float absAngularVelocity = Mathf.Abs(currentAngularVelocity);
+
+        // Deadzone: if close to target AND moving slowly, snap to target
+        if (absAngleDiff < DEADZONE_ANGLE && absAngularVelocity < cursorMechanics.maxAngularVelocity * 0.2f)
+        {
+            currentAngularVelocity = 0f;
+            currentAngle = targetAngle;
+        }
+        else
+        {
+            float desiredDirection = Mathf.Sign(angleDiff);
+
+            // Calculate braking distance
+            float brakingDistance = (currentAngularVelocity * currentAngularVelocity) / (2f * cursorMechanics.angularDeceleration);
+            bool shouldBrake = brakingDistance >= absAngleDiff;
+
+            if (shouldBrake)
+            {
+                // Braking phase
+                if (currentAngularVelocity > 0)
+                    currentAngularVelocity = Mathf.Max(0f, currentAngularVelocity - cursorMechanics.angularDeceleration * deltaTime);
+                else if (currentAngularVelocity < 0)
+                    currentAngularVelocity = Mathf.Min(0f, currentAngularVelocity + cursorMechanics.angularDeceleration * deltaTime);
+            }
+            else
+            {
+                // Accelerating phase
+                if (absAngleDiff > 0.1f)
+                {
+                    currentAngularVelocity += desiredDirection * cursorMechanics.angularAcceleration * deltaTime;
+                    currentAngularVelocity = Mathf.Clamp(currentAngularVelocity, -cursorMechanics.maxAngularVelocity, cursorMechanics.maxAngularVelocity);
+                }
+                else
+                {
+                    // Gentle damping when close to target but not in deadzone
+                    currentAngularVelocity = Mathf.Lerp(currentAngularVelocity, 0f, 5f * deltaTime);
+                }
+            }
+
+            // Apply movement
+            currentAngle += currentAngularVelocity * deltaTime;
+            currentAngle = Mathf.Repeat(currentAngle, 360f);
+        }
 
         // Lerp radius toward target
         float targetRadius = targetOrbitPosition.magnitude;
-        currentOrbitRadius = Mathf.Lerp(currentOrbitRadius, targetRadius, cursorMechanics.cursorFollowSpeed * fixedDeltaTime);
+        currentOrbitRadius = Mathf.Lerp(currentOrbitRadius, targetRadius, cursorMechanics.cursorFollowSpeed * deltaTime);
 
         currentOrbitPosition = new Vector2(Mathf.Cos(currentAngle * Mathf.Deg2Rad), Mathf.Sin(currentAngle * Mathf.Deg2Rad)) * currentOrbitRadius;
     }
 
-    private void UpdateWeaponMetrics(float fixedDeltaTime)
+    private void UpdateWeaponMetrics(float deltaTime)
     {
+        if (deltaTime <= 0) return;
+
         Vector2 currentPos = weaponTransform.position;
-        currentWeaponSpeed = ((Vector2)currentPos - lastPosition).magnitude / fixedDeltaTime;
+        currentWeaponSpeed = ((Vector2)currentPos - lastPosition).magnitude / deltaTime;
         lastPosition = currentPos;
         angularDistance = Mathf.DeltaAngle(previousAngle, currentAngle);
+    }
+
+    private void UpdateSpeedAverage()
+    {
+        if (cursorMechanics == null || cursorMechanics.speedAverageFrames <= 1)
+        {
+            smoothedWeaponSpeed = currentWeaponSpeed;
+            return;
+        }
+
+        // Remove oldest speed
+        if (speedHistory.Count >= cursorMechanics.speedAverageFrames)
+        {
+            speedSum -= speedHistory.Dequeue();
+        }
+
+        // Add current speed
+        speedHistory.Enqueue(currentWeaponSpeed);
+        speedSum += currentWeaponSpeed;
+
+        // Calculate simple average
+        float simpleAverage = speedSum / speedHistory.Count;
+
+        // Blend with weighted approach for more control
+        if (cursorMechanics.currentFrameWeight >= 1f)
+        {
+            smoothedWeaponSpeed = currentWeaponSpeed;
+        }
+        else if (cursorMechanics.currentFrameWeight <= 0f)
+        {
+            smoothedWeaponSpeed = simpleAverage;
+        }
+        else
+        {
+            // Weighted blend: current frame * weight + average * (1 - weight)
+            smoothedWeaponSpeed = (currentWeaponSpeed * cursorMechanics.currentFrameWeight) +
+                                 (simpleAverage * (1f - cursorMechanics.currentFrameWeight));
+        }
     }
 
     private void RotateWeapon()
@@ -316,31 +531,65 @@ public class CursorWeaponSystem : WeaponSystem
         CheckGhostCollider(weaponTransform.position, currentAngle);
     }
 
-    private void CheckGhostCollider(Vector2 position, float angle)
+    private void CheckGhostCollider(Vector2 position, float intermediateAngle)
     {
-        if (cursorMechanics == null || weaponCapsuleCollider == null) return;
+        if (cursorMechanics == null || weaponCapsuleCollider == null || character == null) return;
+
+        // Calculate the direction from player to this ghost position
+        Vector2 toPosition = position - (Vector2)character.transform.position;
+
+        // The rotation angle should make the capsule face outward from player
+        float rotationAngle = Mathf.Atan2(toPosition.y, toPosition.x) * Mathf.Rad2Deg;
+
+        // For a horizontal capsule, this is correct
+        // For a vertical capsule, we might need to adjust by 90 degrees
+        if (weaponCapsuleCollider.direction == CapsuleDirection2D.Vertical)
+        {
+            rotationAngle += 90f; // Vertical capsule needs to be rotated 90 degrees
+        }
+
+        // Scale the capsule size by the weapon transform's scale
+        Vector2 scaledSize = new Vector2(
+            weaponCapsuleWidth * weaponTransform.localScale.x,
+            weaponCapsuleHeight * weaponTransform.localScale.y
+        );
 
         // Create capsule check at the ghost position with proper rotation
         Collider2D[] hits = Physics2D.OverlapCapsuleAll(
             position,
-            new Vector2(weaponCapsuleWidth, weaponCapsuleHeight),
+            scaledSize,
             weaponCapsuleCollider.direction,
-            angle,
+            rotationAngle,
             cursorMechanics.enemyLayers
         );
 
         foreach (var hit in hits)
+        {
             if (hit != null && !hitThisFrame.Contains(hit))
+            {
+                // Skip invalid targets
+                if (hit.gameObject == character.gameObject ||
+                    hit.gameObject == gameObject ||
+                    hit.gameObject == weaponInstance)
+                    continue;
+
                 ApplyDamage(hit.gameObject);
+            }
+        }
     }
 
     private void ApplyDamage(GameObject target)
     {
         if (target == character.gameObject || target == gameObject || target == weaponInstance) return;
-        if (currentWeaponSpeed < cursorMechanics.minimumDamageSpeed) return;
+
+        // Get the appropriate speed value based on config
+        float speedForDamage = cursorMechanics.useAverageSpeedForDamage ? smoothedWeaponSpeed : currentWeaponSpeed;
+        float speedForKnockback = cursorMechanics.useAverageSpeedForKnockback ? smoothedWeaponSpeed : currentWeaponSpeed;
+
+        if (speedForDamage < cursorMechanics.minimumDamageSpeed) return;
 
         // Calculate damage
-        float speedDamage = (currentWeaponSpeed - cursorMechanics.minimumDamageSpeed) * cursorMechanics.damagePerSpeedUnit;
+        float speedDamage = (speedForDamage - cursorMechanics.minimumDamageSpeed) * cursorMechanics.damagePerSpeedUnit;
         float totalDamage = Mathf.Max(cursorMechanics.baseDamage, speedDamage);
         totalDamage = CalculateDamage(totalDamage);
 
@@ -353,6 +602,8 @@ public class CursorWeaponSystem : WeaponSystem
             {
                 enemy = target,
                 damage = totalDamage,
+                instantaneousSpeed = currentWeaponSpeed,
+                averagedSpeed = smoothedWeaponSpeed,
                 position = target.transform.position,
                 weaponType = "CursorWeapon",
                 configName = currentConfig.weaponName
@@ -363,7 +614,7 @@ public class CursorWeaponSystem : WeaponSystem
             if (targetRb != null)
             {
                 float knockbackForce = Mathf.Min(
-                    cursorMechanics.baseKnockback + (currentWeaponSpeed * cursorMechanics.speedKnockbackMultiplier),
+                    cursorMechanics.baseKnockback + (speedForKnockback * cursorMechanics.speedKnockbackMultiplier),
                     cursorMechanics.maxKnockback
                 );
 
@@ -392,7 +643,6 @@ public class CursorWeaponSystem : WeaponSystem
         DrawOrbitCircles();
         DrawGhostColliders();
     }
-
     private void DrawOrbitCircles()
     {
         Vector2 center = character.transform.position;
@@ -455,11 +705,29 @@ public class CursorWeaponSystem : WeaponSystem
         }
     }
 
+    // Add proper cleanup:
     protected override void CleanupManagers()
     {
         base.CleanupManagers();
-        if (weaponInstance != null) Destroy(weaponInstance);
+
+        // Properly clean up weapon instance
+        if (weaponInstance != null)
+        {
+            Destroy(weaponInstance);
+            weaponInstance = null;
+        }
+
+        // Clear all references
+        weaponTransform = null;
+        weaponCollisionHandler = null;
+        weaponCapsuleCollider = null;
         cursorMechanics = null;
         cursorVisual = null;
+
+        // Clear collections
+        speedHistory?.Clear();
+        speedSum = 0f;
+        hitThisFrame?.Clear();
+        ghostColliderPositions?.Clear();
     }
 }

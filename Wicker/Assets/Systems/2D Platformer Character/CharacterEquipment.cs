@@ -51,7 +51,11 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
         }
 
         // Subscribe to events
-        character.OnEvent += HandleCharacterEvent;
+        if (character != null)
+        {
+            character.OnEvent -= HandleCharacterEvent; // Remove old
+            character.OnEvent += HandleCharacterEvent; // Add new
+        }
     }
 
     public void Tick(float deltaTime)
@@ -97,6 +101,15 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
                 if (data is GrappleConfig grappleHook)
                 {
                     EquipGrappleHook(grappleHook);
+                }
+                break;
+            case "config_changed":
+                // Re-equip current weapon with new config
+                if (currentWeapon != null)
+                {
+                    WeaponConfig tempWeapon = currentWeapon;
+                    currentWeapon = null; // Force re-equip
+                    EquipWeapon(tempWeapon);
                 }
                 break;
         }

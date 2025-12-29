@@ -137,20 +137,23 @@ public class CharacterCore : MonoBehaviour
         if (config == null) return;
 
 #if UNITY_EDITOR
-            UnityEditor.AssetDatabase.Refresh();
+    UnityEditor.AssetDatabase.Refresh();
 #endif
 
+        Debug.Log($"CharacterCore: Starting reload for {gameObject.name}");
+
         // IMPORTANT: Clear ALL event subscribers before re-initializing
-        // This prevents duplicate event handlers
         ClearAllEventSubscribers();
 
         // Clear the component and controller lists
         components.Clear();
         controllers.Clear();
 
-        // Re-find all components
+        // Re-find all components - this includes existing WeaponSystems
         var foundComponents = GetComponents<ICharacterComponent>();
         components.AddRange(foundComponents);
+
+        Debug.Log($"Found {components.Count} components to reinitialize");
 
         // Re-find all controllers
         var foundControllers = GetComponents<ICharacterController>();
@@ -162,6 +165,7 @@ public class CharacterCore : MonoBehaviour
             try
             {
                 comp.Initialize(this);
+                Debug.Log($"Re-initialized component: {comp.GetType().Name}");
             }
             catch (Exception e)
             {
@@ -185,6 +189,8 @@ public class CharacterCore : MonoBehaviour
 
         // Raise config changed event AFTER all components are re-initialized
         RaiseEvent("config_changed", config);
+
+        Debug.Log($"CharacterCore: Reload complete for {gameObject.name}");
     }
 
     // Clear all event subscribers to prevent accumulation
