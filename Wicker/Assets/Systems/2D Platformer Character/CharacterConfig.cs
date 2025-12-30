@@ -4,7 +4,21 @@ using System;
 [CreateAssetMenu(fileName = "CharacterConfig", menuName = "Character/Character Config")]
 public class CharacterConfig : ScriptableObject
 {
-    [Header("Movement Settings")]
+    [Header("Core Systems")]
+    public MovementConfig movement = new MovementConfig();
+    public ConditionConfig condition = new ConditionConfig();
+
+    [Header("Abilities")]
+    public AttackConfig attack = new AttackConfig();
+    public DashConfig dash = new DashConfig();
+    public GrappleDashConfig grappleDash = new GrappleDashConfig();
+    public LungeConfig lunge = new LungeConfig();
+}
+
+[Serializable]
+public class MovementConfig
+{
+    [Header("Speed Settings")]
     public float maxSpeed = 15f;
     public float groundAcceleration = 60f;
     public float airAcceleration = 48f;
@@ -17,7 +31,6 @@ public class CharacterConfig : ScriptableObject
     public float coyoteTime = 0.1f;
     public float jumpBufferTime = 0.05f;
 
-
     [Header("Variable Jump Height")]
     public bool enableVariableJump = true;
     [Range(0.1f, 1f)] public float jumpCutMultiplier = 0.5f;
@@ -25,12 +38,25 @@ public class CharacterConfig : ScriptableObject
     [Header("Ground Check")]
     public LayerMask groundLayer;
     public float groundCheckRadius = 0.2f;
+}
 
-    [Header("Abilities")]
-    public AttackConfig attack = new AttackConfig();
-    public DashConfig dash = new DashConfig();
-    public GrappleDashConfig grappleDash = new GrappleDashConfig();
-    public LungeConfig lunge = new LungeConfig();
+[Serializable]
+public class ConditionConfig
+{
+    [Header("Health Settings")]
+    public float maxHealth = 100f;
+    [Tooltip("Default cooldown to being hit. Attacks may provide their own overrides when they deal damage.")]
+    public float invulnerabilityDuration = 0.5f;
+
+    [Header("Damage Text")]
+    public Vector2 textOffset = new Vector2(0, 1f);
+    public Color damageColor = Color.red;
+    public Color healColor = Color.green;
+    public Color critColor = Color.yellow;
+
+    [Header("Death Settings")]
+    public bool destroyOnDeath = true;
+    public GameObject deathEffect;
 }
 
 [Serializable]

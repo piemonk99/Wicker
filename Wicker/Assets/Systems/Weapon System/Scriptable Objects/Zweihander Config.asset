@@ -31,7 +31,7 @@ MonoBehaviour:
     minimumDamageSpeed: 2
     baseKnockback: 1
     speedKnockbackMultiplier: 0.001
-    maxKnockback: 3
+    maxKnockback: 1
     speedAverageFrames: 8
     currentFrameWeight: 0.703
     useAverageSpeedForDamage: 1

@@ -87,7 +87,8 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         Modifier  // Stackable multipliers
     }
 
-    // Config values
+    private MovementConfig movementConfig;
+
     private float maxSpeed;
     private float groundAcceleration;
     private float groundDeceleration;
@@ -135,36 +136,35 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         character = core;
         rb = GetComponent<Rigidbody2D>();
 
-        LoadConfig(core.GetConfig());
+        movementConfig = character.GetConfig().movement;
+        if (movementConfig != null)
+        {
+            maxSpeed = movementConfig.maxSpeed;
+            groundAcceleration = movementConfig.groundAcceleration;
+            groundDeceleration = movementConfig.groundDeceleration;
+            airAcceleration = movementConfig.airAcceleration;
+            airDeceleration = movementConfig.airDeceleration;
+            jumpForce = movementConfig.jumpForce;
+            gravity = movementConfig.gravity;
+            coyoteTime = movementConfig.coyoteTime;
+            jumpBufferTime = movementConfig.jumpBufferTime;
+            enableVariableJump = movementConfig.enableVariableJump;
+            jumpCutMultiplier = movementConfig.jumpCutMultiplier;
+            groundLayer = movementConfig.groundLayer;
+            groundCheckRadius = movementConfig.groundCheckRadius;
+        }
+        else
+        {
+            Debug.LogError("No CharacterConfig found!");
+            movementConfig = new MovementConfig(); // Fallback
+        }
+
         character.OnEvent -= HandleEvent;
         character.OnEvent += HandleEvent;
 
         // Initialize with default base state
         currentBaseState = defaultBaseState;
         UpdateEffectiveState();
-    }
-
-    private void LoadConfig(CharacterConfig config)
-    {
-        if (config == null)
-        {
-            Debug.LogError("No CharacterConfig found!");
-            return;
-        }
-
-        maxSpeed = config.maxSpeed;
-        groundAcceleration = config.groundAcceleration;
-        groundDeceleration = config.groundDeceleration;
-        airAcceleration = config.airAcceleration;
-        airDeceleration = config.airDeceleration;
-        jumpForce = config.jumpForce;
-        gravity = config.gravity;
-        coyoteTime = config.coyoteTime;
-        jumpBufferTime = config.jumpBufferTime;
-        enableVariableJump = config.enableVariableJump;
-        jumpCutMultiplier = config.jumpCutMultiplier;
-        groundLayer = config.groundLayer;
-        groundCheckRadius = config.groundCheckRadius;
     }
 
     // Updates the effective state by combining base state with all modifiers
@@ -366,7 +366,8 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
                 break;
 
             case "config_changed":
-                LoadConfig((CharacterConfig)data);
+                CharacterConfig newConfig = (CharacterConfig)data;
+                movementConfig = newConfig.movement;
                 break;
         }
     }

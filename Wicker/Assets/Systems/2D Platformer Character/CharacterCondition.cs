@@ -5,22 +5,18 @@ using System.Collections.Generic;
 
 public class CharacterCondition : MonoBehaviour, ICharacterComponent
 {
-    [Header("Health Settings")]
+    private ConditionConfig config;
+
     public float maxHealth = 100f;
     public float currentHealth = 100f;
-    public bool isInvulnerable = false;
-    [Tooltip("Default cooldown to being hit. Attacks may provide their own overrides when they deal damage.")]
-    public float invulnerabilityDuration = 0.5f;
-
-    [Header("Damage Text")]
-    public Vector2 textOffset = new Vector2(0, 1f);
-    public Color damageColor = Color.red;
-    public Color healColor = Color.green;
-    public Color critColor = Color.yellow;
-
-    [Header("Death Settings")]
-    public bool destroyOnDeath = true;
-    public GameObject deathEffect;
+    private bool isInvulnerable = false;
+    private float invulnerabilityDuration = 0.5f;
+    private Vector2 textOffset = new Vector2(0, 1f);
+    private Color damageColor = Color.red;
+    private Color healColor = Color.green;
+    private Color critColor = Color.yellow;
+    private bool destroyOnDeath = true;
+    private GameObject deathEffect;
 
     [Header("Buffs/Debuffs")]
     public List<StatusEffect> activeEffects = new List<StatusEffect>();
@@ -44,6 +40,22 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
     public void Initialize(CharacterCore character)
     {
         this.character = character;
+
+        // Get the config from CharacterCore
+        config = character.GetConfig().condition;
+        if (config != null)
+        {
+            // Initialize values from config
+            maxHealth = config.maxHealth;
+            invulnerabilityDuration = config.invulnerabilityDuration;
+            textOffset = config.textOffset;
+            damageColor = config.damageColor;
+            healColor = config.healColor;
+            critColor = config.critColor;
+            destroyOnDeath = config.destroyOnDeath;
+            deathEffect = config.deathEffect;
+        }
+
         currentHealth = maxHealth;
     }
 
