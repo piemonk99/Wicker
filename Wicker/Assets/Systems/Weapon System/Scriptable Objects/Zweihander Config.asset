@@ -23,12 +23,12 @@ MonoBehaviour:
     maxOrbitRadius: 2
     movementMode: 0
     cursorFollowSpeed: 50
-    directModeSmoothing: 0.853
-    angularAcceleration: 2160
+    directModeSmoothing: 0.85
+    angularAcceleration: 2000
     angularDeceleration: 2000
-    maxAngularVelocity: 1080
+    maxAngularVelocity: 1000
     damagePerSpeedUnit: 1
-    minimumDamageSpeed: 0
+    minimumDamageSpeed: 2
     baseKnockback: 1
     speedKnockbackMultiplier: 0.001
     maxKnockback: 3

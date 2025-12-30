@@ -1,10 +1,10 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-public class AutoAttackWeaponSystem : WeaponSystem
+public class CharacterAutoAttackWeapon : CharacterWeapon
 {
     // Component references
-    private GrappleSystem grappleSystem;
+    private CharacterGrapple characterGrapple;
 
     // State
     private float attackTimer = 0f;
@@ -48,7 +48,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
         if (currentConfig == null) return;
 
         // Get grapple system if it exists
-        grappleSystem = character.GetComponent<GrappleSystem>();
+        characterGrapple = character.GetComponent<CharacterGrapple>();
 
         // Get specific configs from the main config
         autoAttackMechanics = currentConfig.MechanicsConfig as AutoAttackWeaponMechanicsConfig;
@@ -57,7 +57,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
 
         if (autoAttackMechanics == null || autoAttackVisual == null)
         {
-            Debug.LogError($"AutoAttackWeaponSystem requires AutoAttackWeapon configs");
+            Debug.LogError($"CharacterAutoAttackWeapon requires AutoAttackWeapon configs");
             return;
         }
 
@@ -143,7 +143,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
         if (autoAttackMechanics == null) return false;
 
         // Check if weapon is only active during grapple
-        if (grappleSystem != null && autoAttackMechanics.onlyActiveDuringGrapple && !grappleSystem.IsGrappling())
+        if (characterGrapple != null && autoAttackMechanics.onlyActiveDuringGrapple && !characterGrapple.IsGrappling())
         {
             return false;
         }
@@ -174,7 +174,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
         // Determine the actual detection radius based on grapple state
         float currentDetectionRadius = autoAttackMechanics.detectionRadius;
 
-        if (grappleSystem != null && grappleSystem.IsGrappling())
+        if (characterGrapple != null && characterGrapple.IsGrappling())
         {
             // Use the extended range when grappling
             currentDetectionRadius = autoAttackMechanics.maxGrappleRange;
@@ -285,7 +285,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
             float damage = autoAttackMechanics.baseDamage;
 
             // Apply grapple multiplier if grappling
-            if (grappleSystem != null && grappleSystem.IsGrappling())
+            if (characterGrapple != null && characterGrapple.IsGrappling())
             {
                 damage *= autoAttackMechanics.grappleDamageMultiplier;
             }
@@ -324,7 +324,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
                 position = target.transform.position,
                 weaponType = "AutoAttack",
                 configName = currentConfig.weaponName,
-                isGrappling = grappleSystem != null && grappleSystem.IsGrappling()
+                isGrappling = characterGrapple != null && characterGrapple.IsGrappling()
             });
         }
     }
@@ -337,7 +337,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
         float drawRadius = autoAttackMechanics.detectionRadius;
         Color drawColor = autoAttackVisual.detectionRadiusColor;
 
-        if (grappleSystem != null && grappleSystem.IsGrappling() && autoAttackMechanics != null)
+        if (characterGrapple != null && characterGrapple.IsGrappling() && autoAttackMechanics != null)
         {
             drawRadius = autoAttackMechanics.maxGrappleRange;
             drawColor = autoAttackVisual.grappleRangeColor;
@@ -388,7 +388,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
         if (autoAttackMechanics == null) return "No config";
 
         float currentRadius = autoAttackMechanics.detectionRadius;
-        if (grappleSystem != null && grappleSystem.IsGrappling())
+        if (characterGrapple != null && characterGrapple.IsGrappling())
         {
             currentRadius = autoAttackMechanics.maxGrappleRange;
         }
@@ -398,7 +398,7 @@ public class AutoAttackWeaponSystem : WeaponSystem
                $"Status: {(attackTimer <= 0 ? "READY" : $"Charging ({attackTimer:F2}s)")}\n" +
                $"Detection Radius: {currentRadius:F1}\n" +
                $"Velocity: {rb?.linearVelocity.magnitude:F1}/{autoAttackMechanics.velocityThreshold}\n" +
-               $"Grappling: {grappleSystem != null && grappleSystem.IsGrappling()}\n" +
+               $"Grappling: {characterGrapple != null && characterGrapple.IsGrappling()}\n" +
                $"Total Attacks: {totalAttacks}\n" +
                $"Total Hits: {totalHits}\n" +
                $"Recent Hits: {recentHits.Count}";

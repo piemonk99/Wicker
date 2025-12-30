@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 /// Implements ICharacterComponent for integration with character systems.
 /// Coordinates between GrappleConfigManager, GrapplePhysicsCalculator, GrappleSoundManager, and GrappleVisualManager.
 /// </summary>
-public class GrappleSystem : MonoBehaviour, ICharacterComponent
+public class CharacterGrapple : MonoBehaviour, ICharacterComponent
 {
     [Header("References")]
     public Transform grappleOrigin;
@@ -73,7 +73,7 @@ public class GrappleSystem : MonoBehaviour, ICharacterComponent
         // Check if we have a CharacterEquipment component
         if (equipment == null)
         {
-            Debug.LogError("GrappleSystem requires CharacterEquipment component on the same GameObject");
+            Debug.LogError("CharacterGrapple requires CharacterEquipment component on the same GameObject");
             return;
         }
 

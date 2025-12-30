@@ -6,13 +6,13 @@ using System.Collections.Generic;
 /// </summary>
 public class WeaponCollisionHandler : MonoBehaviour
 {
-    private CursorWeaponSystem weaponSystem;
+    private CharacterCursorWeapon weaponSystem;
     private HashSet<Collider2D> currentCollisions = new HashSet<Collider2D>();
 
     /// <summary>
     /// Initialize with reference to the parent weapon system
     /// </summary>
-    public void Initialize(CursorWeaponSystem system)
+    public void Initialize(CharacterCursorWeapon system)
     {
         weaponSystem = system;
 

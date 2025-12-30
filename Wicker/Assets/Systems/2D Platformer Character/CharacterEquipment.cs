@@ -14,14 +14,14 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
     private CharacterCore character;
     private CharacterInventory inventory;
     private Rigidbody2D rb;
-    private GrappleSystem grappleSystem;
+    private CharacterGrapple characterGrapple;
 
     // Equipment State
     private WeaponConfig currentWeapon;
     private GrappleConfig currentGrappleHook;
 
     // Active Systems
-    private WeaponSystem currentWeaponSystem;
+    private CharacterWeapon currentWeaponSystem;
 
     // Events
     public event System.Action<WeaponConfig> OnWeaponChanged;
@@ -36,7 +36,7 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
         this.character = character;
         rb = character.GetComponent<Rigidbody2D>();
         inventory = character.GetCharacterComponent<CharacterInventory>();
-        grappleSystem = character.GetCharacterComponent<GrappleSystem>();
+        characterGrapple = character.GetCharacterComponent<CharacterGrapple>();
 
         if (inventory == null)
         {
@@ -53,8 +53,8 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
         // Subscribe to events
         if (character != null)
         {
-            character.OnEvent -= HandleCharacterEvent; // Remove old
-            character.OnEvent += HandleCharacterEvent; // Add new
+            character.OnEvent -= HandleEvent; // Remove old
+            character.OnEvent += HandleEvent; // Add new
         }
     }
 
@@ -75,7 +75,7 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
         }
     }
 
-    private void HandleCharacterEvent(string type, object data)
+    private void HandleEvent(string type, object data)
     {
         switch (type)
         {
@@ -137,12 +137,12 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
         UnequipWeapon();
         currentWeapon = weapon;
 
-        // Create appropriate WeaponSystem
-        WeaponSystem weaponSystem = CreateWeaponSystem(weapon.weaponType);
+        // Create appropriate CharacterWeapon
+        CharacterWeapon weaponSystem = CreateWeaponSystem(weapon.weaponType);
 
         if (weaponSystem == null)
         {
-            Debug.LogError($"Failed to create WeaponSystem for {weapon.weaponName}");
+            Debug.LogError($"Failed to create CharacterWeapon for {weapon.weaponName}");
             currentWeapon = null;
             return false;
         }
@@ -163,13 +163,13 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
         return true;
     }
 
-    private WeaponSystem CreateWeaponSystem(WeaponType weaponType)
+    private CharacterWeapon CreateWeaponSystem(WeaponType weaponType)
     {
         return weaponType switch
         {
-            WeaponType.Hitbox => gameObject.AddComponent<HitboxWeaponSystem>(),
-            WeaponType.CursorWeapon => gameObject.AddComponent<CursorWeaponSystem>(),
-            WeaponType.AutoAttack => gameObject.AddComponent<AutoAttackWeaponSystem>(),
+            WeaponType.Hitbox => gameObject.AddComponent<CharacterHitboxWeapon>(),
+            WeaponType.CursorWeapon => gameObject.AddComponent<CharacterCursorWeapon>(),
+            WeaponType.AutoAttack => gameObject.AddComponent<CharacterAutoAttackWeapon>(),
             _ => null
         };
     }
@@ -208,9 +208,9 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
         currentGrappleHook = grappleHook;
 
         // Apply to grapple system
-        if (grappleSystem != null)
+        if (characterGrapple != null)
         {
-            grappleSystem.SwitchGrappleConfig(grappleHook);
+            characterGrapple.SwitchGrappleConfig(grappleHook);
         }
 
         Debug.Log($"Equipped grapple hook: {grappleHook.GrappleName}");
@@ -259,7 +259,7 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
     {
         if (character != null)
         {
-            character.OnEvent -= HandleCharacterEvent;
+            character.OnEvent -= HandleEvent;
         }
 
         UnequipWeapon();

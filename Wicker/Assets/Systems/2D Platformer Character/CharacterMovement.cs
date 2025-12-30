@@ -136,6 +136,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         rb = GetComponent<Rigidbody2D>();
 
         LoadConfig(core.GetConfig());
+        character.OnEvent -= HandleEvent;
         character.OnEvent += HandleEvent;
 
         // Initialize with default base state

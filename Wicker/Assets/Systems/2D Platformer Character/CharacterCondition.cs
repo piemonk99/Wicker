@@ -9,6 +9,7 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
     public float maxHealth = 100f;
     public float currentHealth = 100f;
     public bool isInvulnerable = false;
+    [Tooltip("Default cooldown to being hit. Attacks may provide their own overrides when they deal damage.")]
     public float invulnerabilityDuration = 0.5f;
 
     [Header("Damage Text")]

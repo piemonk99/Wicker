@@ -4,7 +4,7 @@ using UnityEngine;
 public class GrappleDashAbility : CharacterAbility
 {
     private GrappleDashConfig config;
-    private GrappleSystem grappleSystem;
+    private CharacterGrapple characterGrapple;
 
     // State
     private float activeTimer = 0f;
@@ -57,11 +57,11 @@ public class GrappleDashAbility : CharacterAbility
             return false;
 
         // Get grapple system reference if needed
-        if (grappleSystem == null)
-            grappleSystem = character.GetComponent<GrappleSystem>();
+        if (characterGrapple == null)
+            characterGrapple = character.GetComponent<CharacterGrapple>();
 
         // Can only activate while grappling
-        return grappleSystem != null && grappleSystem.IsGrappling();
+        return characterGrapple != null && characterGrapple.IsGrappling();
     }
 
     public override void Activate()
@@ -71,10 +71,10 @@ public class GrappleDashAbility : CharacterAbility
         character.RaiseEvent("dash_cooldown_set", config.cooldown); // Puts all dashes on cooldown
 
         // Get grapple system if needed
-        if (grappleSystem == null)
-            grappleSystem = character.GetComponent<GrappleSystem>();
+        if (characterGrapple == null)
+            characterGrapple = character.GetComponent<CharacterGrapple>();
 
-        if (grappleSystem == null || !grappleSystem.IsGrappling())
+        if (characterGrapple == null || !characterGrapple.IsGrappling())
         {
             Deactivate();
             return;
@@ -140,10 +140,10 @@ public class GrappleDashAbility : CharacterAbility
 
     private bool ShouldUseTangentDash()
     {
-        if (grappleSystem == null) return false;
+        if (characterGrapple == null) return false;
 
         // Get current rope state
-        var ropeState = grappleSystem.GetCurrentRopeState();
+        var ropeState = characterGrapple.GetCurrentRopeState();
         if (!ropeState.HasValue) return false;
 
         // Use tangent if rope is significantly stretched/squashed
@@ -162,8 +162,8 @@ public class GrappleDashAbility : CharacterAbility
         }
 
         // Use tangent direction
-        Vector2 radialDirection = grappleSystem.GetRadialDirection();
-        Vector2 tangentDirection = grappleSystem.GetTangentDirection();
+        Vector2 radialDirection = characterGrapple.GetRadialDirection();
+        Vector2 tangentDirection = characterGrapple.GetTangentDirection();
 
         if (radialDirection == Vector2.zero || tangentDirection == Vector2.zero)
             return baseDirection;

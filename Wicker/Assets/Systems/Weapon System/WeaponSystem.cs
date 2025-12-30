@@ -2,9 +2,9 @@ using UnityEngine;
 
 /// <summary>
 /// Main weapon system controller that manages weapon behavior.
-/// Similar to GrappleSystem structure.
+/// Similar to CharacterGrapple structure.
 /// </summary>
-public abstract class WeaponSystem : MonoBehaviour, ICharacterComponent
+public abstract class CharacterWeapon : MonoBehaviour, ICharacterComponent
 {
     [Header("References")]
     public Transform weaponOrigin;

@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections.Generic;
 
-public class HitboxWeaponSystem : WeaponSystem
+public class CharacterHitboxWeapon : CharacterWeapon
 {
     // Visual instance
     private GameObject weaponInstance;
@@ -36,7 +36,7 @@ public class HitboxWeaponSystem : WeaponSystem
 
         if (hitboxMechanics == null || hitboxVisual == null)
         {
-            Debug.LogError($"HitboxWeaponSystem requires HitboxWeapon configs");
+            Debug.LogError($"CharacterHitboxWeapon requires HitboxWeapon configs");
             return;
         }
 

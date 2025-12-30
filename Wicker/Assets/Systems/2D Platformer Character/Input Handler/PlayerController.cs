@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class PlayerInput : MonoBehaviour, ICharacterController
+public class PlayerController : MonoBehaviour, ICharacterController
 {
     [Header("Input Settings")]
     public InputActionAsset inputAsset;

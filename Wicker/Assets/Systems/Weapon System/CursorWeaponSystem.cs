@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections.Generic;
 
-public class CursorWeaponSystem : WeaponSystem
+public class CharacterCursorWeapon : CharacterWeapon
 {
     private Transform weaponTransform;
     private GameObject weaponInstance;
@@ -58,7 +58,7 @@ public class CursorWeaponSystem : WeaponSystem
 
         if (cursorMechanics == null || cursorVisual == null)
         {
-            Debug.LogError("CursorWeaponSystem requires CursorWeapon configs");
+            Debug.LogError("CharacterCursorWeapon requires CursorWeapon configs");
             return;
         }
 
