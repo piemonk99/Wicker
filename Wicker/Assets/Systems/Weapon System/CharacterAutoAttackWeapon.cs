@@ -296,8 +296,8 @@ public class CharacterAutoAttackWeapon : CharacterWeapon
             // Round down
             damage = Mathf.Floor(damage);
 
-            // Apply damage
-            ApplyDamage(enemy, damage, isCritical);
+            // Hit character
+            HitCharacter(enemy, damage, isCritical);
 
             // Add to recent hits with timestamp
             recentHits.Add(new RecentHit(enemy, Time.time));
@@ -308,13 +308,16 @@ public class CharacterAutoAttackWeapon : CharacterWeapon
         }
     }
 
-    private void ApplyDamage(GameObject target, float damage, bool isCritical)
+    private void HitCharacter(GameObject target, float damage, bool isCritical)
     {
         if (target == null) return;
 
         var condition = target.GetComponent<CharacterCondition>();
         if (condition != null)
         {
+            // Do not hit character if they have hit cooldown
+            if (condition.HasStatusEffect("hit_cooldown")) return;
+
             condition.TakeDamage(damage, target.transform.position, isCritical);
 
             character.RaiseEvent("enemy_hit", new

@@ -12,21 +12,31 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a88b4f26568c6b4da648d249d7a3ec0, type: 3}
   m_Name: PlayerConfig
   m_EditorClassIdentifier: Assembly-CSharp::CharacterConfig
-  maxSpeed: 15
-  groundAcceleration: 80
-  airAcceleration: 64
-  groundDeceleration: 64
-  airDeceleration: 6.4
-  jumpForce: 20
-  gravity: 40
-  coyoteTime: 0.1
-  jumpBufferTime: 0.05
-  enableVariableJump: 1
-  jumpCutMultiplier: 0.5
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 64
-  groundCheckRadius: 0.2
+  movement:
+    maxSpeed: 15
+    groundAcceleration: 80
+    airAcceleration: 60
+    groundDeceleration: 60
+    airDeceleration: 6
+    jumpForce: 20
+    gravity: 30
+    coyoteTime: 0.1
+    jumpBufferTime: 0.05
+    enableVariableJump: 1
+    jumpCutMultiplier: 0.5
+    groundLayer:
+      serializedVersion: 2
+      m_Bits: 64
+    groundCheckRadius: 0.2
+  condition:
+    maxHealth: 100
+    invulnerabilityDuration: 0.5
+    textOffset: {x: 0, y: 1}
+    damageColor: {r: 1, g: 0, b: 0, a: 1}
+    healColor: {r: 0, g: 1, b: 0, a: 1}
+    critColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    destroyOnDeath: 1
+    deathEffect: {fileID: 0}
   attack:
     isEnabled: 0
     damage: 1

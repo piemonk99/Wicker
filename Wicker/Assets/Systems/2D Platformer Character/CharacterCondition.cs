@@ -7,10 +7,8 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
 {
     private ConditionConfig config;
 
-    public float maxHealth = 100f;
-    public float currentHealth = 100f;
-    private bool isInvulnerable = false;
-    private float invulnerabilityDuration = 0.5f;
+    private float maxHealth = 100f;
+    private float currentHealth = 100f;
     private Vector2 textOffset = new Vector2(0, 1f);
     private Color damageColor = Color.red;
     private Color healColor = Color.green;
@@ -18,11 +16,14 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
     private bool destroyOnDeath = true;
     private GameObject deathEffect;
 
-    [Header("Buffs/Debuffs")]
-    public List<StatusEffect> activeEffects = new List<StatusEffect>();
+    public float MaxHealth => maxHealth;
+    public float CurrentHealth => currentHealth;
+
+    [Header("Status Effects")]
+    private List<StatusEffect> activeEffects = new List<StatusEffect>();
+    private Dictionary<string, StatusEffect> effectLookup = new Dictionary<string, StatusEffect>();
 
     // Private state
-    private float invulnerabilityTimer = 0f;
     private bool isDead = false;
     private CharacterCore character;
 
@@ -36,6 +37,7 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
     public float HealthPercentage => currentHealth / maxHealth;
     public bool IsAlive => !isDead && currentHealth > 0;
     public bool IsFullHealth => Mathf.Approximately(currentHealth, maxHealth);
+    public IReadOnlyList<StatusEffect> ActiveEffects => activeEffects.AsReadOnly();
 
     public void Initialize(CharacterCore character)
     {
@@ -47,7 +49,6 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
         {
             // Initialize values from config
             maxHealth = config.maxHealth;
-            invulnerabilityDuration = config.invulnerabilityDuration;
             textOffset = config.textOffset;
             damageColor = config.damageColor;
             healColor = config.healColor;
@@ -61,38 +62,50 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
 
     public void Tick(float deltaTime)
     {
-        if (isInvulnerable && invulnerabilityTimer > 0)
+        // Update all status effects
+        for (int i = activeEffects.Count - 1; i >= 0; i--)
         {
-            invulnerabilityTimer -= deltaTime;
-            if (invulnerabilityTimer <= 0)
+            var effect = activeEffects[i];
+            
+            // Update the effect's duration
+            effect.Update(deltaTime);
+            
+            // Execute the effect with deltaTime as data
+            effect.Execute(character, this, deltaTime);
+            
+            // Remove if expired
+            if (effect.IsExpired)
             {
-                isInvulnerable = false;
+                RemoveStatusEffect(effect);
             }
         }
-
-        // Update active effects
-        UpdateStatusEffects(deltaTime);
     }
 
     public void PhysicsTick(float fixedDeltaTime) { }
 
-    
-    public void TakeDamage(float damage, Vector3? hitPosition = null, bool isCritical = false)
+    public void TakeDamage(float damage, Vector3? hitPosition = null, bool isCritical = false, 
+                          GameObject instigator = null, float? hitCooldown = null)
     {
-        if (isInvulnerable || isDead || damage <= 0) return;
+        if (isDead || damage <= 0) return;
 
-        // Apply damage modifiers from effects
-        damage = CalculateModifiedDamage(damage);
+        // Check all effects for damage blocking
+        float finalDamage = damage;
+
+        if (HasStatusEffect("invulnerability")) finalDamage = 0;
+
+        // Ensure damage is positive
+        finalDamage = Mathf.Max(0, finalDamage);
+        if (finalDamage <= 0) return;
 
         // Calculate actual hit position
         Vector3 position = hitPosition ?? transform.position;
 
         // Show damage text with crit indication
         Color textColor = isCritical ? critColor : damageColor;
-        ShowDamageText(damage, position, textColor, isCritical);
+        ShowDamageText(finalDamage, position, textColor, isCritical);
 
         // Apply damage
-        currentHealth -= damage;
+        currentHealth -= finalDamage;
 
         // Check for death
         if (currentHealth <= 0)
@@ -101,25 +114,57 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
         }
         else
         {
-            // Start invulnerability if damage was taken
-            StartInvulnerability();
+            // Apply hit cooldown
+            ApplyHitCooldown(hitCooldown);
+
+            // Raise event
+            OnHealthChanged?.Invoke(currentHealth / maxHealth);
+
+            Debug.Log($"{gameObject.name} took {finalDamage} damage. Health: {currentHealth}/{maxHealth}");
         }
+    }
 
-        // Raise event
-        OnHealthChanged?.Invoke(currentHealth / maxHealth);
-
-        Debug.Log($"{gameObject.name} took {damage} damage. Health: {currentHealth}/{maxHealth}");
+    private void ApplyHitCooldown(float? customDuration = null)
+    {
+        // Remove any existing hit cooldown first
+        RemoveStatusEffect("hit_cooldown");
+        
+        // Use custom duration if provided, otherwise use config default
+        float duration = customDuration ?? 
+                        (config != null ? config.invulnerabilityDuration : 0.5f);
+        
+        if (duration > 0)
+        {
+            var hitCooldownEffect = StatusEffect.CreateHitCooldown(duration);
+            AddStatusEffect(hitCooldownEffect);
+        }
     }
 
     public void Heal(float amount)
     {
         if (isDead || amount <= 0) return;
 
-        // Apply heal modifiers from effects
-        amount = CalculateModifiedHealing(amount);
+        // Check all effects for healing modification
+        float finalHeal = amount;
+
+        foreach (var effect in activeEffects)
+        {
+            // Execute effect with heal amount as data
+            effect.Execute(character, this, amount);
+            
+            // Apply heal modification based on ModifierValue
+            if (effect.ModifierValue != 1f)
+            {
+                finalHeal *= effect.ModifierValue;
+            }
+        }
+
+        // Ensure healing is positive
+        finalHeal = Mathf.Max(0, finalHeal);
+        if (finalHeal <= 0) return;
 
         float oldHealth = currentHealth;
-        currentHealth = Mathf.Min(currentHealth + amount, maxHealth);
+        currentHealth = Mathf.Min(currentHealth + finalHeal, maxHealth);
         float actualHeal = currentHealth - oldHealth;
 
         if (actualHeal > 0)
@@ -155,12 +200,6 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
         );
     }
 
-    private void StartInvulnerability()
-    {
-        isInvulnerable = true;
-        invulnerabilityTimer = invulnerabilityDuration;
-    }
-
     private void Die()
     {
         if (isDead) return;
@@ -175,6 +214,9 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
         {
             Instantiate(deathEffect, transform.position, Quaternion.identity);
         }
+
+        // Remove all effects on death
+        RemoveAllEffects();
 
         // Raise death event
         OnDeath?.Invoke();
@@ -205,76 +247,96 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
     {
         if (effect == null) return;
 
-        // Check if effect already exists (same type)
-        var existingEffect = activeEffects.Find(e => e.effectType == effect.effectType);
-        if (existingEffect != null)
+        // Check if effect already exists
+        if (effectLookup.TryGetValue(effect.Id, out var existingEffect))
         {
-            // Refresh or stack effect
-            existingEffect.Refresh(effect);
+            // Try to add stack
+            if (!existingEffect.TryAddStack())
+            {
+                // If can't stack, refresh duration
+                existingEffect.Refresh();
+            }
+            
+            OnEffectAdded?.Invoke(existingEffect);
+            return;
         }
-        else
-        {
-            // Add new effect
-            effect.OnApply(this);
-            activeEffects.Add(effect);
-            OnEffectAdded?.Invoke(effect);
-        }
+
+        // Add new effect
+        effect.OnApply(character, this);
+        activeEffects.Add(effect);
+        effectLookup[effect.Id] = effect;
+        
+        OnEffectAdded?.Invoke(effect);
+        Debug.Log($"Added status effect: {effect.Id}");
     }
 
     public void RemoveStatusEffect(StatusEffect effect)
     {
         if (effect == null || !activeEffects.Contains(effect)) return;
 
-        effect.OnRemove(this);
+        effect.OnRemove(character, this);
         activeEffects.Remove(effect);
+        effectLookup.Remove(effect.Id);
+        
         OnEffectRemoved?.Invoke(effect);
+        Debug.Log($"Removed status effect: {effect.Id}");
     }
 
-    public void RemoveStatusEffect(StatusEffectType effectType)
+    public void RemoveStatusEffect(string effectId)
     {
-        var effect = activeEffects.Find(e => e.effectType == effectType);
-        if (effect != null)
+        if (effectLookup.TryGetValue(effectId, out var effect))
         {
             RemoveStatusEffect(effect);
         }
     }
 
-    private void UpdateStatusEffects(float deltaTime)
+    public void RemoveAllEffects()
     {
         for (int i = activeEffects.Count - 1; i >= 0; i--)
         {
             var effect = activeEffects[i];
-            effect.Update(deltaTime, this);
+            RemoveStatusEffect(effect);
+        }
+    }
 
-            if (effect.IsExpired)
+    public bool HasStatusEffect(string effectId)
+    {
+        return effectLookup.ContainsKey(effectId);
+    }
+
+    public StatusEffect GetStatusEffect(string effectId)
+    {
+        effectLookup.TryGetValue(effectId, out var effect);
+        return effect;
+    }
+
+    public bool IsInvulnerable
+    {
+        get
+        {
+            // Check if any effect has ModifierValue == 0 (blocks damage)
+            foreach (var effect in activeEffects)
             {
-                RemoveStatusEffect(effect);
+                if (effect.ModifierValue == 0f)
+                {
+                    return true;
+                }
             }
+            return false;
         }
     }
 
-    private float CalculateModifiedDamage(float baseDamage)
+    // Helper methods for common effects
+    public void ApplyInvulnerability(float duration)
     {
-        float modifiedDamage = baseDamage;
-
-        foreach (var effect in activeEffects)
-        {
-            modifiedDamage = effect.ModifyDamage(modifiedDamage);
-        }
-
-        return modifiedDamage;
+        var invuln = StatusEffect.CreateInvulnerability(duration);
+        AddStatusEffect(invuln);
     }
 
-    private float CalculateModifiedHealing(float baseHealing)
+    public void ApplyDamageModifier(float duration, float multiplier, string source = "default")
     {
-        float modifiedHealing = baseHealing;
-
-        foreach (var effect in activeEffects)
-        {
-            modifiedHealing = effect.ModifyHealing(modifiedHealing);
-        }
-
-        return modifiedHealing;
+        var modifier = StatusEffect.CreateDamageModifier(duration, multiplier, source);
+        AddStatusEffect(modifier);
     }
 
     // Public API
@@ -291,40 +353,5 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
         }
 
         OnHealthChanged?.Invoke(currentHealth / maxHealth);
-    }
-
-    public bool HasStatusEffect(StatusEffectType effectType)
-    {
-        return activeEffects.Exists(e => e.effectType == effectType);
-    }
-
-    // Simple status effect system for future expansion
-    public abstract class StatusEffect
-    {
-        public StatusEffectType effectType;
-        public float duration;
-        public float maxStacks = 1;
-        public int currentStacks = 1;
-
-        protected float remainingTime;
-        public bool IsExpired => remainingTime <= 0;
-
-        public virtual void OnApply(CharacterCondition condition) { remainingTime = duration; }
-        public virtual void OnRemove(CharacterCondition condition) { }
-        public virtual void Update(float deltaTime, CharacterCondition condition) { remainingTime -= deltaTime; }
-        public virtual void Refresh(StatusEffect other) { remainingTime = duration; }
-        public virtual float ModifyDamage(float damage) => damage;
-        public virtual float ModifyHealing(float healing) => healing;
-    }
-
-    public enum StatusEffectType
-    {
-        Poison,
-        Burn,
-        Freeze,
-        Stun,
-        SpeedBoost,
-        DamageBoost,
-        Invulnerability
     }
 }

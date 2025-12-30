@@ -489,7 +489,7 @@ public class CharacterCursorWeapon : CharacterWeapon
         if (weaponCollisionHandler == null) return;
         foreach (var collider in weaponCollisionHandler.GetCurrentCollisions())
             if (collider != null && !hitThisFrame.Contains(collider))
-                ApplyDamage(collider.gameObject);
+                HitCharacter(collider.gameObject);
     }
 
     private bool ShouldCheckSweptCollisions()
@@ -573,12 +573,12 @@ public class CharacterCursorWeapon : CharacterWeapon
                     hit.gameObject == weaponInstance)
                     continue;
 
-                ApplyDamage(hit.gameObject);
+                HitCharacter(hit.gameObject);
             }
         }
     }
 
-    private void ApplyDamage(GameObject target)
+    private void HitCharacter(GameObject target)
     {
         if (target == character.gameObject || target == gameObject || target == weaponInstance) return;
 
@@ -597,6 +597,9 @@ public class CharacterCursorWeapon : CharacterWeapon
         var condition = target.GetComponent<CharacterCondition>();
         if (condition != null)
         {
+            // Do not hit character if they have hit cooldown
+            if (condition.HasStatusEffect("hit_cooldown")) return;
+
             condition.TakeDamage(totalDamage, target.transform.position);
             character.RaiseEvent("enemy_hit", new
             {
@@ -633,7 +636,7 @@ public class CharacterCursorWeapon : CharacterWeapon
     private void TryHitCollider(Collider2D other)
     {
         if (isSwinging && !hitThisFrame.Contains(other))
-            ApplyDamage(other.gameObject);
+            HitCharacter(other.gameObject);
     }
 
     // Debug visualization

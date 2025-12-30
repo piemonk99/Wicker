@@ -205,8 +205,8 @@ public class CharacterHitboxWeapon : CharacterWeapon
             // Calculate damage
             float damage = CalculateDamage(hitboxMechanics.baseDamage);
 
-            // Apply damage
-            ApplyDamage(hit.gameObject, damage, lastAttackDirection);
+            // Hit detected character
+            HitCharacter(hit.gameObject, damage, lastAttackDirection);
 
             alreadyHit.Add(hit.gameObject);
 
@@ -284,7 +284,7 @@ public class CharacterHitboxWeapon : CharacterWeapon
         }
     }
 
-    private void ApplyDamage(GameObject target, float damage, Vector2 direction)
+    private void HitCharacter(GameObject target, float damage, Vector2 direction)
     {
         if (target == null) return;
 
@@ -295,17 +295,11 @@ public class CharacterHitboxWeapon : CharacterWeapon
             condition = target.GetComponentInParent<CharacterCondition>();
         }
 
-        if (condition == null)
-        {
-            // For testing, add a CharacterCondition if none exists
-            condition = target.AddComponent<CharacterCondition>();
-            condition.maxHealth = 100f;
-            condition.currentHealth = 100f;
-            Debug.Log($"Added CharacterCondition to {target.name} for testing");
-        }
-
         if (condition != null)
         {
+            // Do not hit character if they have hit cooldown
+            if (condition.HasStatusEffect("hit_cooldown")) return;
+
             condition.TakeDamage(damage, target.transform.position);
 
             // Apply knockback in the attack direction
