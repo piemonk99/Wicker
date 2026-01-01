@@ -496,7 +496,75 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
     private bool CheckGround()
     {
         if (groundCheck == null) return false;
-        return Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
+
+        // Player must be moving downward or stationary to be grounded
+        if (rb.linearVelocity.y > 0.001f) return false;
+
+        // Define ground check rectangle dimensions
+        float checkWidth = 0.8f; // 80% of player width
+        float checkHeight = 0.1f; // Thin rectangle below player
+        float checkYOffset = -0.05f; // Position slightly below player center
+
+        // Get player collider bounds (assuming BoxCollider2D)
+        Collider2D playerCollider = GetComponent<Collider2D>();
+        if (playerCollider == null) return false;
+
+        Bounds playerBounds = playerCollider.bounds;
+
+        // Create two rectangle positions
+        Vector2 groundCheckCenter = new Vector2(
+            groundCheck.position.x,
+            playerBounds.min.y - (checkHeight / 2f) + checkYOffset
+        );
+
+        Vector2 insideCheckCenter = new Vector2(
+            groundCheck.position.x,
+            playerBounds.min.y + (playerBounds.size.y * 0.25f) // Check bottom quarter of player
+        );
+
+        // Perform rectangle casts
+        Vector2 checkSize = new Vector2(checkWidth, checkHeight);
+
+        // Cast 1: Ground check (below player)
+        Collider2D[] groundHits = Physics2D.OverlapBoxAll(
+            groundCheckCenter,
+            checkSize,
+            0f,
+            groundLayer
+        );
+
+        // Cast 2: Inside check (bottom of player)
+        Vector2 insideCheckSize = new Vector2(checkWidth * 0.9f, playerBounds.size.y * 0.25f);
+        Collider2D[] insideHits = Physics2D.OverlapBoxAll(
+            insideCheckCenter,
+            insideCheckSize,
+            0f,
+            groundLayer
+        );
+
+        // Filter: groundHits minus insideHits
+        foreach (Collider2D groundHit in groundHits)
+        {
+            if (groundHit.isTrigger) continue;
+
+            // Skip if this collider is also in insideHits
+            bool isInsideCollider = false;
+            foreach (Collider2D insideHit in insideHits)
+            {
+                if (insideHit == groundHit)
+                {
+                    isInsideCollider = true;
+                    break;
+                }
+            }
+
+            if (isInsideCollider) continue;
+
+            // Regular collider - valid ground
+            return true;
+        }
+
+        return false;
     }
 
     private bool IsGrounded()
@@ -536,6 +604,36 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
     public void ApplyExternalForce(Vector2 force, ForceMode2DExtended forceMode = ForceMode2DExtended.Force) { /* Same as before */ }
     public void SetExternalVelocity(Vector2 velocity) { rb.linearVelocity = velocity; }
     public void AddExternalVelocity(Vector2 velocity) { rb.linearVelocity += velocity; }
+
+    private void OnDrawGizmosSelected()
+    {
+        if (groundCheck != null)
+        {
+            Collider2D playerCollider = GetComponent<Collider2D>();
+            if (playerCollider != null)
+            {
+                Bounds playerBounds = playerCollider.bounds;
+
+                // Draw ground check rectangle
+                Gizmos.color = Color.green;
+                Vector2 checkSize = new Vector2(playerBounds.size.x * 0.8f, 0.1f);
+                Vector2 checkCenter = new Vector2(
+                    playerBounds.center.x,
+                    playerBounds.min.y - 0.05f
+                );
+                Gizmos.DrawWireCube(checkCenter, checkSize);
+
+                // Draw inside check area
+                Gizmos.color = Color.red;
+                Vector2 insideSize = new Vector2(playerBounds.size.x * 0.8f, playerBounds.size.y * 0.25f);
+                Vector2 insideCenter = new Vector2(
+                    playerBounds.center.x,
+                    playerBounds.min.y + (playerBounds.size.y * 0.125f)
+                );
+                Gizmos.DrawWireCube(insideCenter, insideSize);
+            }
+        }
+    }
 
     public void Freeze()
     {

@@ -48,7 +48,7 @@ MonoBehaviour:
     squashStiffnessExponent: 2
     grappleLayers:
       serializedVersion: 2
-      m_Bits: 64
+      m_Bits: 320
   reelConfig:
     reelSpeed: 50
     slackReelMultiplier: 10
