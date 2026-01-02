@@ -26,7 +26,10 @@ MonoBehaviour:
     jumpCutMultiplier: 0.5
     groundLayer:
       serializedVersion: 2
-      m_Bits: 320
+      m_Bits: 64
+    platformLayer:
+      serializedVersion: 2
+      m_Bits: 256
     groundCheckRadius: 0.2
   condition:
     maxHealth: 100

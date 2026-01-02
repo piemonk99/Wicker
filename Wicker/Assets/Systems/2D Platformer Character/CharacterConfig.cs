@@ -35,8 +35,9 @@ public class MovementConfig
     public bool enableVariableJump = true;
     [Range(0.1f, 1f)] public float jumpCutMultiplier = 0.5f;
 
-    [Header("Ground Check")]
+    [Header("Layers")]
     public LayerMask groundLayer;
+    public LayerMask platformLayer;
     public float groundCheckRadius = 0.2f;
 }
 

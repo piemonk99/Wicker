@@ -89,6 +89,7 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
 
         // Register for character events
         character.OnEvent += HandleEvent;
+        character.CharacterContext["grapple_isGrappling"] = false;
 
         // Cache camera reference for mouse aiming
         mainCamera = Camera.main;
@@ -328,6 +329,8 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
         if (currentConfig == null) return;
 
         isGrappling = true;
+        character.CharacterContext["grapple_isGrappling"] = true;
+
         grapplePoint = point;
         currentRopeLength = Vector2.Distance(grappleOrigin.position, point);
 
@@ -364,6 +367,7 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
         if (!isGrappling) return;
 
         isGrappling = false;
+        character.CharacterContext["grapple_isGrappling"] = false;
 
         // Clean up visual elements
         visualManager.CleanupGrappleVisuals();

@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 
 public class CharacterMovement : MonoBehaviour, ICharacterComponent
 {
@@ -101,7 +102,15 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
     private bool enableVariableJump;
     private float jumpCutMultiplier;
     private LayerMask groundLayer;
+    private LayerMask platformLayer;
     private float groundCheckRadius;
+
+    // Layers to currently ground check
+    private LayerMask standableLayers;
+
+    // Collision layers for the player
+    private int originalLayer;
+    private int dropLayer;
 
     [Header("Ground Check Reference")]
     public Transform groundCheck;
@@ -112,8 +121,11 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
     // State
     private CharacterCore character;
     private Rigidbody2D rb;
+    private float groundedTimer;
     private float coyoteTimer;
     private float jumpBufferTimer;
+    private float dropDownTimer;
+    private bool isDroppingDown;
     private bool isJumping;
     private bool wasGrounded;
     private bool jumpWasReleased;
@@ -151,6 +163,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
             enableVariableJump = movementConfig.enableVariableJump;
             jumpCutMultiplier = movementConfig.jumpCutMultiplier;
             groundLayer = movementConfig.groundLayer;
+            platformLayer = movementConfig.platformLayer;
             groundCheckRadius = movementConfig.groundCheckRadius;
         }
         else
@@ -158,6 +171,13 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
             Debug.LogError("No CharacterConfig found!");
             movementConfig = new MovementConfig(); // Fallback
         }
+
+        standableLayers = groundLayer + platformLayer;
+
+        // Save original layer and get drop layer
+        originalLayer = gameObject.layer;
+        dropLayer = LayerMask.NameToLayer("CharacterDroppingDown"); // Your new layer name
+
 
         character.OnEvent -= HandleEvent;
         character.OnEvent += HandleEvent;
@@ -323,6 +343,13 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
                 }
                 break;
 
+            case "down_held":
+                bool isGrappling = character.CharacterContext.TryGetValue("grapple_isGrappling", out var value) && value is bool b && b;
+                bool canDrop = IsGrounded() && groundedTimer >= .1f && !isDroppingDown && !isGrappling;
+
+                if (canDrop) StartDropDown();
+                break;
+
             // Two-tier state management events
             case "movement_base_set":
                 SetBaseState((MovementState)data);
@@ -445,17 +472,32 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         }
     }
 
+
     public void Tick(float deltaTime)
     {
         coyoteTimer -= deltaTime;
         jumpBufferTimer -= deltaTime;
+        
+
+        if (isDroppingDown)
+        {
+            dropDownTimer -= deltaTime;
+
+            if (dropDownTimer <= 0f)
+            {
+                StopDropDown();
+            }
+        }
+
 
         bool isGrounded = CheckGround();
-        if (!wasGrounded && isGrounded)
+        if (!wasGrounded && isGrounded) // Landed
         {
             character.RaiseEvent("landed", rb.linearVelocity.y);
             isJumping = false;
             jumpWasReleased = false;
+
+            groundedTimer = 0f;
 
             if (jumpBufferTimer > 0 && GetEffectiveState().canJump)
             {
@@ -463,8 +505,17 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
             }
         }
 
+        if (wasGrounded && !isGrounded) // Left the ground
+        {
+            groundedTimer = 0f;
+        }
+
         if (isGrounded)
+        {
             coyoteTimer = coyoteTime;
+            groundedTimer += deltaTime;
+        }
+            
 
         wasGrounded = isGrounded;
     }
@@ -491,6 +542,34 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         coyoteTimer = 0;
         jumpBufferTimer = 0;
         character.RaiseEvent("jumped", stateJumpForce);
+    }
+
+    private void StartDropDown()
+    {
+        dropDownTimer = 0.25f;
+        isDroppingDown = true;
+
+        // Switch to dropping layer
+        gameObject.layer = dropLayer;
+
+        // Also update ground check
+        standableLayers &= ~platformLayer;
+
+        character.RaiseEvent("drop_down_started", null);
+    }
+
+    private void StopDropDown()
+    {
+        dropDownTimer = 0f;
+        isDroppingDown = false;
+
+        // Restore original layer
+        gameObject.layer = originalLayer;
+
+        // Restore ground check
+        standableLayers |= platformLayer;
+
+        character.RaiseEvent("drop_down_ended", null);
     }
 
     private bool CheckGround()
@@ -530,7 +609,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
             groundCheckCenter,
             checkSize,
             0f,
-            groundLayer
+            standableLayers
         );
 
         // Cast 2: Inside check (bottom of player)
@@ -539,7 +618,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
             insideCheckCenter,
             insideCheckSize,
             0f,
-            groundLayer
+            standableLayers
         );
 
         // Filter: groundHits minus insideHits

@@ -20,6 +20,13 @@ public class CharacterCore : MonoBehaviour
     private List<ICharacterComponent> components = new();
     private List<ICharacterController> controllers = new();
 
+
+    // This dictionary stores information about the character's current state.
+    // The fields are created, managed, and utilized by the character's components.
+    // This allows soft referencing of other components that may not always exist.
+    public Dictionary<string, object> CharacterContext { get; private set; }
+
+
     // Public getter for config
     public CharacterConfig GetConfig() => config;
 
@@ -95,6 +102,8 @@ public class CharacterCore : MonoBehaviour
         components.Clear();
         controllers.Clear();
 
+        CharacterContext = new Dictionary<string, object>();
+
         // Find all ICharacterComponent components on this GameObject
         var foundComponents = GetComponents<ICharacterComponent>();
         components.AddRange(foundComponents);
@@ -148,6 +157,8 @@ public class CharacterCore : MonoBehaviour
         // Clear the component and controller lists
         components.Clear();
         controllers.Clear();
+
+        CharacterContext = new Dictionary<string, object>();
 
         // Re-find all components - this includes existing CharacterWeapons
         var foundComponents = GetComponents<ICharacterComponent>();
