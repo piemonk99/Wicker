@@ -18,12 +18,15 @@ MonoBehaviour:
     airAcceleration: 60
     groundDeceleration: 60
     airDeceleration: 6
-    jumpForce: 20
+    jumpForce: 25
     gravity: 30
     coyoteTime: 0.1
     jumpBufferTime: 0.05
     enableVariableJump: 1
     jumpCutMultiplier: 0.5
+    smoothDropdown: 0
+    maxDropdownTime: 0.4
+    minGroundedTime: 0.05
     groundLayer:
       serializedVersion: 2
       m_Bits: 64

@@ -101,6 +101,9 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
     private float jumpBufferTime;
     private bool enableVariableJump;
     private float jumpCutMultiplier;
+    private bool smoothDropdown;
+    private float maxDropdownTime;
+    private float minGroundedTime;
     private LayerMask groundLayer;
     private LayerMask platformLayer;
     private float groundCheckRadius;
@@ -162,6 +165,9 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
             jumpBufferTime = movementConfig.jumpBufferTime;
             enableVariableJump = movementConfig.enableVariableJump;
             jumpCutMultiplier = movementConfig.jumpCutMultiplier;
+            smoothDropdown  = movementConfig.smoothDropdown;
+            maxDropdownTime = movementConfig.maxDropdownTime;
+            minGroundedTime = movementConfig.minGroundedTime;
             groundLayer = movementConfig.groundLayer;
             platformLayer = movementConfig.platformLayer;
             groundCheckRadius = movementConfig.groundCheckRadius;
@@ -345,9 +351,13 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 
             case "down_held":
                 bool isGrappling = character.CharacterContext.TryGetValue("grapple_isGrappling", out var value) && value is bool b && b;
-                bool canDrop = IsGrounded() && groundedTimer >= .1f && !isDroppingDown && !isGrappling;
+                bool canDrop = ((IsGrounded() && groundedTimer >= minGroundedTime) || smoothDropdown) && !isDroppingDown && !isGrappling;
 
                 if (canDrop) StartDropDown();
+                break;
+
+            case "down_released":
+                if (isDroppingDown && smoothDropdown && dropDownTimer <= 0f) { StopDropDown(); }
                 break;
 
             // Two-tier state management events
@@ -479,6 +489,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         jumpBufferTimer -= deltaTime;
         
 
+        // Determines automatic ending of dropdown state if smoothDropdown = false
         if (isDroppingDown)
         {
             dropDownTimer -= deltaTime;
@@ -546,7 +557,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 
     private void StartDropDown()
     {
-        dropDownTimer = 0.25f;
+        dropDownTimer = maxDropdownTime;
         isDroppingDown = true;
 
         // Switch to dropping layer

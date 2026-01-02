@@ -35,6 +35,14 @@ public class MovementConfig
     public bool enableVariableJump = true;
     [Range(0.1f, 1f)] public float jumpCutMultiplier = 0.5f;
 
+    [Header("Dropdown Settings")]
+    [Tooltip("If true, dropdown mode does not deactivate after a set amount of time and instead waits for the player to release the key. This causes the player to fall straight through platforms without landing first.")]
+    public bool smoothDropdown = false;
+    [Tooltip("Time after which dropdown disables until re-enable conditions are met. Not used if smoothDropdown = true.")]
+    public float maxDropdownTime = .25f;
+    [Tooltip("Minimum time the player must be grounded to enter dropdown mode.")]
+    public float minGroundedTime = .05f;
+
     [Header("Layers")]
     public LayerMask groundLayer;
     public LayerMask platformLayer;
