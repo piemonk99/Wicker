@@ -131,6 +131,7 @@ public class WeaponConfig : ScriptableObject
         }
     }
 
+    /*
     // Helper properties
     public string WeaponName => weaponName;
 
@@ -351,5 +352,5 @@ public class WeaponConfig : ScriptableObject
             weaponSoundSet = source.weaponSoundSet,
             critVelocityThreshold = source.critVelocityThreshold
         };
-    }
+    }*/
 }

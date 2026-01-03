@@ -291,7 +291,7 @@ public class CharacterAutoAttackWeapon : CharacterWeapon
             }
 
             // Add velocity bonus
-            damage = CalculateDamage(damage);
+            damage = CalculateDamage();
 
             // Round down
             damage = Mathf.Floor(damage);
@@ -330,6 +330,16 @@ public class CharacterAutoAttackWeapon : CharacterWeapon
                 isGrappling = characterGrapple != null && characterGrapple.IsGrappling()
             });
         }
+    }
+
+    public float CalculateDamage()
+    {
+        float damage = autoAttackMechanics.baseDamage;
+
+        float velocity = rb != null ? rb.linearVelocity.magnitude : 0f;
+        damage *= CalculateVelocityMultiplier(velocity, autoAttackMechanics);
+
+        return damage;
     }
 
     private void DrawDebugInfo()

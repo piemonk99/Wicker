@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Zweihander Config
   m_EditorClassIdentifier: Assembly-CSharp::CursorWeaponConfig
   mechanics:
-    baseDamage: 10
+    baseDamage: 1
     canAttackWhileMoving: 1
     scalesWithVelocity: 1
     minimumVelocityForMultiplier: 0
@@ -27,11 +27,17 @@ MonoBehaviour:
     angularAcceleration: 2000
     angularDeceleration: 2000
     maxAngularVelocity: 1000
-    damagePerSpeedUnit: 1
-    minimumDamageSpeed: 2
+    minDamageMultiplier: 1
+    maxDamageMultiplier: 2
+    minDamageMultiplierSpeedPercent: 0.5
+    maxDamageMultiplierSpeedPercent: 0.95
     baseKnockback: 1
     speedKnockbackMultiplier: 0.001
     maxKnockback: 1
+    minInvincibilityDuration: 0.33
+    maxInvincibilityDuration: 0.5
+    minInvincibilitySpeedPercent: 0.5
+    maxInvincibilitySpeedPercent: 0.9
     speedAverageFrames: 8
     currentFrameWeight: 0.703
     useAverageSpeedForDamage: 1

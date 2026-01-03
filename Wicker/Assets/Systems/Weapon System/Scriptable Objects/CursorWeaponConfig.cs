@@ -29,14 +29,28 @@ public class CursorWeaponMechanicsConfig : WeaponMechanicsConfig
 	public float angularDeceleration = 720f;
 	public float maxAngularVelocity = 720f;
 
-	[Header("Combat Settings")]
-	public float damagePerSpeedUnit = 0.2f;
-	public float minimumDamageSpeed = 2f;
+	[Header("Damage Settings")]
+	public float minDamageMultiplier = 1f;
+	public float maxDamageMultiplier = 2f;
+	public float minDamageMultiplierSpeedPercent = .5f;
+	public float maxDamageMultiplierSpeedPercent = .95f;
+
+	[Header("Knockback Settings")]
 	public float baseKnockback = 5f;
 	public float speedKnockbackMultiplier = 0.5f;
 	public float maxKnockback = 30f;
 
-	[Header("Speed Averaging Settings")]
+	[Header("I-Frame settings")]
+    [Tooltip("Minimum duration of invincibility frames on a character hit by this weapon.")]
+    public float minInvincibilityDuration = .33f;
+    [Tooltip("Maximum duration of invincibility frames on a character hit by this weapon.")]
+	public float maxInvincibilityDuration = .5f;
+	[Tooltip("Percentage of max speed at which hit character gets minimum invincibility duration.")]
+	public float minInvincibilitySpeedPercent = .5f;
+    [Tooltip("Percentage of max speed at which hit character gets maximum invincibility duration.")]
+    public float maxInvincibilitySpeedPercent = .9f;
+
+    [Header("Speed Averaging Settings")]
     [Tooltip("Number of frames to average speed over (higher = smoother but more lag)")]
     [Range(1, 60)]
     public int speedAverageFrames = 10;

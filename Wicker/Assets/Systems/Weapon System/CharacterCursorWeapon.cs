@@ -24,6 +24,8 @@ public class CharacterCursorWeapon : CharacterWeapon
     private float currentWeaponSpeed;           // Instantaneous speed
     private float smoothedWeaponSpeed;          // Averaged speed
     private Vector2 lastPosition;
+    private float currentTangentialVelocity; // Current angular velocity for tangent movement (rad/s)
+    private float lastTangentialAngle; // Last angle for calculating angular velocity
     private float currentOrbitRadius;
 
     // Speed averaging system
@@ -264,113 +266,139 @@ public class CharacterCursorWeapon : CharacterWeapon
         if (cursorMechanics == null) return;
 
         float maxDistance = cursorMechanics.cursorFollowSpeed * deltaTime;
-        Vector2 direction = targetOrbitPosition - currentOrbitPosition;
-        float distance = direction.magnitude;
+        Vector2 targetDir = targetOrbitPosition - currentOrbitPosition;
+        float distance = targetDir.magnitude;
 
-        // Check if we're at minimum radius and trying to move through center
-        bool isAtMinRadius = Mathf.Abs(currentOrbitPosition.magnitude - cursorMechanics.minOrbitRadius) < 0.01f;
+        // Early exit if no movement needed
+        if (distance < 0.001f) return;
 
-        if (isAtMinRadius)
+        float currentRadius = currentOrbitPosition.magnitude;
+        float currentAngleRad = Mathf.Atan2(currentOrbitPosition.y, currentOrbitPosition.x);
+
+        // Check if we should use tangent movement
+        bool useTangentMovement = false;
+
+        if (currentRadius <= cursorMechanics.minOrbitRadius + 0.01f)
         {
-            // Calculate the angle between current and target positions
-            float currentAngleRad = Mathf.Atan2(currentOrbitPosition.y, currentOrbitPosition.x);
+            // Calculate the angle from player to cursor
             float targetAngleRad = Mathf.Atan2(targetOrbitPosition.y, targetOrbitPosition.x);
-            float angleDiff = Mathf.DeltaAngle(currentAngleRad * Mathf.Rad2Deg, targetAngleRad * Mathf.Rad2Deg);
+            float angleDiff = Mathf.DeltaAngle(currentAngleRad * Mathf.Rad2Deg, targetAngleRad * Mathf.Rad2Deg) * Mathf.Deg2Rad;
 
-            // If the angular difference is large (close to 180°), we're trying to go through center
-            bool isMovingThroughCenter = Mathf.Abs(angleDiff) > 150f;
+            // The tangent line direction (90 degrees from radius)
+            float tangentDir = Mathf.Sign(angleDiff);
 
-            if (isMovingThroughCenter && distance > maxDistance)
-            {
-                // Special case: Move around the circle instead of through center
-                // Convert to angular movement around the fixed minimum radius
+            // Calculate how much of the target direction points along the tangent
+            Vector2 tangentVector = new Vector2(-Mathf.Sin(currentAngleRad), Mathf.Cos(currentAngleRad)) * tangentDir;
+            float tangentComponent = Vector2.Dot(targetDir.normalized, tangentVector);
 
-                // Calculate how much angle we should move this frame
-                float angleToMove = maxDistance / cursorMechanics.minOrbitRadius * Mathf.Rad2Deg;
+            // Calculate how much points inward (toward center)
+            Vector2 inwardVector = -currentOrbitPosition.normalized;
+            float inwardComponent = Vector2.Dot(targetDir.normalized, inwardVector);
 
-                // Apply smoothing to angular movement
-                if (cursorMechanics.directModeSmoothing > 0f)
-                {
-                    // Use exponential smoothing for angular movement
-                    float smoothing = Mathf.Clamp01(cursorMechanics.directModeSmoothing);
-                    angleToMove *= (1f - smoothing * 0.3f); // Reduce max speed with smoothing
-                }
-
-                // Move in the direction that gives shortest path around circle
-                float moveAngle = Mathf.Sign(angleDiff) * Mathf.Min(angleToMove, Mathf.Abs(angleDiff));
-
-                // Update angle
-                currentAngleRad += moveAngle * Mathf.Deg2Rad;
-
-                // Update position (staying at min radius)
-                currentOrbitPosition = new Vector2(
-                    Mathf.Cos(currentAngleRad),
-                    Mathf.Sin(currentAngleRad)
-                ) * cursorMechanics.minOrbitRadius;
-
-                currentAngle = currentAngleRad * Mathf.Rad2Deg;
-                currentOrbitRadius = cursorMechanics.minOrbitRadius;
-                return;
-            }
+            // Use tangent movement if cursor is mostly pointing behind player (inward)
+            // AND we're not trying to move outward (positive inward component means toward center)
+            useTangentMovement = inwardComponent > 0f && Mathf.Abs(tangentComponent) > 0.1f;
         }
 
-        // Normal movement (either not at min radius, or not moving through center)
-        if (distance > maxDistance)
+        Vector2 newPosition;
+
+        if (useTangentMovement)
         {
-            // Apply smoothing to movement
+            // TANGENT MOVEMENT: Move along circle when cursor is behind player
+            float targetAngleRad = Mathf.Atan2(targetOrbitPosition.y, targetOrbitPosition.x);
+            float angleDiff = Mathf.DeltaAngle(currentAngleRad * Mathf.Rad2Deg, targetAngleRad * Mathf.Rad2Deg) * Mathf.Deg2Rad;
+
+            // Maximum angular velocity to achieve cursorFollowSpeed linear speed
+            float maxAngularVelocity = cursorMechanics.cursorFollowSpeed / cursorMechanics.minOrbitRadius; // rad/s
+            float maxAnglePerFrame = maxAngularVelocity * deltaTime; // rad per frame
+
+            // Calculate desired angular velocity (full speed toward target)
+            float desiredAngularVelocity = Mathf.Clamp(angleDiff / deltaTime, -maxAngularVelocity, maxAngularVelocity);
+
+            // Apply smoothing to angular acceleration
             if (cursorMechanics.directModeSmoothing > 0f)
             {
-                // Use exponential decay smoothing for frame-rate independence
-                // This prevents teleporting at high speeds
-
                 float smoothing = Mathf.Clamp01(cursorMechanics.directModeSmoothing);
 
-                // Calculate the smoothing factor using exponential decay formula
-                // This ensures smooth movement regardless of framerate
-                float smoothFactor = 1f - Mathf.Exp(-cursorMechanics.cursorFollowSpeed * (1f - smoothing * 0.7f) * deltaTime);
+                // Calculate acceleration factor based on smoothing
+                // Higher smoothing = slower acceleration
+                float accelerationFactor = 1f - Mathf.Exp(-cursorMechanics.cursorFollowSpeed * (1f - smoothing * 0.7f) * deltaTime);
+                accelerationFactor = Mathf.Min(accelerationFactor, 0.95f);
 
-                // Clamp the factor to prevent jumps at very high framerates
-                smoothFactor = Mathf.Min(smoothFactor, 0.95f);
+                // Smoothly approach desired angular velocity
+                currentTangentialVelocity = Mathf.Lerp(currentTangentialVelocity, desiredAngularVelocity, accelerationFactor);
 
-                // Move toward target with smooth interpolation
-                currentOrbitPosition = Vector2.Lerp(currentOrbitPosition, targetOrbitPosition, smoothFactor);
+                // Clamp to max angular velocity
+                currentTangentialVelocity = Mathf.Clamp(currentTangentialVelocity, -maxAngularVelocity, maxAngularVelocity);
+
+                // Apply movement based on smoothed velocity
+                float angleToMove = currentTangentialVelocity * deltaTime;
+
+                // Additional safety clamp to ensure we don't overshoot
+                if (Mathf.Abs(angleDiff) > 0.001f)
+                {
+                    float maxAllowedMovement = Mathf.Sign(angleDiff) * Mathf.Min(Mathf.Abs(angleToMove), Mathf.Abs(angleDiff));
+                    angleToMove = maxAllowedMovement;
+                }
+
+                currentAngleRad += angleToMove;
             }
             else
             {
-                // No smoothing - direct movement (clamped to max distance)
-                currentOrbitPosition += direction.normalized * maxDistance;
+                // No smoothing - directly apply clamped angular movement
+                float angleToMove = Mathf.Clamp(angleDiff, -maxAnglePerFrame, maxAnglePerFrame);
+                currentAngleRad += angleToMove;
+
+                // Reset tangential velocity for consistency
+                currentTangentialVelocity = angleToMove / deltaTime;
             }
+
+            newPosition = new Vector2(Mathf.Cos(currentAngleRad), Mathf.Sin(currentAngleRad)) * cursorMechanics.minOrbitRadius;
         }
         else
         {
-            // Apply smoothing even when close to target
+            // When not using tangent movement, reset tangential velocity
+            currentTangentialVelocity = 0f;
+
+            // NORMAL MOVEMENT: Direct toward target
+            bool isFarFromTarget = distance > maxDistance;
+
             if (cursorMechanics.directModeSmoothing > 0f)
             {
-                // Use stronger smoothing when close to target
+                // Smooth movement with frame-rate independent exponential interpolation
                 float smoothing = Mathf.Clamp01(cursorMechanics.directModeSmoothing);
-                float smoothFactor = 1f - Mathf.Exp(-cursorMechanics.cursorFollowSpeed * (1f - smoothing * 0.9f) * deltaTime);
-                smoothFactor = Mathf.Min(smoothFactor, 0.98f);
+                float strength = isFarFromTarget ? 0.7f : 0.9f;
+                float lerpFactor = 1f - Mathf.Exp(-cursorMechanics.cursorFollowSpeed * (1f - smoothing * strength) * deltaTime);
 
-                currentOrbitPosition = Vector2.Lerp(currentOrbitPosition, targetOrbitPosition, smoothFactor);
+                // Clamp to prevent overshoot
+                lerpFactor = Mathf.Min(lerpFactor, isFarFromTarget ? 0.95f : 0.98f);
+
+                newPosition = Vector2.Lerp(currentOrbitPosition, targetOrbitPosition, lerpFactor);
+
+                // Ensure we don't exceed max distance
+                Vector2 movement = newPosition - currentOrbitPosition;
+                if (movement.magnitude > maxDistance)
+                {
+                    newPosition = currentOrbitPosition + movement.normalized * maxDistance;
+                }
             }
             else
             {
-                // No smoothing - snap to target
-                currentOrbitPosition = targetOrbitPosition;
+                // Direct movement (no smoothing)
+                newPosition = isFarFromTarget
+                    ? currentOrbitPosition + targetDir.normalized * maxDistance
+                    : targetOrbitPosition;
             }
+
+            // Apply radius constraints
+            float newRadius = newPosition.magnitude;
+            if (newRadius < cursorMechanics.minOrbitRadius)
+                newPosition = newPosition.normalized * cursorMechanics.minOrbitRadius;
+            else if (newRadius > cursorMechanics.maxOrbitRadius)
+                newPosition = newPosition.normalized * cursorMechanics.maxOrbitRadius;
         }
 
-        // Apply radius constraints (in case we moved outside bounds)
-        float currentDist = currentOrbitPosition.magnitude;
-        if (currentDist < cursorMechanics.minOrbitRadius)
-        {
-            currentOrbitPosition = currentOrbitPosition.normalized * cursorMechanics.minOrbitRadius;
-        }
-        else if (currentDist > cursorMechanics.maxOrbitRadius)
-        {
-            currentOrbitPosition = currentOrbitPosition.normalized * cursorMechanics.maxOrbitRadius;
-        }
-
+        currentOrbitPosition = newPosition;
         currentOrbitRadius = currentOrbitPosition.magnitude;
         currentAngle = Mathf.Atan2(currentOrbitPosition.y, currentOrbitPosition.x) * Mathf.Rad2Deg;
     }
@@ -434,10 +462,12 @@ public class CharacterCursorWeapon : CharacterWeapon
     {
         if (deltaTime <= 0) return;
 
-        Vector2 currentPos = weaponTransform.position;
+        Vector2 currentPos = weaponTransform.localPosition;
         currentWeaponSpeed = ((Vector2)currentPos - lastPosition).magnitude / deltaTime;
         lastPosition = currentPos;
         angularDistance = Mathf.DeltaAngle(previousAngle, currentAngle);
+
+        Debug.Log($"currentWeaponSpeed: {currentWeaponSpeed}");
     }
 
     private void UpdateSpeedAverage()
@@ -586,12 +616,8 @@ public class CharacterCursorWeapon : CharacterWeapon
         float speedForDamage = cursorMechanics.useAverageSpeedForDamage ? smoothedWeaponSpeed : currentWeaponSpeed;
         float speedForKnockback = cursorMechanics.useAverageSpeedForKnockback ? smoothedWeaponSpeed : currentWeaponSpeed;
 
-        if (speedForDamage < cursorMechanics.minimumDamageSpeed) return;
-
-        // Calculate damage
-        float speedDamage = (speedForDamage - cursorMechanics.minimumDamageSpeed) * cursorMechanics.damagePerSpeedUnit;
-        float totalDamage = Mathf.Max(cursorMechanics.baseDamage, speedDamage);
-        totalDamage = CalculateDamage(totalDamage);
+        float damage = CalculateDamage();
+        float iFrameDuration = CalculateIFrames();
 
         // Apply to target
         var condition = target.GetComponent<CharacterCondition>();
@@ -600,11 +626,11 @@ public class CharacterCursorWeapon : CharacterWeapon
             // Do not hit character if they have hit cooldown
             if (condition.HasStatusEffect("hit_cooldown")) return;
 
-            condition.TakeDamage(totalDamage, target.transform.position);
+            condition.TakeDamage(damage, target.transform.position, hitCooldown: iFrameDuration);
             character.RaiseEvent("enemy_hit", new
             {
                 enemy = target,
-                damage = totalDamage,
+                damage = damage,
                 instantaneousSpeed = currentWeaponSpeed,
                 averagedSpeed = smoothedWeaponSpeed,
                 position = target.transform.position,
@@ -628,6 +654,76 @@ public class CharacterCursorWeapon : CharacterWeapon
         }
 
         hitThisFrame.Add(target.GetComponent<Collider2D>());
+    }
+
+    public float CalculateDamage()
+    {
+        float damage = cursorMechanics.baseDamage;
+
+        float velocity = rb != null ? rb.linearVelocity.magnitude : 0f;
+        damage *= CalculateVelocityMultiplier(velocity, cursorMechanics);
+
+        // Get max speed based on movement mode
+        float maxSpeed = GetMaxSpeed();
+
+        // Get the appropriate speed value based on config
+        float effectiveSpeed = cursorMechanics.useAverageSpeedForDamage ? smoothedWeaponSpeed : currentWeaponSpeed;
+
+        // Calculate speed percentage relative to max
+        float speedPercent = Mathf.Clamp01(effectiveSpeed / maxSpeed);
+
+        // Get a float the reflects where within the range of the two percents our current speed percent is
+        float damageRange = Mathf.InverseLerp(
+            cursorMechanics.minDamageMultiplierSpeedPercent,
+            cursorMechanics.maxDamageMultiplierSpeedPercent,
+            speedPercent
+        );
+
+        // Use the float from the previous calculation to lerp between our min/max damage
+        return damage * Mathf.Lerp(
+            cursorMechanics.minDamageMultiplier,
+            cursorMechanics.maxDamageMultiplier,
+            damageRange
+        );
+    }
+
+    private float CalculateIFrames()
+    {
+        // Get max speed based on movement mode
+        float maxSpeed = GetMaxSpeed();
+
+        // Get the appropriate speed value based on config
+        float effectiveSpeed = cursorMechanics.useAverageSpeedForDamage ? smoothedWeaponSpeed : currentWeaponSpeed;
+
+        // Calculate speed percentage relative to max
+        float speedPercent = Mathf.Clamp01(effectiveSpeed / maxSpeed);
+
+        // Get a float the reflects where within the range of the two percents our current speed percent is
+        float invincibilityRange = Mathf.InverseLerp(
+            cursorMechanics.minInvincibilitySpeedPercent,
+            cursorMechanics.maxInvincibilitySpeedPercent,
+            speedPercent
+        );
+
+        //Debug.Log($"Hit giving {Mathf.Lerp(cursorMechanics.minInvincibilityDuration, cursorMechanics.maxInvincibilityDuration, invincibilityRange)} i frames");
+
+        // Use the float from the previous calculation to lerp between our min/max damage
+        return Mathf.Lerp(
+            cursorMechanics.minInvincibilityDuration,
+            cursorMechanics.maxInvincibilityDuration,
+            invincibilityRange
+        );
+    }
+
+    private float GetMaxSpeed()
+    {
+        // Get max speed based on movement mode
+        return cursorMechanics.movementMode switch
+        {
+            MovementMode.Direct => cursorMechanics.cursorFollowSpeed,
+            MovementMode.Acceleration => cursorMechanics.maxAngularVelocity * Mathf.Deg2Rad * cursorMechanics.maxOrbitRadius,
+            _ => cursorMechanics.cursorFollowSpeed // default fallback
+        };
     }
 
     // Weapon collision callbacks

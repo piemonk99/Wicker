@@ -231,15 +231,6 @@ public class CharacterEquipment : MonoBehaviour, ICharacterComponent
         }
     }
 
-    // Helper methods
-    public float CalculateDamage(float baseDamage)
-    {
-        if (currentWeapon == null || currentWeaponSystem == null)
-            return baseDamage;
-
-        return currentWeaponSystem.CalculateDamage(baseDamage);
-    }
-
     public string GetCurrentWeaponInfo()
     {
         if (currentWeapon == null) return "No weapon equipped";

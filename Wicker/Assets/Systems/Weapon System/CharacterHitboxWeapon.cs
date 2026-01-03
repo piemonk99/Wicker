@@ -203,7 +203,7 @@ public class CharacterHitboxWeapon : CharacterWeapon
                 break;
 
             // Calculate damage
-            float damage = CalculateDamage(hitboxMechanics.baseDamage);
+            float damage = CalculateDamage();
 
             // Hit detected character
             HitCharacter(hit.gameObject, damage, lastAttackDirection);
@@ -321,6 +321,16 @@ public class CharacterHitboxWeapon : CharacterWeapon
                 direction = direction
             });
         }
+    }
+
+    public float CalculateDamage()
+    {
+        float damage = hitboxMechanics.baseDamage;
+
+        float velocity = rb != null ? rb.linearVelocity.magnitude : 0f;
+        damage *= CalculateVelocityMultiplier(velocity, hitboxMechanics);
+
+        return damage;
     }
 
     public override void Tick(float deltaTime)

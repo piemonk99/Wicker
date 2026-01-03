@@ -119,25 +119,7 @@ public abstract class CharacterWeapon : MonoBehaviour, ICharacterComponent
 
     //////////////////////// Helper Methods ////////////////////////
 
-    public float CalculateDamage(float baseDamage)
-    {
-        if (currentConfig?.MechanicsConfig == null)
-            return baseDamage;
-
-        var mechanics = currentConfig.MechanicsConfig;
-
-        if (!mechanics.scalesWithVelocity)
-            return baseDamage;
-
-        float velocity = rb != null ? rb.linearVelocity.magnitude : 0f;
-
-        // Calculate multiplier using lerp
-        float velocityMultiplier = CalculateVelocityMultiplier(velocity, mechanics);
-
-        return baseDamage * velocityMultiplier;
-    }
-
-    private float CalculateVelocityMultiplier(float currentVelocity, WeaponMechanicsConfig mechanics)
+    protected float CalculateVelocityMultiplier(float currentVelocity, WeaponMechanicsConfig mechanics)
     {
         // If velocity is 0 or below minimum threshold, return base multiplier (1x)
         if (currentVelocity <= mechanics.minimumVelocityForMultiplier)
