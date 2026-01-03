@@ -30,7 +30,7 @@ MonoBehaviour:
     minDamageMultiplier: 1
     maxDamageMultiplier: 2
     minDamageMultiplierSpeedPercent: 0.5
-    maxDamageMultiplierSpeedPercent: 0.95
+    maxDamageMultiplierSpeedPercent: 0.9
     baseKnockback: 1
     speedKnockbackMultiplier: 0.001
     maxKnockback: 1
