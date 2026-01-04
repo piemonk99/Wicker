@@ -93,9 +93,9 @@ public class LungeAbility : CharacterAbility
             currentContinuousForce = lungeForce * config.continuousForceMultiplier;
 
         // Set LUNGE as base state (priority 20, same as dash)
-        character.RaiseEvent("movement_base_set", new CharacterMovement.MovementState(
+        character.RaiseEvent("movement_base_set", new MovementState(
             name: "Lunging",
-            type: CharacterMovement.MovementStateType.Base,
+            type: MovementStateType.Base,
             priority: 20,
             allowMovement: false,
             applyGravity: true, 
@@ -166,9 +166,9 @@ public class LungeAbility : CharacterAbility
             postLungeTimer = config.postLungeDecelerationDuration;
 
             // Set POSTLUNGE as base state with lower priority (10)
-            character.RaiseEvent("movement_base_set", new CharacterMovement.MovementState(
+            character.RaiseEvent("movement_base_set", new MovementState(
                 name: "PostLunge",
-                type: CharacterMovement.MovementStateType.Base,
+                type: MovementStateType.Base,
                 priority: 10,
                 allowMovement: true,
                 applyGravity: true,

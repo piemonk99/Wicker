@@ -112,9 +112,9 @@ public class GrappleDashAbility : CharacterAbility
             currentContinuousForce = dashForce * config.continuousForceMultiplier;
 
         // Set GRAPPLEDASH as base state
-        character.RaiseEvent("movement_base_set", new CharacterMovement.MovementState(
+        character.RaiseEvent("movement_base_set", new MovementState(
             name: "GrappleDashing",
-            type: CharacterMovement.MovementStateType.Base,
+            type: MovementStateType.Base,
             priority: 20, // Same as normal dash
             allowMovement: false,
             applyGravity: false,

@@ -4,90 +4,6 @@ using Unity.VisualScripting;
 
 public class CharacterMovement : MonoBehaviour, ICharacterComponent
 {
-    [System.Serializable]
-    public class MovementState
-    {
-        public string name;
-        public MovementStateType type = MovementStateType.Base;
-        public int priority = 0;
-
-        // Input control
-        public bool allowMovement = true;
-
-        // Physics control
-        public bool applyGravity = true;
-        public bool applyDeceleration = true;
-        public bool canJump = true;
-
-        // Multipliers
-        public float gravityMultiplier = 1f;
-        public float groundAccelerationMultiplier = 1f;
-        public float groundDecelerationMultiplier = 1f;
-        public float airAccelerationMultiplier = 1f;
-        public float airDecelerationMultiplier = 1f;
-        public float jumpForceMultiplier = 1f;
-        public float maxSpeedMultiplier = 1f;
-
-        public MovementState(
-            string name = "Unnamed State",
-            MovementStateType type = MovementStateType.Base,
-            int priority = 0,
-            bool allowMovement = true,
-            bool applyGravity = true,
-            bool applyDeceleration = true,
-            bool canJump = true,
-            float gravityMultiplier = 1f,
-            float groundAccelerationMultiplier = 1f,
-            float groundDecelerationMultiplier = 1f,
-            float airAccelerationMultiplier = 1f,
-            float airDecelerationMultiplier = 1f,
-            float jumpForceMultiplier = 1f,
-            float maxSpeedMultiplier = 1f
-        )
-        {
-            this.name = name;
-            this.type = type;
-            this.priority = priority;
-            this.allowMovement = allowMovement;
-            this.applyGravity = applyGravity;
-            this.applyDeceleration = applyDeceleration;
-            this.canJump = canJump;
-            this.gravityMultiplier = gravityMultiplier;
-            this.groundAccelerationMultiplier = groundAccelerationMultiplier;
-            this.groundDecelerationMultiplier = groundDecelerationMultiplier;
-            this.airAccelerationMultiplier = airAccelerationMultiplier;
-            this.airDecelerationMultiplier = airDecelerationMultiplier;
-            this.jumpForceMultiplier = jumpForceMultiplier;
-            this.maxSpeedMultiplier = maxSpeedMultiplier;
-        }
-
-        public MovementState CombineWith(MovementState other)
-        {
-            return new MovementState(
-                name: $"{this.name}+{other.name}",
-                type: MovementStateType.Modifier,
-                priority: 0,
-                allowMovement: this.allowMovement && other.allowMovement,
-                applyGravity: this.applyGravity && other.applyGravity,
-                applyDeceleration: this.applyDeceleration && other.applyDeceleration,
-                canJump: this.canJump && other.canJump,
-                gravityMultiplier: this.gravityMultiplier * other.gravityMultiplier,
-                groundAccelerationMultiplier: this.groundAccelerationMultiplier * other.groundAccelerationMultiplier,
-                groundDecelerationMultiplier: this.groundDecelerationMultiplier * other.groundDecelerationMultiplier,
-                airAccelerationMultiplier: this.airAccelerationMultiplier * other.airAccelerationMultiplier,
-                airDecelerationMultiplier: this.airDecelerationMultiplier * other.airDecelerationMultiplier,
-                jumpForceMultiplier: this.jumpForceMultiplier * other.jumpForceMultiplier,
-                maxSpeedMultiplier: this.maxSpeedMultiplier * other.maxSpeedMultiplier
-            );
-        }
-    }
-
-    public enum MovementStateType
-    {
-        Base,     // Priority-based, only one active
-        Modifier  // Stackable multipliers
-    }
-
     private MovementConfig movementConfig;
 
     private float maxSpeed;
@@ -137,19 +53,19 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
     private float currentInputX = 0f;
     private float lastInputDirection = 1f; // Default to right (positive)
 
-    // Two-tier state management
-    private MovementState currentBaseState;
-    private List<MovementState> activeModifiers = new List<MovementState>();
-    private MovementState cachedEffectiveState; // Cached combined state for performance
-
-    // Default states
-    private MovementState defaultBaseState = new MovementState("Default", MovementStateType.Base, 0);
-    private Dictionary<string, MovementState> stateRegistry = new Dictionary<string, MovementState>();
+    // State management
+    private MovementStateManager stateManager;
 
     public void Initialize(CharacterCore core)
     {
         character = core;
         rb = GetComponent<Rigidbody2D>();
+
+        // Initialize state manager
+        stateManager = gameObject.AddComponent<MovementStateManager>();
+        stateManager.showDebugInfo = showDebugInfo;
+        stateManager.RaiseEvent += HandleStateEvent;
+        stateManager.Initialize();
 
         movementConfig = character.GetConfig().movement;
         if (movementConfig != null)
@@ -165,7 +81,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
             jumpBufferTime = movementConfig.jumpBufferTime;
             enableVariableJump = movementConfig.enableVariableJump;
             jumpCutMultiplier = movementConfig.jumpCutMultiplier;
-            smoothDropdown  = movementConfig.smoothDropdown;
+            smoothDropdown = movementConfig.smoothDropdown;
             maxDropdownTime = movementConfig.maxDropdownTime;
             minGroundedTime = movementConfig.minGroundedTime;
             groundLayer = movementConfig.groundLayer;
@@ -182,141 +98,16 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 
         // Save original layer and get drop layer
         originalLayer = gameObject.layer;
-        dropLayer = LayerMask.NameToLayer("CharacterDroppingDown"); // Your new layer name
-
+        dropLayer = LayerMask.NameToLayer("CharacterDroppingDown");
 
         character.OnEvent -= HandleEvent;
         character.OnEvent += HandleEvent;
-
-        // Initialize with default base state
-        currentBaseState = defaultBaseState;
-        UpdateEffectiveState();
     }
 
-    // Updates the effective state by combining base state with all modifiers
-    private void UpdateEffectiveState()
+    private void HandleStateEvent(string type, object data)
     {
-        if (currentBaseState == null)
-            currentBaseState = defaultBaseState;
-
-        // Start with base state
-        MovementState combinedState = currentBaseState;
-
-        // Apply all modifiers
-        foreach (var modifier in activeModifiers)
-        {
-            combinedState = combinedState.CombineWith(modifier);
-        }
-
-        cachedEffectiveState = combinedState;
-
-        if (showDebugInfo)
-        {
-            Debug.Log($"Effective State: {cachedEffectiveState.name} " +
-                     $"(Base: {currentBaseState.name}, Modifiers: {activeModifiers.Count})");
-        }
-    }
-
-    // Returns the currently effective state (used by other methods)
-    private MovementState GetEffectiveState()
-    {
-        return cachedEffectiveState;
-    }
-
-    // State management methods
-    public void SetBaseState(MovementState newBaseState)
-    {
-        if (newBaseState.type != MovementStateType.Base)
-        {
-            Debug.LogWarning($"Tried to set non-Base state as base: {newBaseState.name}");
-            return;
-        }
-
-        // Only change if higher priority
-        if (newBaseState.priority >= currentBaseState.priority)
-        {
-            string previousState = currentBaseState.name;
-            currentBaseState = newBaseState;
-            UpdateEffectiveState();
-
-            character.RaiseEvent("base_movement_state_changed",
-                new BaseStateChangeData(previousState, currentBaseState.name));
-        }
-    }
-
-    public void ClearBaseState(string stateName = null)
-    {
-        if (stateName == null || currentBaseState.name == stateName)
-        {
-            // Return to default base state
-            string previousState = currentBaseState.name;
-            currentBaseState = defaultBaseState;
-            UpdateEffectiveState();
-
-            character.RaiseEvent("base_movement_state_changed",
-                new BaseStateChangeData(previousState, currentBaseState.name));
-        }
-    }
-
-    public void AddModifier(MovementState modifier)
-    {
-        if (modifier.type != MovementStateType.Modifier)
-        {
-            Debug.LogWarning($"Tried to add non-Modifier as modifier: {modifier.name}");
-            return;
-        }
-
-        // Check if modifier already exists
-        for (int i = 0; i < activeModifiers.Count; i++)
-        {
-            if (activeModifiers[i].name == modifier.name)
-            {
-                activeModifiers[i] = modifier; // Update existing
-                UpdateEffectiveState();
-                return;
-            }
-        }
-
-        // Add new modifier
-        activeModifiers.Add(modifier);
-        UpdateEffectiveState();
-
-        character.RaiseEvent("modifier_added", modifier.name);
-    }
-
-    public void RemoveModifier(string modifierName)
-    {
-        for (int i = activeModifiers.Count - 1; i >= 0; i--)
-        {
-            if (activeModifiers[i].name == modifierName)
-            {
-                activeModifiers.RemoveAt(i);
-                UpdateEffectiveState();
-                character.RaiseEvent("modifier_removed", modifierName);
-                return;
-            }
-        }
-    }
-
-    public void ClearAllModifiers()
-    {
-        if (activeModifiers.Count > 0)
-        {
-            activeModifiers.Clear();
-            UpdateEffectiveState();
-            character.RaiseEvent("modifiers_cleared", null);
-        }
-    }
-
-    // Register a state for later use by name
-    public void RegisterState(string name, MovementState state)
-    {
-        stateRegistry[name] = state;
-    }
-
-    public MovementState GetRegisteredState(string name)
-    {
-        return stateRegistry.ContainsKey(name) ? stateRegistry[name] : null;
+        // Forward state manager events to character
+        character.RaiseEvent(type, data);
     }
 
     // Event handling
@@ -325,7 +116,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         switch (type)
         {
             case "move_input":
-                if (GetEffectiveState().allowMovement)
+                if (stateManager.GetEffectiveState().allowMovement)
                 {
                     Vector2 input = (Vector2)data;
                     HandleHorizontalMovement(input.x);
@@ -337,7 +128,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 
             case "jump_pressed":
                 jumpBufferTimer = jumpBufferTime;
-                if (GetEffectiveState().canJump && IsGrounded() && !isJumping)
+                if (stateManager.GetEffectiveState().canJump && IsGrounded() && !isJumping)
                     PerformJump();
                 break;
 
@@ -360,35 +151,34 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
                 if (isDroppingDown && smoothDropdown && dropDownTimer <= 0f) { StopDropDown(); }
                 break;
 
-            // Two-tier state management events
+            // Two-tier state management events - now handled by state manager
             case "movement_base_set":
-                SetBaseState((MovementState)data);
+                stateManager.PushBaseState((MovementState)data);
                 break;
 
             case "movement_base_clear":
-                ClearBaseState((string)data);
+                stateManager.RemoveBaseState((string)data);
                 break;
 
             case "movement_modifier_add":
-                AddModifier((MovementState)data);
+                stateManager.AddModifier((MovementState)data);
                 break;
 
             case "movement_modifier_remove":
-                RemoveModifier((string)data);
+                stateManager.RemoveModifier((string)data);
                 break;
 
             case "movement_modifiers_clear":
-                ClearAllModifiers();
+                stateManager.ClearAllModifiers();
                 break;
 
             case "movement_state_update":
                 // Update existing state (used by grapple dynamic updates)
                 MovementState updatedState = (MovementState)data;
                 if (updatedState.type == MovementStateType.Base &&
-                    currentBaseState.name == updatedState.name)
+                    stateManager.GetCurrentBaseState().name == updatedState.name)
                 {
-                    currentBaseState = updatedState;
-                    UpdateEffectiveState();
+                    stateManager.PushBaseState(updatedState); // This will update existing state
                 }
                 break;
 
@@ -411,7 +201,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 
     private void HandleHorizontalMovement(float inputX)
     {
-        MovementState effectiveState = GetEffectiveState();
+        MovementState effectiveState = stateManager.GetEffectiveState();
         float stateMaxSpeed = maxSpeed * effectiveState.maxSpeedMultiplier;
         float targetSpeed = inputX * stateMaxSpeed;
 
@@ -456,7 +246,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 
     private float GetEffectiveAcceleration()
     {
-        MovementState effectiveState = GetEffectiveState();
+        MovementState effectiveState = stateManager.GetEffectiveState();
         if (IsGrounded())
         {
             return groundAcceleration * effectiveState.groundAccelerationMultiplier;
@@ -469,7 +259,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 
     private float GetEffectiveDeceleration()
     {
-        MovementState effectiveState = GetEffectiveState();
+        MovementState effectiveState = stateManager.GetEffectiveState();
         if (!effectiveState.applyDeceleration) return 0f;
 
         if (IsGrounded())
@@ -482,12 +272,10 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         }
     }
 
-
     public void Tick(float deltaTime)
     {
         coyoteTimer -= deltaTime;
         jumpBufferTimer -= deltaTime;
-        
 
         // Determines automatic ending of dropdown state if smoothDropdown = false
         if (isDroppingDown)
@@ -500,7 +288,6 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
             }
         }
 
-
         bool isGrounded = CheckGround();
         if (!wasGrounded && isGrounded) // Landed
         {
@@ -510,7 +297,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 
             groundedTimer = 0f;
 
-            if (jumpBufferTimer > 0 && GetEffectiveState().canJump)
+            if (jumpBufferTimer > 0 && stateManager.GetEffectiveState().canJump)
             {
                 PerformJump();
             }
@@ -526,14 +313,13 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
             coyoteTimer = coyoteTime;
             groundedTimer += deltaTime;
         }
-            
 
         wasGrounded = isGrounded;
     }
 
     public void PhysicsTick(float fixedDeltaTime)
     {
-        MovementState effectiveState = GetEffectiveState();
+        MovementState effectiveState = stateManager.GetEffectiveState();
         if (effectiveState.applyGravity && !IsGrounded())
         {
             float currentGravity = gravity * effectiveState.gravityMultiplier;
@@ -545,7 +331,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 
     private void PerformJump()
     {
-        MovementState effectiveState = GetEffectiveState();
+        MovementState effectiveState = stateManager.GetEffectiveState();
         float stateJumpForce = jumpForce * effectiveState.jumpForceMultiplier;
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, stateJumpForce);
         isJumping = true;
@@ -662,11 +448,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         return CheckGround() || coyoteTimer > 0;
     }
 
-    // Public getters
-    public MovementState GetCurrentBaseState() => currentBaseState;
-    public List<string> GetActiveModifiers() => activeModifiers.ConvertAll(m => m.name);
-    public MovementState GetEffectiveMovementState() => GetEffectiveState();
-
+    // 
     public Vector2 GetVelocity() => rb.linearVelocity;
     public float GetHorizontalVelocity() => rb.linearVelocity.x;
     public float GetVerticalVelocity() => rb.linearVelocity.y;
@@ -690,8 +472,27 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
     public float GetLastInputDirection() => lastInputDirection;
     public bool HasActiveInput() => Mathf.Abs(currentInputX) > 0.01f;
 
-    // External control methods (unchanged)
-    public void ApplyExternalForce(Vector2 force, ForceMode2DExtended forceMode = ForceMode2DExtended.Force) { /* Same as before */ }
+    // External control methods
+    public void ApplyExternalForce(Vector2 force, ForceMode2DExtended forceMode = ForceMode2DExtended.Force)
+    {
+        // Implementation remains the same as before
+        switch (forceMode)
+        {
+            case ForceMode2DExtended.Force:
+                rb.AddForce(force);
+                break;
+            case ForceMode2DExtended.Impulse:
+                rb.AddForce(force, ForceMode2D.Impulse);
+                break;
+            case ForceMode2DExtended.VelocityChange:
+                rb.linearVelocity += force;
+                break;
+            case ForceMode2DExtended.Acceleration:
+                rb.AddForce(force * rb.mass);
+                break;
+        }
+    }
+
     public void SetExternalVelocity(Vector2 velocity) { rb.linearVelocity = velocity; }
     public void AddExternalVelocity(Vector2 velocity) { rb.linearVelocity += velocity; }
 
@@ -727,8 +528,8 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 
     public void Freeze()
     {
-        // Now uses modifier system
-        AddModifier(new MovementState(
+        // Now uses modifier system through state manager
+        stateManager.AddModifier(new MovementState(
             name: "Frozen",
             type: MovementStateType.Modifier,
             allowMovement: false,
@@ -747,23 +548,9 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 
     public void Unfreeze()
     {
-        RemoveModifier("Frozen");
+        stateManager.RemoveModifier("Frozen");
     }
 }
-
-// Helper class for state change events
-public class BaseStateChangeData
-{
-    public string previousState;
-    public string newState;
-
-    public BaseStateChangeData(string previous, string current)
-    {
-        previousState = previous;
-        newState = current;
-    }
-}
-
 public enum ForceMode2DExtended
 {
     Force,          // mass-dependent continuous force

@@ -14,7 +14,7 @@ public class AudioManager : MonoBehaviour
         {
             if (_instance == null)
             {
-                _instance = FindObjectOfType<AudioManager>();
+                _instance = FindAnyObjectByType<AudioManager>();
                 if (_instance == null)
                 {
                     GameObject audioManagerObject = new GameObject("AudioManager");

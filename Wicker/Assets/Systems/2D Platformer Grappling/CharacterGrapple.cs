@@ -55,7 +55,7 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
     private const float MOMENTUM_CAPTURE_RATE = 0.1f;
 
     // Current grapple movement state (cached for updates)
-    private CharacterMovement.MovementState currentGrappleMovementState;
+    private MovementState currentGrappleMovementState;
 
     // Computed properties for reeling
     private bool ShouldReel => isGrappling && isJumpHeld && !isDownHeld;
@@ -346,7 +346,7 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
         currentGrappleMovementState = CreateDynamicGrappleMovementState(horizontalSpeed);
 
         // Set grapple as base state with high priority
-        currentGrappleMovementState.type = CharacterMovement.MovementStateType.Base;
+        currentGrappleMovementState.type = MovementStateType.Base;
         currentGrappleMovementState.priority = 30; // Higher than dash and post-dash
 
         character.RaiseEvent("movement_base_set", currentGrappleMovementState);
@@ -689,7 +689,7 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
 
     //////////////////////// Dynamic MovementState //////////////////////////
 
-    private CharacterMovement.MovementState CreateDynamicGrappleMovementState(float horizontalSpeed)
+    private MovementState CreateDynamicGrappleMovementState(float horizontalSpeed)
     {
         // Start with the base grapple movement state
         var movementState = currentConfig.movementState.ToMovementState();

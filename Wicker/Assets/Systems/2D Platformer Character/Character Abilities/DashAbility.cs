@@ -94,9 +94,9 @@ public class DashAbility : CharacterAbility
             currentContinuousForce = dashForce * config.continuousForceMultiplier;
 
         // Set DASH as base state (priority 20)
-        character.RaiseEvent("movement_base_set", new CharacterMovement.MovementState(
+        character.RaiseEvent("movement_base_set", new MovementState(
             name: "Dashing",
-            type: CharacterMovement.MovementStateType.Base,
+            type: MovementStateType.Base,
             priority: 20,
             allowMovement: false,
             applyGravity: false,
@@ -157,9 +157,9 @@ public class DashAbility : CharacterAbility
             postDashTimer = config.postDashDecelerationDuration;
 
             // Set POSTDASH as base state with lower priority (10)
-            character.RaiseEvent("movement_base_set", new CharacterMovement.MovementState(
+            character.RaiseEvent("movement_base_set", new MovementState(
                 name: "PostDash",
-                type: CharacterMovement.MovementStateType.Base,
+                type: MovementStateType.Base,
                 priority: 10, // Lower than Dashing (20), higher than Default (0)
                 allowMovement: true,  // Player can move during post-dash
                 applyGravity: true,

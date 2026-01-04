@@ -452,8 +452,6 @@ public class CharacterCursorWeapon : CharacterWeapon
         currentWeaponSpeed = ((Vector2)currentPos - lastPosition).magnitude / deltaTime;
         lastPosition = currentPos;
         angularDistance = Mathf.DeltaAngle(previousAngle, currentAngle);
-
-        Debug.Log($"currentWeaponSpeed: {currentWeaponSpeed}");
     }
 
     private void UpdateSpeedAverage()

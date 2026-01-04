@@ -36,9 +36,9 @@ public class GrappleMovementState
     /// Converts this GrappleMovementState to a PlatformerMovement.MovementState.
     /// </summary>
     /// <returns>A MovementState with the configured values.</returns>
-    public CharacterMovement.MovementState ToMovementState()
+    public MovementState ToMovementState()
     {
-        return new CharacterMovement.MovementState(
+        return new MovementState(
             name: name,
             allowMovement: allowMovement,
             applyGravity: applyGravity,
