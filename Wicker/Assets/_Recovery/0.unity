@@ -1217,7 +1217,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &538821686
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1244,7 +1244,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlatformerMovement
   groundCheck: {fileID: 1538004298}
   showDebugInfo: 0
-  debugTurnaround: 0
 --- !u!114 &538821688
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1973,7 +1972,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlatformerMovement
   groundCheck: {fileID: 449028902}
   showDebugInfo: 1
-  debugTurnaround: 1
 --- !u!114 &960373644
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2617,7 +2615,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlatformerMovement
   groundCheck: {fileID: 1354338742}
   showDebugInfo: 0
-  debugTurnaround: 0
 --- !u!114 &1402099620
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2873,7 +2870,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlatformerMovement
   groundCheck: {fileID: 604003072}
   showDebugInfo: 0
-  debugTurnaround: 0
 --- !u!114 &1535560107
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -43,6 +43,20 @@ public class MovementConfig
     [Tooltip("Minimum time the player must be grounded to enter dropdown mode.")]
     public float minGroundedTime = .05f;
 
+    [Header("Turnaround Skid Settings")]
+    [Tooltip("Enable or disable the turnaround skid and dash feature.")]
+    public bool enableTurnaround = true;
+    [Tooltip("Minimum average speed (over past frames) required to trigger turnaround dash. Expressed as fraction of maxSpeed.")]
+    [Range(0f, 1f)] public float turnaroundThreshold = 0.5f;
+    [Tooltip("Extra velocity boost applied when performing a turnaround dash.")]
+    public float turnaroundMagnitude = 8f;
+    [Tooltip("Amount of time the character will remain stopped during a turnaround.")]
+    public float turnaroundDelay = .35f;
+    [Tooltip("Number of frames to track velocity history for average speed calculation.")]
+    public int turnaroundHistoryFrames = 8;
+    [Tooltip("Number of recent frames not counted for turnaroundHistory.")]
+    public int turnaroundHistoryDeadzone = 8;
+
     [Header("Layers")]
     public LayerMask groundLayer;
     public LayerMask platformLayer;

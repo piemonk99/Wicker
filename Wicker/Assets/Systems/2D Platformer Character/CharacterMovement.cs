@@ -6,6 +6,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 {
     private MovementConfig movementConfig;
 
+    // Add these to your existing variables section
     private float maxSpeed;
     private float groundAcceleration;
     private float groundDeceleration;
@@ -36,6 +37,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 
     [Header("Debug")]
     public bool showDebugInfo = false;
+    [SerializeField] private bool debugTurnaround = true;
 
     // State
     private CharacterCore character;
@@ -55,6 +57,9 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 
     // State management
     private MovementStateManager stateManager;
+
+    // Turnaround system
+    private CharacterTurnaround turnaround;
 
     public void Initialize(CharacterCore core)
     {
@@ -100,6 +105,9 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         originalLayer = gameObject.layer;
         dropLayer = LayerMask.NameToLayer("CharacterDroppingDown");
 
+        // Initialize turnaround system
+        turnaround = new CharacterTurnaround(character, rb, stateManager, movementConfig, debugTurnaround);
+
         character.OnEvent -= HandleEvent;
         character.OnEvent += HandleEvent;
     }
@@ -116,20 +124,28 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         switch (type)
         {
             case "move_input":
+                Vector2 input = (Vector2)data;
+
+                // Always update input tracking, even during turnaround delay
+                UpdateInputDirection(input.x);
+
+                // Check if we should process movement
                 if (stateManager.GetEffectiveState().allowMovement)
                 {
-                    Vector2 input = (Vector2)data;
                     HandleHorizontalMovement(input.x);
-
-                    // Update input tracking
-                    UpdateInputDirection(input.x);
                 }
+
+                // Check for turnaround cancellation based on input change
+                turnaround.CheckTurnaroundCancellation(input.x, IsGrounded());
                 break;
 
             case "jump_pressed":
                 jumpBufferTimer = jumpBufferTime;
                 if (stateManager.GetEffectiveState().canJump && IsGrounded() && !isJumping)
                     PerformJump();
+
+                // Let turnaround system handle jump cancellation
+                turnaround.HandleEvent(type, data);
                 break;
 
             case "jump_released":
@@ -145,6 +161,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
                 bool canDrop = ((IsGrounded() && groundedTimer >= minGroundedTime) || smoothDropdown) && !isDroppingDown && !isGrappling;
 
                 if (canDrop) StartDropDown();
+                turnaround.HandleEvent(type, data);
                 break;
 
             case "down_released":
@@ -195,6 +212,14 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
             case "config_changed":
                 CharacterConfig newConfig = (CharacterConfig)data;
                 movementConfig = newConfig.movement;
+                // Update turnaround config
+                turnaround.UpdateConfig(movementConfig);
+                break;
+
+            // Add handlers for cancellation events
+            case "grapple_started":
+            case "dash_pressed":
+                turnaround.HandleEvent(type, data);
                 break;
         }
     }
@@ -209,28 +234,55 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         float effectiveDeceleration = GetEffectiveDeceleration();
 
         float accelRate;
+
+        // Check if player is trying to move opposite direction
+        bool isOppositeDirection = Mathf.Abs(inputX) > 0.01f &&
+                                   Mathf.Sign(inputX) != Mathf.Sign(rb.linearVelocity.x);
+
         if (Mathf.Abs(inputX) > 0.01f)
         {
-            if (Mathf.Abs(rb.linearVelocity.x) < Mathf.Abs(stateMaxSpeed) ||
-                Mathf.Sign(inputX) != Mathf.Sign(rb.linearVelocity.x))
+            if (isOppositeDirection)
             {
+                // When moving opposite direction, combine acceleration and deceleration for faster stop
+                accelRate = (effectiveAcceleration + effectiveDeceleration) * 2;
+
+                if (debugTurnaround)
+                {
+                    Debug.Log($"Opposite direction input detected. AccelRate: {accelRate} (Accel: {effectiveAcceleration} + Decel: {effectiveDeceleration})");
+                }
+            }
+            else if (Mathf.Abs(rb.linearVelocity.x) < Mathf.Abs(stateMaxSpeed))
+            {
+                // Moving same direction but below max speed
                 accelRate = effectiveAcceleration;
             }
             else
             {
+                // Moving same direction but at or above max speed
                 accelRate = effectiveDeceleration;
             }
         }
         else
         {
+            // No input - just decelerate
             accelRate = effectiveDeceleration;
         }
 
+        // Store previous velocity before applying acceleration
+        float velocityBefore = rb.linearVelocity.x;
+
+        // Apply acceleration
         float acceleration = Mathf.Sign(targetSpeed - rb.linearVelocity.x) * accelRate;
         rb.linearVelocity = new Vector2(
             Mathf.MoveTowards(rb.linearVelocity.x, targetSpeed, Mathf.Abs(acceleration) * Time.fixedDeltaTime),
             rb.linearVelocity.y
         );
+
+        // Check for turnaround activation (when moving opposite direction)
+        turnaround.CheckForTurnaroundActivation(velocityBefore, rb.linearVelocity.x, inputX, IsGrounded());
+
+        // Update velocity history
+        turnaround.UpdateVelocityHistory(rb.linearVelocity.x);
     }
 
     private void UpdateInputDirection(float inputX)
@@ -276,6 +328,9 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
     {
         coyoteTimer -= deltaTime;
         jumpBufferTimer -= deltaTime;
+
+        // Update turnaround system
+        turnaround.Tick(deltaTime);
 
         // Determines automatic ending of dropdown state if smoothDropdown = false
         if (isDroppingDown)
@@ -448,7 +503,6 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         return CheckGround() || coyoteTimer > 0;
     }
 
-    // 
     public Vector2 GetVelocity() => rb.linearVelocity;
     public float GetHorizontalVelocity() => rb.linearVelocity.x;
     public float GetVerticalVelocity() => rb.linearVelocity.y;
@@ -471,6 +525,17 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
     public float GetCurrentInputX() => currentInputX;
     public float GetLastInputDirection() => lastInputDirection;
     public bool HasActiveInput() => Mathf.Abs(currentInputX) > 0.01f;
+
+    // Add method to get turnaround average speed (for debugging/UI)
+    public float GetTurnaroundAverageSpeed()
+    {
+        return turnaround.GetTurnaroundAverageSpeed();
+    }
+
+    // Add method to check turnaround state
+    public bool IsInTurnaroundDelay() => turnaround.IsInTurnaroundDelay();
+    public float GetTurnaroundDelayRemaining() => turnaround.GetTurnaroundDelayRemaining();
+    public bool IsTurnaroundEnabled() => turnaround.IsEnabled();
 
     // External control methods
     public void ApplyExternalForce(Vector2 force, ForceMode2DExtended forceMode = ForceMode2DExtended.Force)
@@ -528,6 +593,12 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 
     public void Freeze()
     {
+        // Cancel turnaround if frozen
+        if (IsInTurnaroundDelay())
+        {
+            turnaround.CancelTurnaround("frozen");
+        }
+
         // Now uses modifier system through state manager
         stateManager.AddModifier(new MovementState(
             name: "Frozen",
@@ -551,6 +622,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         stateManager.RemoveModifier("Frozen");
     }
 }
+
 public enum ForceMode2DExtended
 {
     Force,          // mass-dependent continuous force
