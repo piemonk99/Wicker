@@ -37,7 +37,6 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 
     [Header("Debug")]
     public bool showDebugInfo = false;
-    [SerializeField] private bool debugTurnaround = true;
 
     // State
     private CharacterCore character;
@@ -106,7 +105,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         dropLayer = LayerMask.NameToLayer("CharacterDroppingDown");
 
         // Initialize turnaround system
-        turnaround = new CharacterTurnaround(character, rb, stateManager, movementConfig, debugTurnaround);
+        turnaround = new CharacterTurnaround(character, rb, stateManager, movementConfig);
 
         character.OnEvent -= HandleEvent;
         character.OnEvent += HandleEvent;
@@ -245,11 +244,6 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
             {
                 // When moving opposite direction, combine acceleration and deceleration for faster stop
                 accelRate = (effectiveAcceleration + effectiveDeceleration) * 2;
-
-                if (debugTurnaround)
-                {
-                    Debug.Log($"Opposite direction input detected. AccelRate: {accelRate} (Accel: {effectiveAcceleration} + Decel: {effectiveDeceleration})");
-                }
             }
             else if (Mathf.Abs(rb.linearVelocity.x) < Mathf.Abs(stateMaxSpeed))
             {

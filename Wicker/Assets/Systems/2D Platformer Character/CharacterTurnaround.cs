@@ -32,8 +32,6 @@ public class CharacterTurnaround
     private Rigidbody2D rb;
     private MovementStateManager stateManager;
 
-    // Debug
-    private bool debugTurnaround;
 
     public CharacterTurnaround(CharacterCore character, Rigidbody2D rb, MovementStateManager stateManager,
                               MovementConfig config, bool debugTurnaround = false)
@@ -41,7 +39,6 @@ public class CharacterTurnaround
         this.character = character;
         this.rb = rb;
         this.stateManager = stateManager;
-        this.debugTurnaround = debugTurnaround;
 
         UpdateConfig(config);
     }
@@ -160,12 +157,6 @@ public class CharacterTurnaround
         if (isOppositeInput && isGrounded && cooldownExpired && hasStrongInput && averageSpeed >= requiredAverageSpeed)
         {
             StartTurnaroundDelay(Mathf.Sign(inputX), Mathf.Sign(previousVelocityX));
-
-            if (debugTurnaround)
-            {
-                Debug.Log($"Turnaround activated! AvgSpeed={averageSpeed:F1}, Required={requiredAverageSpeed:F1}, " +
-                         $"Direction={Mathf.Sign(inputX)}, Delay={turnaroundDelay}s");
-            }
         }
 
         // Also check for traditional velocity sign change (for backwards compatibility)
@@ -182,12 +173,6 @@ public class CharacterTurnaround
                 cooldownExpired && averageSpeed >= requiredAverageSpeed)
             {
                 StartTurnaroundDelay(Mathf.Sign(inputX), Mathf.Sign(previousVelocityX));
-
-                if (debugTurnaround)
-                {
-                    Debug.Log($"Turnaround activated (velocity sign change)! AvgSpeed={averageSpeed:F1}, " +
-                             $"Required={requiredAverageSpeed:F1}, Direction={Mathf.Sign(inputX)}");
-                }
             }
         }
     }
@@ -218,12 +203,6 @@ public class CharacterTurnaround
         ));
 
         character.RaiseEvent("turnaround_delay_started", turnaroundDelay);
-
-        if (debugTurnaround)
-        {
-            Debug.Log($"Turnaround delay started for {turnaroundDelay}s. Target direction: {targetDirection}, " +
-                     $"Opposite velocity direction: {oppositeVelocityDirection}");
-        }
     }
 
     public void CheckTurnaroundCancellation(float inputX, bool isGrounded)
@@ -279,12 +258,6 @@ public class CharacterTurnaround
 
         // Raise event for animations/effects
         character.RaiseEvent("turnaround_dash", dashVelocity);
-
-        if (debugTurnaround)
-        {
-            Debug.Log($"Turnaround dash executed! Direction: {dashDirection}, " +
-                     $"Added velocity: {dashVelocity}, New velocity: {rb.linearVelocity.x}");
-        }
     }
 
     public void CancelTurnaround(string reason)
@@ -299,11 +272,6 @@ public class CharacterTurnaround
         turnaroundCooldownTimer = 0f;
 
         character.RaiseEvent("turnaround_cancelled", reason);
-
-        if (debugTurnaround)
-        {
-            Debug.Log($"Turnaround cancelled: {reason}");
-        }
     }
 
     private float GetEffectiveAverageSpeed()

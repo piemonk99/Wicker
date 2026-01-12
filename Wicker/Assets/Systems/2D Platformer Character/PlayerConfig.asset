@@ -27,9 +27,10 @@ MonoBehaviour:
     smoothDropdown: 0
     maxDropdownTime: 0.4
     minGroundedTime: 0.05
-    turnaroundThreshold: 0.973
-    turnaroundMagnitude: 50
-    turnaroundDelay: 0.5
+    enableTurnaround: 1
+    turnaroundThreshold: 0.74
+    turnaroundMagnitude: 20
+    turnaroundDelay: 0.4
     turnaroundHistoryFrames: 8
     turnaroundHistoryDeadzone: 2
     groundLayer:
