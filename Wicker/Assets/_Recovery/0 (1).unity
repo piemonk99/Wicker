@@ -1979,7 +1979,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 38ec49e879419be4199edeba90f9ecbe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GrappleAnchor
-  useLocalOffset: 1
   localAnchorOffset: {x: 4, y: 0}
   showGizmo: 1
   gizmoColor: {r: 1, g: 0, b: 1, a: 1}

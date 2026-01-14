@@ -44,12 +44,6 @@ public class MovementStateManager : MonoBehaviour
         }
 
         cachedEffectiveState = combinedState;
-
-        if (showDebugInfo)
-        {
-            Debug.Log($"Effective State: {cachedEffectiveState.name} " +
-                     $"(Base: {currentBaseState.name}, Base Stack: {baseStateStack.Count}, Modifiers: {activeModifiers.Count})");
-        }
     }
 
     // Returns the currently effective state (used by other methods)

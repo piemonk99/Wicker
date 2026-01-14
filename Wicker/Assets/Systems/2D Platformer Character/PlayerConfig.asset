@@ -27,7 +27,7 @@ MonoBehaviour:
     smoothDropdown: 0
     maxDropdownTime: 0.4
     minGroundedTime: 0.05
-    enableTurnaround: 1
+    enableTurnaround: 0
     turnaroundThreshold: 0.74
     turnaroundMagnitude: 20
     turnaroundDelay: 0.4

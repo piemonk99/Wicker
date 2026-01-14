@@ -49,6 +49,8 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
     private bool isJumping;
     private bool wasGrounded;
     private bool jumpWasReleased;
+    private Vector2 platformVelocity = Vector2.zero;
+    private Vector2 environmentalVelocity = Vector2.zero; // Combined platform + other env velocitie
 
     // Input tracking
     private float currentInputX = 0f;
@@ -223,6 +225,13 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         }
     }
 
+    // Add this method to combine all environmental velocities
+    private void UpdateEnvironmentalVelocity()
+    {
+        environmentalVelocity = platformVelocity; // Add other sources here if needed
+    }
+
+    /// Modify the HandleHorizontalMovement method - SIMPLIFIED VERSION:
     private void HandleHorizontalMovement(float inputX)
     {
         MovementState effectiveState = stateManager.GetEffectiveState();
@@ -234,9 +243,12 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
 
         float accelRate;
 
-        // Check if player is trying to move opposite direction
+        // Calculate velocity relative to platform
+        float relativeVelocity = rb.linearVelocity.x - platformVelocity.x;
+
+        // Check if player is trying to move opposite direction (relative to platform)
         bool isOppositeDirection = Mathf.Abs(inputX) > 0.01f &&
-                                   Mathf.Sign(inputX) != Mathf.Sign(rb.linearVelocity.x);
+                                   Mathf.Sign(inputX) != Mathf.Sign(relativeVelocity);
 
         if (Mathf.Abs(inputX) > 0.01f)
         {
@@ -245,7 +257,7 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
                 // When moving opposite direction, combine acceleration and deceleration for faster stop
                 accelRate = (effectiveAcceleration + effectiveDeceleration) * 2;
             }
-            else if (Mathf.Abs(rb.linearVelocity.x) < Mathf.Abs(stateMaxSpeed))
+            else if (Mathf.Abs(relativeVelocity) < Mathf.Abs(stateMaxSpeed))
             {
                 // Moving same direction but below max speed
                 accelRate = effectiveAcceleration;
@@ -258,25 +270,37 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         }
         else
         {
-            // No input - just decelerate
+            // No input - just decelerate relative to platform
             accelRate = effectiveDeceleration;
         }
 
         // Store previous velocity before applying acceleration
         float velocityBefore = rb.linearVelocity.x;
 
-        // Apply acceleration
-        float acceleration = Mathf.Sign(targetSpeed - rb.linearVelocity.x) * accelRate;
+        // Apply acceleration to RELATIVE velocity
+        float relativeAcceleration = Mathf.Sign(targetSpeed - relativeVelocity) * accelRate;
+        float newRelativeVelocity = Mathf.MoveTowards(
+            relativeVelocity,
+            targetSpeed,
+            Mathf.Abs(relativeAcceleration) * Time.fixedDeltaTime
+        );
+
+        // Convert back to absolute velocity
         rb.linearVelocity = new Vector2(
-            Mathf.MoveTowards(rb.linearVelocity.x, targetSpeed, Mathf.Abs(acceleration) * Time.fixedDeltaTime),
+            newRelativeVelocity + platformVelocity.x,
             rb.linearVelocity.y
         );
 
-        // Check for turnaround activation (when moving opposite direction)
-        turnaround.CheckForTurnaroundActivation(velocityBefore, rb.linearVelocity.x, inputX, IsGrounded());
+        // Check for turnaround activation (using relative velocity)
+        turnaround.CheckForTurnaroundActivation(
+            velocityBefore - platformVelocity.x,
+            rb.linearVelocity.x - platformVelocity.x,
+            inputX,
+            IsGrounded()
+        );
 
         // Update velocity history
-        turnaround.UpdateVelocityHistory(rb.linearVelocity.x);
+        turnaround.UpdateVelocityHistory(rb.linearVelocity.x - platformVelocity.x);
     }
 
     private void UpdateInputDirection(float inputX)
@@ -369,6 +393,8 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
     public void PhysicsTick(float fixedDeltaTime)
     {
         MovementState effectiveState = stateManager.GetEffectiveState();
+
+        // Apply gravity to relative vertical velocity
         if (effectiveState.applyGravity && !IsGrounded())
         {
             float currentGravity = gravity * effectiveState.gravityMultiplier;
@@ -378,11 +404,18 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
         character.RaiseEvent("velocity_changed", rb.linearVelocity);
     }
 
+    // Modify the PerformJump method to maintain vertical platform momentum
     private void PerformJump()
     {
         MovementState effectiveState = stateManager.GetEffectiveState();
         float stateJumpForce = jumpForce * effectiveState.jumpForceMultiplier;
-        rb.linearVelocity = new Vector2(rb.linearVelocity.x, stateJumpForce);
+
+        // Add jump force to current velocity (including platform vertical velocity)
+        rb.linearVelocity = new Vector2(
+            rb.linearVelocity.x,
+            rb.linearVelocity.y + stateJumpForce
+        );
+
         isJumping = true;
         jumpWasReleased = false;
         coyoteTimer = 0;
@@ -501,6 +534,14 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
     public float GetHorizontalVelocity() => rb.linearVelocity.x;
     public float GetVerticalVelocity() => rb.linearVelocity.y;
     public bool IsMoving() => Mathf.Abs(rb.linearVelocity.x) > 0.1f;
+    public Vector2 GetEnvironmentalVelocity() => environmentalVelocity;
+
+    // Add this method to set platform velocity
+    public void SetPlatformVelocity(Vector2 velocity)
+    {
+        platformVelocity = velocity;
+        UpdateEnvironmentalVelocity();
+    }
 
     // Updated: Get current input direction with last direction fallback
     public float GetCurrentXDirection()

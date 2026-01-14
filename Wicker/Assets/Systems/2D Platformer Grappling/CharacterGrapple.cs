@@ -3,8 +3,7 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Main grapple system controller that manages grapple behavior, physics, and visuals.
-/// Implements ICharacterComponent for integration with character systems.
-/// Coordinates between GrappleConfigManager, GrapplePhysicsCalculator, GrappleSoundManager, and GrappleVisualManager.
+/// Now uses unified anchor system for all grapple points.
 /// </summary>
 public class CharacterGrapple : MonoBehaviour, ICharacterComponent
 {
@@ -43,6 +42,10 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
     private Vector2 grapplePoint;
     private RaycastHit2D grappleHit;
     private float currentRopeLength;
+
+    // Unified anchor system
+    private GrappleAnchor currentGrappleAnchor;
+    private GameObject anchorTargetObject; // The object we're anchored to
 
     // Input state
     private bool isJumpHeld = false;
@@ -93,7 +96,11 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
 
         // Cache camera reference for mouse aiming
         mainCamera = Camera.main;
-        if (mainCamera == null)
+        if (mainCamera != null)
+        {
+            Debug.Log($"Grapple system using camera: {mainCamera.name}");
+        }
+        else
         {
             Debug.LogWarning("No main camera found for grapple aiming");
         }
@@ -180,6 +187,12 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
         // Early exit if no config is equipped
         if (currentConfig == null) return;
 
+        // Update grapple point from anchor
+        if (isGrappling && currentGrappleAnchor != null)
+        {
+            UpdateGrapplePointFromAnchor();
+        }
+
         // Draw raycast debug when not grappling
         if (showRaycastDebug && !isGrappling)
         {
@@ -252,6 +265,17 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
         }
     }
 
+    //////////////////////// Anchor System ////////////////////////
+
+    private void UpdateGrapplePointFromAnchor()
+    {
+        if (currentGrappleAnchor != null)
+        {
+            // Get updated grapple point from anchor
+            grapplePoint = currentGrappleAnchor.GetWorldPosition();
+        }
+    }
+
     //////////////////////// Input Handling ////////////////////////
 
     private void HandleEvent(string type, object data)
@@ -316,7 +340,13 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
 
         if (grappleHit.collider != null)
         {
-            StartGrapple(grappleHit.point, initialReelDirection);
+            // Get or create an anchor on the hit object
+            GameObject hitObject = grappleHit.collider.gameObject;
+            currentGrappleAnchor = GrappleAnchorSystem.GetOrCreateAnchor(hitObject, grappleHit.point);
+            anchorTargetObject = hitObject;
+
+            // Start grapple using the anchor
+            StartGrapple(initialReelDirection);
         }
         else
         {
@@ -324,18 +354,19 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
         }
     }
 
-    private void StartGrapple(Vector2 point, int initialReelDirection = 0)
+    private void StartGrapple(int initialReelDirection = 0)
     {
-        if (currentConfig == null) return;
+        if (currentConfig == null || currentGrappleAnchor == null) return;
 
         isGrappling = true;
         character.CharacterContext["grapple_isGrappling"] = true;
 
-        grapplePoint = point;
-        currentRopeLength = Vector2.Distance(grappleOrigin.position, point);
+        // Get initial grapple point from anchor
+        grapplePoint = currentGrappleAnchor.GetWorldPosition();
+        currentRopeLength = Vector2.Distance(grappleOrigin.position, grapplePoint);
 
         // Initialize swing arc for circular motion calculations
-        swingArc = physicsCalculator.CalculateSwingArc(grappleOrigin.position, point, currentRopeLength);
+        swingArc = physicsCalculator.CalculateSwingArc(grappleOrigin.position, grapplePoint, currentRopeLength);
 
         // Reset physics state
         swingMomentum = Vector2.zero;
@@ -353,7 +384,7 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
         character.RaiseEvent("grapple_started", grapplePoint);
 
         // Create visual elements
-        visualManager.InstantiateGrappleVisuals(point);
+        visualManager.InstantiateGrappleVisuals(grapplePoint);
 
         if (soundManager != null)
         {
@@ -368,6 +399,16 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
 
         isGrappling = false;
         character.CharacterContext["grapple_isGrappling"] = false;
+
+        // Clean up auto-created anchor if needed
+        if (currentGrappleAnchor != null)
+        {
+            GrappleAnchorSystem.CleanupAnchor(currentGrappleAnchor);
+        }
+
+        // Reset anchor tracking
+        currentGrappleAnchor = null;
+        anchorTargetObject = null;
 
         // Clean up visual elements
         visualManager.CleanupGrappleVisuals();
@@ -535,7 +576,7 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
             // Recombine: radial velocity stays the same, tangential gets friction
             rb.linearVelocity = radialVelocity + newTangentialVelocity;
 
-            // Debug visualization
+            // Debug visualization - FIXED: Using effectiveTangentialFriction instead of undefined effectiveFriction
             if (showPhysicsDebug)
             {
                 DrawTangentialFrictionDebug(tangentialVelocity, effectiveTangentialFriction, fixedDeltaTime);
@@ -697,13 +738,6 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
         // Override the ground deceleration based on current speed
         movementState.groundDecelerationMultiplier = CalculateDynamicGroundDeceleration(horizontalSpeed);
 
-        // For debug purposes, we can log this
-        if (showPhysicsDebug)
-        {
-            Debug.Log($"Grapple Dynamic Deceleration: Speed={horizontalSpeed:F1}, " +
-                     $"Multiplier={movementState.groundDecelerationMultiplier:F3}");
-        }
-
         return movementState;
     }
 
@@ -757,10 +791,10 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
     private Vector2 GetAimDirection()
     {
         // Try mouse aiming first
-        if (useMouseAiming)
+        if (useMouseAiming && mainCamera != null)
         {
             Mouse mouse = Mouse.current;
-            if (mouse != null && mainCamera != null)
+            if (mouse != null)
             {
                 Vector2 mousePos = mouse.position.ReadValue();
 
@@ -790,6 +824,10 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
     public Vector2 GetGrapplePoint() => grapplePoint;
     public float GetRopeLength() => currentRopeLength;
     public SwingArc GetSwingArc() => swingArc;
+
+    public bool IsAnchoredToPlatform() => currentGrappleAnchor != null && currentGrappleAnchor.IsOnMovingPlatform;
+    public GrappleAnchor GetCurrentGrappleAnchor() => currentGrappleAnchor;
+    public GameObject GetAnchorTargetObject() => anchorTargetObject;
 
     public RopeState? GetCurrentRopeState()
     {
