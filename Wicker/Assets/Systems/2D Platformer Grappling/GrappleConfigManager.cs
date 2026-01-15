@@ -56,11 +56,45 @@ public class GrappleMovementState
 }
 
 /// <summary>
+/// Configuration for grapple mechanics and high-level behavior.
+/// Controls what the grapple can interact with and how it behaves.
+/// </summary>
+[System.Serializable]
+public class GrappleMechanicsConfig
+{
+    [Header("Interaction Settings")]
+    [Tooltip("Layers that the grapple can attach to")]
+    public LayerMask grappleLayers;
+
+    [Tooltip("Whether this grapple type can apply reaction forces to grappled objects")]
+    public bool enableReactionForces = false;
+
+    [Tooltip("Whether this grapple type can pull/push grappled objects (requires enableReactionForces)")]
+    public bool canMoveGrappledObjects = false;
+
+    [Tooltip("Maximum mass ratio (object mass / player mass) that can be affected by reaction forces")]
+    [Range(0.1f, 10f)]
+    public float maxAffectableMassRatio = 5f;
+
+    [Tooltip("Multiplier for reaction forces applied to grappled objects (0 = no force, 1 = equal and opposite)")]
+    [Range(0f, 1f)]
+    public float reactionForceMultiplier = 0.5f;
+
+    [Header("Advanced Settings")]
+    [Tooltip("Whether to apply reaction forces gradually (smoother) or instantly")]
+    public bool smoothReactionForces = true;
+
+    [Tooltip("Time to reach full reaction force (when smoothReactionForces is true)")]
+    [Range(0f, 1f)]
+    public float reactionForceRampTime = 0.2f;
+}
+
+/// <summary>
 /// Configuration for grapple swing physics parameters.
 /// Controls rope behavior, stretch/squash physics, and swing forces.
 /// </summary>
 [System.Serializable]
-public class GrappleSwingPhysicsConfig
+public class GrapplePhysicsConfig
 {
     public float maxDistance = 20f;
     public float ropeDamping = 0.1f;
@@ -73,7 +107,6 @@ public class GrappleSwingPhysicsConfig
 
     [Tooltip("Horizontal velocity at which minimum ground deceleration is applied")]
     public float minGroundDecelerationVelocity = 25f;
-
 
     [Header("Friction Settings")]
     [Tooltip("Friction applied to all velocity. Higher values = less movement.")]
@@ -99,7 +132,6 @@ public class GrappleSwingPhysicsConfig
     [Tooltip("Maximum added friction when unreeling (at low speeds)")]
     [Range(-1f, 1f)] public float maxUnreelingTangentialFriction = -0.005f;
 
-
     [Header("Stretch Physics (Outside Rope)")]
     public bool enableStretch = true;
     public float stretchStiffness = 200f;
@@ -109,8 +141,6 @@ public class GrappleSwingPhysicsConfig
     public bool enableSquash = false;
     public float squashStiffness = 50f;
     public float squashStiffnessExponent = 2f;
-
-    public LayerMask grappleLayers;
 }
 
 /// <summary>

@@ -6,9 +6,9 @@ using UnityEngine;
 /// </summary>
 public class GrapplePhysicsCalculator
 {
-    private GrappleSwingPhysicsConfig physicsConfig;
+    private GrapplePhysicsConfig physicsConfig;
 
-    public GrapplePhysicsCalculator(GrappleSwingPhysicsConfig physicsConfig)
+    public GrapplePhysicsCalculator(GrapplePhysicsConfig physicsConfig)
     {
         this.physicsConfig = physicsConfig;
     }

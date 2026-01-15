@@ -9,6 +9,12 @@ public class GrappleAnchor : MonoBehaviour
     [Header("Anchor Settings")]
     public Vector2 localAnchorOffset = Vector2.zero;
 
+    [Tooltip("When true, uses the predefined anchor position. When false, repositions to exact grapple impact point.")]
+    public bool usePredefinedPosition = true;
+
+    [Tooltip("Whether this anchor can receive reaction forces when grappled (requires rigidbody and compatible grapple)")]
+    public bool canReceiveReactionForces = false;
+
     [Header("Anchor Delegation")]
     [Tooltip("Optional: If set, grapples to this object will use the anchor on the referenced GameObject instead")]
     public Transform delegatedAnchorTarget;
@@ -21,19 +27,39 @@ public class GrappleAnchor : MonoBehaviour
     // Runtime tracking
     private MovingPlatform platform;
     private Vector3 dynamicLocalOffset; // For auto-created anchors
+    private Vector3 originalDynamicOffset; // Store original for reset
 
     public MovingPlatform Platform => platform;
     public bool IsOnMovingPlatform => platform != null;
     public bool IsAutoCreated { get; private set; } = false;
 
+    // Properties for external access
+    public bool CanReceiveReactionForces => canReceiveReactionForces;
+    public bool UsePredefinedPosition => usePredefinedPosition;
+
     // Cache for performance
     private GrappleAnchor delegatedAnchorCache;
     private bool delegatedAnchorChecked = false;
+
+    // For reaction force tracking
+    private Rigidbody2D anchorRigidbody;
+    public Rigidbody2D AnchorRigidbody
+    {
+        get
+        {
+            if (anchorRigidbody == null)
+                anchorRigidbody = GetComponent<Rigidbody2D>();
+            return anchorRigidbody;
+        }
+    }
 
     private void Awake()
     {
         // Find parent MovingPlatform if any
         platform = GetComponentInParent<MovingPlatform>();
+
+        // Store original dynamic offset for potential reset
+        originalDynamicOffset = dynamicLocalOffset;
     }
 
     /// <summary>
@@ -45,6 +71,30 @@ public class GrappleAnchor : MonoBehaviour
 
         // Calculate dynamic local offset from this transform's position
         dynamicLocalOffset = worldPosition - (Vector2)transform.position;
+        originalDynamicOffset = dynamicLocalOffset;
+    }
+
+    /// <summary>
+    /// Reposition the anchor to a new world position.
+    /// Only works if usePredefinedPosition is false.
+    /// </summary>
+    public void RepositionTo(Vector2 worldPosition)
+    {
+        if (usePredefinedPosition)
+        {
+            Debug.LogWarning($"Cannot reposition anchor on {gameObject.name} - usePredefinedPosition is true");
+            return;
+        }
+
+        dynamicLocalOffset = worldPosition - (Vector2)transform.position;
+    }
+
+    /// <summary>
+    /// Reset the anchor to its original position.
+    /// </summary>
+    public void ResetPosition()
+    {
+        dynamicLocalOffset = originalDynamicOffset;
     }
 
     /// <summary>
@@ -104,6 +154,22 @@ public class GrappleAnchor : MonoBehaviour
         return GetEffectiveAnchor().Platform;
     }
 
+    /// <summary>
+    /// Check if this anchor can receive reaction forces (handles delegation).
+    /// </summary>
+    public bool GetCanReceiveReactionForces()
+    {
+        return GetEffectiveAnchor().canReceiveReactionForces;
+    }
+
+    /// <summary>
+    /// Check if this anchor should use predefined position (handles delegation).
+    /// </summary>
+    public bool GetUsePredefinedPosition()
+    {
+        return GetEffectiveAnchor().usePredefinedPosition;
+    }
+
     private void OnDrawGizmos()
     {
         if (!showGizmo) return;
@@ -142,6 +208,29 @@ public class GrappleAnchor : MonoBehaviour
             Gizmos.DrawLine(arrowStart, arrowStart + (Vector2)(Quaternion.Euler(0, 0, 135) * direction * 0.2f));
             Gizmos.DrawLine(arrowStart, arrowStart + (Vector2)(Quaternion.Euler(0, 0, 225) * direction * 0.2f));
         }
+
+        // Draw reaction force indicator
+        if (canReceiveReactionForces)
+        {
+            Gizmos.color = Color.cyan;
+            float radius = gizmoSize * 1.5f;
+            Gizmos.DrawWireSphere(transform.position, radius);
+
+            // Draw force arrows
+            for (int i = 0; i < 4; i++)
+            {
+                float angle = i * 90f * Mathf.Deg2Rad;
+                Vector2 arrowDir = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+                Vector2 start = transform.position + (Vector3)arrowDir * radius;
+                Vector2 end = start + arrowDir * gizmoSize;
+                Gizmos.DrawLine(start, end);
+
+                // Arrow head
+                Vector2 perpendicular = new Vector2(-arrowDir.y, arrowDir.x);
+                Gizmos.DrawLine(end, end - arrowDir * gizmoSize * 0.3f + perpendicular * gizmoSize * 0.2f);
+                Gizmos.DrawLine(end, end - arrowDir * gizmoSize * 0.3f - perpendicular * gizmoSize * 0.2f);
+            }
+        }
     }
 
     /// <summary>
@@ -160,7 +249,7 @@ public class GrappleAnchor : MonoBehaviour
 public static class GrappleAnchorSystem
 {
     /// <summary>
-    /// Get or create a grapple anchor on the target GameObject.
+    /// Get or create a grapple anchor on the target GameObject, handling position preferences.
     /// </summary>
     public static GrappleAnchor GetOrCreateAnchor(GameObject target, Vector2 hitPoint)
     {
@@ -171,6 +260,14 @@ public static class GrappleAnchorSystem
         {
             // Check if this anchor delegates to another anchor
             GrappleAnchor effectiveAnchor = existingAnchor.GetEffectiveAnchor();
+
+            // Handle position preference
+            if (!effectiveAnchor.usePredefinedPosition)
+            {
+                // Reposition to exact hit point
+                effectiveAnchor.RepositionTo(hitPoint);
+            }
+
             if (effectiveAnchor != existingAnchor)
             {
                 // Return the delegated anchor instead
@@ -184,6 +281,7 @@ public static class GrappleAnchorSystem
         GrappleAnchor newAnchor = target.AddComponent<GrappleAnchor>();
         newAnchor.Initialize(hitPoint, true);
         newAnchor.showGizmo = false; // Don't show gizmos for auto-created anchors
+        newAnchor.usePredefinedPosition = false; // Auto-created anchors use hit position
 
         return newAnchor;
     }
@@ -203,6 +301,9 @@ public static class GrappleAnchorSystem
     {
         if (anchor != null && anchor.IsAutoCreated)
         {
+            // Reset position before cleanup (optional)
+            anchor.ResetPosition();
+
             // Only destroy if this was auto-created
             Object.Destroy(anchor);
         }

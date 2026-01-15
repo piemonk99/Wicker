@@ -46,9 +46,16 @@ MonoBehaviour:
     enableSquash: 0
     squashStiffness: 50
     squashStiffnessExponent: 2
+  mechanicsConfig:
     grappleLayers:
       serializedVersion: 2
-      m_Bits: 320
+      m_Bits: 1344
+    enableReactionForces: 1
+    canMoveGrappledObjects: 1
+    maxAffectableMassRatio: 5
+    reactionForceMultiplier: 0.5
+    smoothReactionForces: 1
+    reactionForceRampTime: 0.2
   reelConfig:
     reelSpeed: 50
     slackReelMultiplier: 10
