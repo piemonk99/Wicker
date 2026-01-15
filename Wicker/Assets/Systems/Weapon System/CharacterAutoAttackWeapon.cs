@@ -41,9 +41,9 @@ public class CharacterAutoAttackWeapon : CharacterWeapon
     private int enemyLayerMask;
     private string enemyTag;
 
-    protected override void InitializeWithConfig(WeaponConfig config)
+    protected override void LoadConfig(WeaponConfig config)
     {
-        base.InitializeWithConfig(config);
+        base.LoadConfig(config);
 
         if (currentConfig == null) return;
 

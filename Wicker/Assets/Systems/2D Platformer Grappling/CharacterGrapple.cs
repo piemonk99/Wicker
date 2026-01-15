@@ -87,7 +87,7 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
         currentConfig = equipment.CurrentGrappleHook;
         if (currentConfig != null)
         {
-            InitializeWithConfig(currentConfig);
+            LoadConfig(currentConfig);
         }
 
         // Register for character events
@@ -106,7 +106,7 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
         }
     }
 
-    private void InitializeWithConfig(GrappleConfig config)
+    private void LoadConfig(GrappleConfig config)
     {
         if (config == null) return;
 
@@ -158,7 +158,7 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
         }
 
         // Initialize with new config
-        InitializeWithConfig(newConfig);
+        LoadConfig(newConfig);
     }
 
     private void CleanupManagers()
@@ -879,7 +879,7 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
         CleanupManagers();
 
         // Initialize with new config
-        InitializeWithConfig(newConfig);
+        LoadConfig(newConfig);
     }
 
     //////////////////////// Cleanup ///////////////////////////

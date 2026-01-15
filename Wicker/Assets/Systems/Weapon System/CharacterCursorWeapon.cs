@@ -46,9 +46,9 @@ public class CharacterCursorWeapon : CharacterWeapon
     // Oscillation damping
     private const float DEADZONE_ANGLE = 0.5f;
 
-    protected override void InitializeWithConfig(WeaponConfig config)
+    protected override void LoadConfig(WeaponConfig config)
     {
-        base.InitializeWithConfig(config);
+        base.LoadConfig(config);
 
         if (currentConfig == null) return;
 

@@ -62,10 +62,10 @@ public abstract class CharacterWeapon : MonoBehaviour, ICharacterComponent
         }
 
         currentConfig = config;
-        InitializeWithConfig(config);
+        LoadConfig(config);
     }
 
-    protected virtual void InitializeWithConfig(WeaponConfig config)
+    protected virtual void LoadConfig(WeaponConfig config)
     {
         if (config == null) return;
 

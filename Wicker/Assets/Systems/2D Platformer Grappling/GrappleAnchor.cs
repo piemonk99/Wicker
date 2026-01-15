@@ -9,6 +9,10 @@ public class GrappleAnchor : MonoBehaviour
     [Header("Anchor Settings")]
     public Vector2 localAnchorOffset = Vector2.zero;
 
+    [Header("Anchor Delegation")]
+    [Tooltip("Optional: If set, grapples to this object will use the anchor on the referenced GameObject instead")]
+    public Transform delegatedAnchorTarget;
+
     [Header("Visual")]
     public bool showGizmo = true;
     [SerializeField] private Color gizmoColor = Color.magenta;
@@ -21,6 +25,10 @@ public class GrappleAnchor : MonoBehaviour
     public MovingPlatform Platform => platform;
     public bool IsOnMovingPlatform => platform != null;
     public bool IsAutoCreated { get; private set; } = false;
+
+    // Cache for performance
+    private GrappleAnchor delegatedAnchorCache;
+    private bool delegatedAnchorChecked = false;
 
     private void Awake()
     {
@@ -49,11 +57,51 @@ public class GrappleAnchor : MonoBehaviour
     }
 
     /// <summary>
+    /// Get the effective anchor for this grapple point (handles delegation).
+    /// </summary>
+    public GrappleAnchor GetEffectiveAnchor()
+    {
+        // Check if we have a delegated anchor target
+        if (delegatedAnchorTarget != null)
+        {
+            // Cache the result for performance
+            if (!delegatedAnchorChecked)
+            {
+                delegatedAnchorCache = delegatedAnchorTarget.GetComponent<GrappleAnchor>();
+                delegatedAnchorChecked = true;
+            }
+
+            if (delegatedAnchorCache != null)
+            {
+                return delegatedAnchorCache;
+            }
+        }
+
+        return this;
+    }
+
+    /// <summary>
+    /// Get the world position from the effective anchor (handles delegation).
+    /// </summary>
+    public Vector2 GetEffectiveWorldPosition()
+    {
+        return GetEffectiveAnchor().GetWorldPosition();
+    }
+
+    /// <summary>
     /// Get the platform's current velocity (if on a moving platform).
     /// </summary>
     public Vector2 GetPlatformVelocity()
     {
         return platform != null ? platform.GetPlatformVelocity() : Vector2.zero;
+    }
+
+    /// <summary>
+    /// Get the effective platform (handles delegation).
+    /// </summary>
+    public MovingPlatform GetEffectivePlatform()
+    {
+        return GetEffectiveAnchor().Platform;
     }
 
     private void OnDrawGizmos()
@@ -81,6 +129,28 @@ public class GrappleAnchor : MonoBehaviour
         {
             Gizmos.DrawLine(transform.position, anchorPos);
         }
+
+        // Draw delegation connection if applicable
+        if (delegatedAnchorTarget != null)
+        {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawLine(transform.position, delegatedAnchorTarget.position);
+
+            // Draw arrow
+            Vector2 direction = (delegatedAnchorTarget.position - transform.position).normalized;
+            Vector2 arrowStart = transform.position + (Vector3)direction * 0.5f;
+            Gizmos.DrawLine(arrowStart, arrowStart + (Vector2)(Quaternion.Euler(0, 0, 135) * direction * 0.2f));
+            Gizmos.DrawLine(arrowStart, arrowStart + (Vector2)(Quaternion.Euler(0, 0, 225) * direction * 0.2f));
+        }
+    }
+
+    /// <summary>
+    /// Reset the delegation cache (call if delegatedAnchorTarget changes at runtime).
+    /// </summary>
+    public void ResetDelegationCache()
+    {
+        delegatedAnchorChecked = false;
+        delegatedAnchorCache = null;
     }
 }
 
@@ -96,8 +166,17 @@ public static class GrappleAnchorSystem
     {
         // Try to get existing anchor
         GrappleAnchor existingAnchor = target.GetComponent<GrappleAnchor>();
+
         if (existingAnchor != null)
         {
+            // Check if this anchor delegates to another anchor
+            GrappleAnchor effectiveAnchor = existingAnchor.GetEffectiveAnchor();
+            if (effectiveAnchor != existingAnchor)
+            {
+                // Return the delegated anchor instead
+                return effectiveAnchor;
+            }
+
             return existingAnchor;
         }
 
@@ -107,6 +186,14 @@ public static class GrappleAnchorSystem
         newAnchor.showGizmo = false; // Don't show gizmos for auto-created anchors
 
         return newAnchor;
+    }
+
+    /// <summary>
+    /// Get the effective anchor for a GameObject (handles delegation and auto-creation).
+    /// </summary>
+    public static GrappleAnchor GetEffectiveAnchor(GameObject target, Vector2 hitPoint)
+    {
+        return GetOrCreateAnchor(target, hitPoint).GetEffectiveAnchor();
     }
 
     /// <summary>
