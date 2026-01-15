@@ -69,24 +69,13 @@ public class GrappleMechanicsConfig
     [Tooltip("Whether this grapple type can apply reaction forces to grappled objects")]
     public bool enableReactionForces = false;
 
-    [Tooltip("Whether this grapple type can pull/push grappled objects (requires enableReactionForces)")]
-    public bool canMoveGrappledObjects = false;
-
     [Tooltip("Maximum mass ratio (object mass / player mass) that can be affected by reaction forces")]
     [Range(0.1f, 10f)]
     public float maxAffectableMassRatio = 5f;
 
     [Tooltip("Multiplier for reaction forces applied to grappled objects (0 = no force, 1 = equal and opposite)")]
     [Range(0f, 1f)]
-    public float reactionForceMultiplier = 0.5f;
-
-    [Header("Advanced Settings")]
-    [Tooltip("Whether to apply reaction forces gradually (smoother) or instantly")]
-    public bool smoothReactionForces = true;
-
-    [Tooltip("Time to reach full reaction force (when smoothReactionForces is true)")]
-    [Range(0f, 1f)]
-    public float reactionForceRampTime = 0.2f;
+    public float reactionForceMultiplier = 1f;
 }
 
 /// <summary>

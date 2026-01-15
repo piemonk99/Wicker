@@ -154,6 +154,15 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Up"",
+                    ""type"": ""Button"",
+                    ""id"": ""7be87599-49b4-470f-9a52-9d927db21954"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -255,6 +264,17 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
                     ""action"": ""Lunge"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""8df08cd2-cd8e-49a6-ad88-247dd41f1964"",
+                    ""path"": ""<Keyboard>/w"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Up"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -270,6 +290,7 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
         m_Gameplay_Down = m_Gameplay.FindAction("Down", throwIfNotFound: true);
         m_Gameplay_Dash = m_Gameplay.FindAction("Dash", throwIfNotFound: true);
         m_Gameplay_Lunge = m_Gameplay.FindAction("Lunge", throwIfNotFound: true);
+        m_Gameplay_Up = m_Gameplay.FindAction("Up", throwIfNotFound: true);
     }
 
     ~@PlayerControls()
@@ -357,6 +378,7 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
     private readonly InputAction m_Gameplay_Down;
     private readonly InputAction m_Gameplay_Dash;
     private readonly InputAction m_Gameplay_Lunge;
+    private readonly InputAction m_Gameplay_Up;
     /// <summary>
     /// Provides access to input actions defined in input action map "Gameplay".
     /// </summary>
@@ -396,6 +418,10 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "Gameplay/Lunge".
         /// </summary>
         public InputAction @Lunge => m_Wrapper.m_Gameplay_Lunge;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/Up".
+        /// </summary>
+        public InputAction @Up => m_Wrapper.m_Gameplay_Up;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -443,6 +469,9 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
             @Lunge.started += instance.OnLunge;
             @Lunge.performed += instance.OnLunge;
             @Lunge.canceled += instance.OnLunge;
+            @Up.started += instance.OnUp;
+            @Up.performed += instance.OnUp;
+            @Up.canceled += instance.OnUp;
         }
 
         /// <summary>
@@ -475,6 +504,9 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
             @Lunge.started -= instance.OnLunge;
             @Lunge.performed -= instance.OnLunge;
             @Lunge.canceled -= instance.OnLunge;
+            @Up.started -= instance.OnUp;
+            @Up.performed -= instance.OnUp;
+            @Up.canceled -= instance.OnUp;
         }
 
         /// <summary>
@@ -564,5 +596,12 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnLunge(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Up" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnUp(InputAction.CallbackContext context);
     }
 }

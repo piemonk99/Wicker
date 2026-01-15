@@ -330,11 +330,11 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
 
         Vector2 aimDir = GetAimDirection();
 
-        // Perform grapple raycast using physics calculator - UPDATED LAYER ACCESS
+        // Perform grapple raycast using physics calculator
         grappleHit = physicsCalculator.PerformGrappleRaycast(
             grappleOrigin.position,
             aimDir,
-            currentConfig.mechanicsConfig.grappleLayers, // Changed from physicsConfig
+            currentConfig.mechanicsConfig.grappleLayers,
             currentConfig.physicsConfig.maxDistance
         );
 
@@ -344,12 +344,6 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
             GameObject hitObject = grappleHit.collider.gameObject;
             currentGrappleAnchor = GrappleAnchorSystem.GetOrCreateAnchor(hitObject, grappleHit.point);
             anchorTargetObject = hitObject;
-
-            // Check if we can apply reaction forces to this object
-            bool canApplyReactionForces = CheckCanApplyReactionForces(currentGrappleAnchor);
-
-            // Store this for later use in physics calculations
-            character.CharacterContext["grapple_can_apply_reaction_forces"] = canApplyReactionForces;
 
             // Start grapple using the anchor
             StartGrapple(initialReelDirection);
@@ -494,7 +488,7 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
         rb.AddForce(restoringForce, ForceMode2D.Force);
 
         // Apply reaction force to anchored object if applicable
-        ApplyReactionForceToAnchor(restoringForce, fixedDeltaTime);
+        ApplyReactionForceToAnchor(restoringForce);
 
         // Calculate velocity components
         Vector2 radialVelocity = Vector2.Dot(rb.linearVelocity, radialDirection) * radialDirection;
@@ -532,6 +526,9 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
             Vector2 dampingForce = -radialVelocity.normalized *
                                   (radialVelocity.magnitude * currentConfig.physicsConfig.ropeDamping * dynamicStiffness);
             rb.AddForce(dampingForce, ForceMode2D.Force);
+
+            // Apply reaction force for damping too
+            ApplyReactionForceToAnchor(dampingForce);
         }
 
         return restoringForceMagnitude;
@@ -782,72 +779,70 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
     }
 
     //////////////////////// Reaction Force ////////////////////////
-    private bool CheckCanApplyReactionForces(GrappleAnchor anchor)
+
+    private void ApplyReactionForceToAnchor(Vector2 force)
     {
-        // Check grapple config first
+        // Early exit if not applicable
+        if (!CheckCanApplyReactionForces())
+            return;
+
+        // Get the anchor's rigidbody
+        Rigidbody2D anchorRb = GetAnchorRigidbody();
+        if (anchorRb == null)
+            return;
+
+        // Calculate reaction force (Newton's 3rd Law with multiplier)
+        Vector2 reactionForce = -force * currentConfig.mechanicsConfig.reactionForceMultiplier;
+
+        // Apply to anchor
+        anchorRb.AddForce(reactionForce, ForceMode2D.Force);
+
+        // Debug visualization
+        if (showPhysicsDebug && currentGrappleAnchor != null)
+        {
+            GrappleAnchor effectiveAnchor = currentGrappleAnchor.GetEffectiveAnchor();
+            Debug.DrawRay(effectiveAnchor.GetWorldPosition(), reactionForce.normalized * 0.5f,
+                         Color.red, Time.fixedDeltaTime);
+        }
+    }
+
+    // Helper method to check if reaction forces are applicable
+    private bool CheckCanApplyReactionForces()
+    {
+        if (currentGrappleAnchor == null || currentConfig == null)
+            return false;
+
+        // Check if grapple config allows reaction forces
         if (!currentConfig.mechanicsConfig.enableReactionForces)
             return false;
 
-        // Get effective anchor (handles delegation)
-        GrappleAnchor effectiveAnchor = anchor.GetEffectiveAnchor();
+        // Get effective anchor
+        GrappleAnchor effectiveAnchor = currentGrappleAnchor.GetEffectiveAnchor();
 
-        // Check anchor settings
+        // Check if anchor allows reaction forces
         if (!effectiveAnchor.GetCanReceiveReactionForces())
             return false;
 
-        // Check if object has rigidbody
-        Rigidbody2D anchorRb = effectiveAnchor.AnchorRigidbody;
-        if (anchorRb == null)
+        // Check if anchor has rigidbody
+        if (effectiveAnchor.AnchorRigidbody == null)
             return false;
 
-        // Check mass ratio if configured
-        if (currentConfig.mechanicsConfig.maxAffectableMassRatio > 0)
-        {
-            float massRatio = anchorRb.mass / rb.mass;
-            if (massRatio > currentConfig.mechanicsConfig.maxAffectableMassRatio)
-                return false;
-        }
+        // Check mass ratio
+        Rigidbody2D anchorRb = effectiveAnchor.AnchorRigidbody;
+        float massRatio = anchorRb.mass / rb.mass;
+        if (massRatio > currentConfig.mechanicsConfig.maxAffectableMassRatio)
+            return false;
 
         return true;
     }
 
-    private void ApplyReactionForceToAnchor(Vector2 force, float fixedDeltaTime)
+    // Helper method to get anchor's rigidbody
+    private Rigidbody2D GetAnchorRigidbody()
     {
-        // Check if we can apply reaction forces
-        if (currentGrappleAnchor == null) return;
+        if (currentGrappleAnchor == null)
+            return null;
 
-        bool canApplyReactionForces = character.CharacterContext.TryGetValue("grapple_can_apply_reaction_forces", out var value) &&
-                                      value is bool b && b;
-
-        if (!canApplyReactionForces) return;
-
-        // Get effective anchor (handles delegation)
-        GrappleAnchor effectiveAnchor = currentGrappleAnchor.GetEffectiveAnchor();
-        Rigidbody2D anchorRb = effectiveAnchor.AnchorRigidbody;
-
-        if (anchorRb == null) return;
-
-        // Calculate reaction force
-        Vector2 reactionForce = -force * currentConfig.mechanicsConfig.reactionForceMultiplier;
-
-        // Apply to anchor's rigidbody
-        if (currentConfig.mechanicsConfig.smoothReactionForces)
-        {
-            // Smooth application (lerp over time)
-            // You might want to track a timer for this
-            anchorRb.AddForce(reactionForce, ForceMode2D.Force);
-        }
-        else
-        {
-            // Instant application
-            anchorRb.AddForce(reactionForce, ForceMode2D.Force);
-        }
-
-        // Debug visualization
-        if (showPhysicsDebug)
-        {
-            Debug.DrawRay(effectiveAnchor.GetWorldPosition(), reactionForce.normalized * 0.5f, Color.red, fixedDeltaTime);
-        }
+        return currentGrappleAnchor.GetEffectiveAnchor().AnchorRigidbody;
     }
 
     //////////////////////// Helper Methods ////////////////////////

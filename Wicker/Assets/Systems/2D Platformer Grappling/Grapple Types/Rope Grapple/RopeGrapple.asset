@@ -23,7 +23,7 @@ MonoBehaviour:
     groundDecelerationMultiplier: 1
     airAccelerationMultiplier: 0.025
     airDecelerationMultiplier: 0.025
-    jumpForceMultiplier: 0
+    jumpForceMultiplier: 1
     maxSpeedMultiplier: 1
   physicsConfig:
     maxDistance: 20
@@ -51,11 +51,8 @@ MonoBehaviour:
       serializedVersion: 2
       m_Bits: 1344
     enableReactionForces: 1
-    canMoveGrappledObjects: 1
     maxAffectableMassRatio: 5
-    reactionForceMultiplier: 0.5
-    smoothReactionForces: 1
-    reactionForceRampTime: 0.2
+    reactionForceMultiplier: 1
   reelConfig:
     reelSpeed: 50
     slackReelMultiplier: 10
