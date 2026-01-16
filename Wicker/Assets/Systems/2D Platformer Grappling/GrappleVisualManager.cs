@@ -4,6 +4,7 @@ using UnityEngine;
 /// <summary>
 /// Manages all visual aspects of the grapple system.
 /// Handles hook/rope instantiation, procedural rope rendering, and visual effects.
+/// Now supports moving anchors via the anchor system.
 /// </summary>
 public class GrappleVisualManager
 {
@@ -14,6 +15,9 @@ public class GrappleVisualManager
     private GameObject currentHookInstance;
     private GameObject currentRopeInstance;
     private bool showPhysicsDebug;
+
+    // Track the grapple point for visual updates
+    private Vector2 currentGrapplePoint;
 
     /// <summary>
     /// Initializes a new instance of GrappleVisualManager with visual configuration.
@@ -45,6 +49,9 @@ public class GrappleVisualManager
     {
         CleanupGrappleVisuals();
 
+        // Store the initial grapple point
+        currentGrapplePoint = grapplePoint;
+
         // Instantiate hook at grapple point
         if (visualConfig.hookPrefab != null)
         {
@@ -69,10 +76,56 @@ public class GrappleVisualManager
                 Vector3.zero,
                 Quaternion.identity
             );
+
+            // Set up rope anchors immediately
+            UpdateRopeAnchors(grapplePoint);
         }
 
         if (grappleLine != null)
             grappleLine.enabled = true;
+    }
+
+    /// <summary>
+    /// Updates the hook position to match a moving anchor point.
+    /// </summary>
+    /// <param name="grapplePoint">Current anchor position.</param>
+    public void UpdateHookPosition(Vector2 grapplePoint)
+    {
+        currentGrapplePoint = grapplePoint;
+
+        if (currentHookInstance != null)
+        {
+            currentHookInstance.transform.position = grapplePoint;
+        }
+
+        // Update rope anchors if we have a rope instance
+        if (currentRopeInstance != null)
+        {
+            UpdateRopeAnchors(grapplePoint);
+        }
+    }
+
+    /// <summary>
+    /// Updates rope anchor positions to match current grapple point.
+    /// </summary>
+    /// <param name="grapplePoint">Current anchor position.</param>
+    private void UpdateRopeAnchors(Vector2 grapplePoint)
+    {
+        if (currentRopeInstance == null) return;
+
+        // Update rope start anchor to follow player
+        Transform startAnchor = FindTransformInChildren(currentRopeInstance.transform, visualConfig.ropeStartAnchorName);
+        if (startAnchor != null)
+        {
+            startAnchor.position = grappleOrigin.position;
+        }
+
+        // Update end anchor (hook side)
+        Transform endAnchor = FindTransformInChildren(currentRopeInstance.transform, visualConfig.ropeEndAnchorName);
+        if (endAnchor != null)
+        {
+            endAnchor.position = grapplePoint;
+        }
     }
 
     /// <summary>
@@ -113,26 +166,14 @@ public class GrappleVisualManager
     {
         if (!isGrappling) return;
 
-        // Update rope start anchor to follow player
-        if (currentRopeInstance != null)
+        // Update hook position if it has moved (e.g., on moving platform)
+        if (grapplePoint != currentGrapplePoint)
         {
-            // Find the start anchor (player side) by name
-            Transform startAnchor = FindTransformInChildren(currentRopeInstance.transform, visualConfig.ropeStartAnchorName);
-
-            if (startAnchor != null)
-            {
-                startAnchor.position = grappleOrigin.position;
-            }
-
-            // Update end anchor (hook side)
-            Transform endAnchor = FindTransformInChildren(currentRopeInstance.transform, visualConfig.ropeEndAnchorName);
-            if (endAnchor != null && currentHookInstance != null)
-            {
-                endAnchor.position = currentHookInstance.transform.position;
-            }
-
-            UpdateRopeVisualsProcedural(grapplePoint, currentRopeLength);
+            UpdateHookPosition(grapplePoint);
         }
+
+        // Update rope visuals (procedural bone positioning)
+        UpdateRopeVisualsProcedural(grapplePoint, currentRopeLength);
 
         // Update debug line renderer with state-based colors
         UpdateLineRendererVisuals(grapplePoint, shouldReel, shouldUnreel, ropeState);
@@ -231,7 +272,7 @@ public class GrappleVisualManager
             {
                 // Last bone points toward hook
                 Vector2 direction = (hookPos - bonePosition).normalized;
-                float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Deg2Rad;
                 boneTransforms[i].rotation = Quaternion.Euler(0, 0, angle);
             }
         }
