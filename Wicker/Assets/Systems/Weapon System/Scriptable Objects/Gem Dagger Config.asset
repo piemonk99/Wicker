@@ -16,7 +16,7 @@ MonoBehaviour:
     baseDamage: 10
     canAttackWhileMoving: 1
     scalesWithVelocity: 1
-    minimumVelocityForBonus: 10
+    minimumVelocityForMultiplier: 0
     maxVelocityForMultiplier: 30
     maxVelocityMultiplier: 2
     detectionRadius: 4
@@ -25,7 +25,7 @@ MonoBehaviour:
     velocityThreshold: 10
     onlyActiveDuringGrapple: 0
     grappleDamageMultiplier: 1.5
-    maxGrappleRange: 6
+    maxGrappleRange: 5
     enemyLayers:
       serializedVersion: 2
       m_Bits: 128
