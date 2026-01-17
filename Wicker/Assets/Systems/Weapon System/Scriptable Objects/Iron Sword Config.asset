@@ -20,9 +20,9 @@ MonoBehaviour:
     maxVelocityForMultiplier: 30
     maxVelocityMultiplier: 2
     attackCooldown: 0.2
-    hitboxSize: {x: 6, y: 5}
+    hitboxSize: {x: 4, y: 3}
     hitboxOffset: {x: 2, y: 0}
-    attackDuration: 0.15
+    attackDuration: 0.1
     hitLayers:
       serializedVersion: 2
       m_Bits: 128
