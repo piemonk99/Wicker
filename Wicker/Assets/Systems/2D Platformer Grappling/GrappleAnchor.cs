@@ -180,16 +180,6 @@ public class GrappleAnchor : MonoBehaviour
         // Draw anchor point
         Gizmos.DrawWireSphere(anchorPos, gizmoSize);
 
-        // Draw X if it's a grapple point
-        Gizmos.DrawLine(
-            anchorPos - Vector2.one * gizmoSize * 0.7f,
-            anchorPos + Vector2.one * gizmoSize * 0.7f
-        );
-        Gizmos.DrawLine(
-            anchorPos - new Vector2(-gizmoSize, gizmoSize) * 0.7f,
-            anchorPos + new Vector2(-gizmoSize, gizmoSize) * 0.7f
-        );
-
         // Draw connection line to parent if offset is used
         if (localAnchorOffset != Vector2.zero)
         {
@@ -207,29 +197,6 @@ public class GrappleAnchor : MonoBehaviour
             Vector2 arrowStart = transform.position + (Vector3)direction * 0.5f;
             Gizmos.DrawLine(arrowStart, arrowStart + (Vector2)(Quaternion.Euler(0, 0, 135) * direction * 0.2f));
             Gizmos.DrawLine(arrowStart, arrowStart + (Vector2)(Quaternion.Euler(0, 0, 225) * direction * 0.2f));
-        }
-
-        // Draw reaction force indicator
-        if (canReceiveReactionForces)
-        {
-            Gizmos.color = Color.cyan;
-            float radius = gizmoSize * 1.5f;
-            Gizmos.DrawWireSphere(transform.position, radius);
-
-            // Draw force arrows
-            for (int i = 0; i < 4; i++)
-            {
-                float angle = i * 90f * Mathf.Deg2Rad;
-                Vector2 arrowDir = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
-                Vector2 start = transform.position + (Vector3)arrowDir * radius;
-                Vector2 end = start + arrowDir * gizmoSize;
-                Gizmos.DrawLine(start, end);
-
-                // Arrow head
-                Vector2 perpendicular = new Vector2(-arrowDir.y, arrowDir.x);
-                Gizmos.DrawLine(end, end - arrowDir * gizmoSize * 0.3f + perpendicular * gizmoSize * 0.2f);
-                Gizmos.DrawLine(end, end - arrowDir * gizmoSize * 0.3f - perpendicular * gizmoSize * 0.2f);
-            }
         }
     }
 
