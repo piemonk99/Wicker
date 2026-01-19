@@ -342,7 +342,24 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
         {
             // Get or create an anchor on the hit object
             GameObject hitObject = grappleHit.collider.gameObject;
-            currentGrappleAnchor = GrappleAnchorSystem.GetOrCreateAnchor(hitObject, grappleHit.point);
+
+            // Check if we can grapple to this target
+            bool canCreateAnchors = currentConfig.mechanicsConfig.createsAnchors;
+            currentGrappleAnchor = GrappleAnchorSystem.GetOrCreateAnchor(
+                hitObject,
+                grappleHit.point,
+                canCreateAnchors
+            );
+
+            if (currentGrappleAnchor == null)
+            {
+                // Grapple failed - either no anchor and can't create one,
+                // or anchor requires repositioning but grapple can't do it
+                Debug.Log("Grapple failed - insufficient anchor capability");
+
+                return;
+            }
+
             anchorTargetObject = hitObject;
 
             // Start grapple using the anchor

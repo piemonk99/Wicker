@@ -216,9 +216,9 @@ public class GrappleAnchor : MonoBehaviour
 public static class GrappleAnchorSystem
 {
     /// <summary>
-    /// Get or create a grapple anchor on the target GameObject, handling position preferences.
+    /// Get or create a grapple anchor on the target GameObject, respecting grapple capabilities.
     /// </summary>
-    public static GrappleAnchor GetOrCreateAnchor(GameObject target, Vector2 hitPoint)
+    public static GrappleAnchor GetOrCreateAnchor(GameObject target, Vector2 hitPoint, bool canCreateAnchors)
     {
         // Try to get existing anchor
         GrappleAnchor existingAnchor = target.GetComponent<GrappleAnchor>();
@@ -228,11 +228,25 @@ public static class GrappleAnchorSystem
             // Check if this anchor delegates to another anchor
             GrappleAnchor effectiveAnchor = existingAnchor.GetEffectiveAnchor();
 
-            // Handle position preference
-            if (!effectiveAnchor.usePredefinedPosition)
+            // Check if the effective anchor requires predefined position
+            if (!effectiveAnchor.usePredefinedPosition && !canCreateAnchors)
             {
-                // Reposition to exact hit point
+                // Grapple cannot create anchors, and this anchor doesn't have a predefined position
+                Debug.Log($"Grapple failed: Cannot grapple to {target.name} - anchor requires creation but grapple lacks capability");
+                return null;
+            }
+
+            // Handle position preference
+            if (!effectiveAnchor.usePredefinedPosition && canCreateAnchors)
+            {
+                // Reposition to exact hit point (grapple can create anchors)
                 effectiveAnchor.RepositionTo(hitPoint);
+            }
+            else if (!effectiveAnchor.usePredefinedPosition)
+            {
+                // Grapple cannot create anchors, use default position or fail
+                Debug.Log($"Grapple failed: Cannot reposition anchor on {target.name} - grapple lacks anchor creation capability");
+                return null;
             }
 
             if (effectiveAnchor != existingAnchor)
@@ -244,21 +258,55 @@ public static class GrappleAnchorSystem
             return existingAnchor;
         }
 
-        // Create new anchor component
+        // No existing anchor found
+        if (!canCreateAnchors)
+        {
+            // Grapple cannot create anchors and no anchor exists
+            Debug.Log($"Grapple failed: No anchor on {target.name} and grapple cannot create anchors");
+            return null;
+        }
+
+        // Create new anchor component (grapple can create anchors)
         GrappleAnchor newAnchor = target.AddComponent<GrappleAnchor>();
         newAnchor.Initialize(hitPoint, true);
         newAnchor.showGizmo = false; // Don't show gizmos for auto-created anchors
         newAnchor.usePredefinedPosition = false; // Auto-created anchors use hit position
 
+        Debug.Log($"Created new anchor on {target.name} at {hitPoint}");
         return newAnchor;
     }
 
     /// <summary>
     /// Get the effective anchor for a GameObject (handles delegation and auto-creation).
     /// </summary>
-    public static GrappleAnchor GetEffectiveAnchor(GameObject target, Vector2 hitPoint)
+    public static GrappleAnchor GetEffectiveAnchor(GameObject target, Vector2 hitPoint, bool canCreateAnchors)
     {
-        return GetOrCreateAnchor(target, hitPoint).GetEffectiveAnchor();
+        GrappleAnchor anchor = GetOrCreateAnchor(target, hitPoint, canCreateAnchors);
+        return anchor?.GetEffectiveAnchor();
+    }
+
+    /// <summary>
+    /// Check if a grapple can attach to a target at a specific point.
+    /// </summary>
+    public static bool CanGrappleToTarget(GameObject target, Vector2 hitPoint, bool canCreateAnchors)
+    {
+        GrappleAnchor existingAnchor = target.GetComponent<GrappleAnchor>();
+
+        if (existingAnchor != null)
+        {
+            GrappleAnchor effectiveAnchor = existingAnchor.GetEffectiveAnchor();
+
+            // Check if anchor requires predefined position but grapple can't create/reposition
+            if (!effectiveAnchor.usePredefinedPosition && !canCreateAnchors)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        // No existing anchor - check if grapple can create one
+        return canCreateAnchors;
     }
 
     /// <summary>

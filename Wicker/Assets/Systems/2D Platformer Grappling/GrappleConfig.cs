@@ -26,7 +26,7 @@ public class GrappleConfig : ScriptableObject
     public GrappleSoundConfig soundConfig = new GrappleSoundConfig();
 
     // Helper properties for common config access
-    public string GrappleName => movementState.name;
+    public string GrappleName => mechanicsConfig.grappleName;
     public LayerMask GrappleLayers => mechanicsConfig.grappleLayers;
     public SoundNode SoundSet => soundConfig.grappleSoundSet;
 

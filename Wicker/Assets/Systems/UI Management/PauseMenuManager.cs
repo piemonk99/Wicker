@@ -19,7 +19,7 @@ public class PauseMenuManager : MonoBehaviour
     private void Awake()
     {
         // Ensure panel starts disabled
-        if (_pauseMenuPanel != null)
+        if (_pauseMenuPanel != null && !_isPaused)
         {
             _pauseMenuPanel.SetActive(false);
         }

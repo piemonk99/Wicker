@@ -63,9 +63,14 @@ public class GrappleMovementState
 public class GrappleMechanicsConfig
 {
     [Header("Interaction Settings")]
+    [Tooltip("Name of the grappling hook item")]
+    public string grappleName;
+
     [Tooltip("Layers that the grapple can attach to")]
     public LayerMask grappleLayers;
 
+
+    [Header("Reaction Forces")]
     [Tooltip("Whether this grapple type can apply reaction forces to grappled objects")]
     public bool enableReactionForces = false;
 
@@ -76,7 +81,15 @@ public class GrappleMechanicsConfig
     [Tooltip("Multiplier for reaction forces applied to grappled objects (0 = no force, 1 = equal and opposite)")]
     [Range(0f, 1f)]
     public float reactionForceMultiplier = 1f;
+
+
+    [Header("Anchor Creation")]
+    [Tooltip("Determines whether this grappling hook can grapple to objects without a set GrappleAnchor location\n" +
+        "With this disabled, the player will be unable to grapple to objects that don't have a GrappleAnchor component with useSetPosition enabled.")]
+    public bool createsAnchors = false;
 }
+
+
 
 /// <summary>
 /// Configuration for grapple swing physics parameters.

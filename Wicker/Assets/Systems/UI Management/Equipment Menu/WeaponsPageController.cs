@@ -62,7 +62,6 @@ public class WeaponsPageController : BaseEquipmentPage
 
     public override void OnPageShown()
     {
-        Debug.Log("shown");
         RefreshWeaponList();
 
         // Select first weapon if we have any
@@ -88,9 +87,7 @@ public class WeaponsPageController : BaseEquipmentPage
 
     private void RefreshWeaponList()
     {
-        Debug.Log("got here1");
         if (_playerInventory == null) return;
-        Debug.Log("got here2");
 
         // Clear existing slots
         foreach (var slot in _weaponSlots)
@@ -205,6 +202,7 @@ public class WeaponsPageController : BaseEquipmentPage
         // 2. Special Abilities
         if (_specialAbilitiesContainer != null)
         {
+            /*
             // Weapon Type
             CreateAbilityItem($"Type: {weapon.weaponType}", _specialAbilitiesContainer);
 
@@ -236,6 +234,7 @@ public class WeaponsPageController : BaseEquipmentPage
 
             // Category
             CreateAbilityItem($"Category: {weapon.category}", _specialAbilitiesContainer);
+            */
         }
     }
 
