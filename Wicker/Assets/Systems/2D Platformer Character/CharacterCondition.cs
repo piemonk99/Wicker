@@ -93,8 +93,9 @@ public class CharacterCondition : MonoBehaviour, ICharacterComponent
 
         if (HasStatusEffect("invulnerability")) finalDamage = 0;
 
-        // Ensure damage is positive
+        // Ensure damage is positive, and always round up
         finalDamage = Mathf.Max(0, finalDamage);
+        finalDamage = Mathf.CeilToInt(finalDamage);
         if (finalDamage <= 0) return;
 
         // Calculate actual hit position
