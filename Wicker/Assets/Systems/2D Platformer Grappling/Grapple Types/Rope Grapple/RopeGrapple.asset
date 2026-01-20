@@ -47,12 +47,14 @@ MonoBehaviour:
     squashStiffness: 50
     squashStiffnessExponent: 2
   mechanicsConfig:
+    grappleName: Rope Hook
     grappleLayers:
       serializedVersion: 2
       m_Bits: 1344
     enableReactionForces: 1
     maxAffectableMassRatio: 5
     reactionForceMultiplier: 1
+    createsAnchors: 1
   reelConfig:
     reelSpeed: 50
     slackReelMultiplier: 10

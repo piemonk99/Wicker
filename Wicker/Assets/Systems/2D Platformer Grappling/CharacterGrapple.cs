@@ -340,10 +340,21 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
 
         if (grappleHit.collider != null)
         {
+            Vector2 hitPoint = grappleHit.point;
+            Vector2 originPos = grappleOrigin.position;
+
+            float distance = Vector2.Distance(hitPoint, originPos);
+
+            float minGrappleDistance = .001f;
+
+            if (distance < minGrappleDistance)
+            {
+                Debug.LogWarning($"Grapple point too close to player ({distance:F3} units). Minimum required: {minGrappleDistance}");
+                return; // Exit without starting grapple
+            }
+
             // Get or create an anchor on the hit object
             GameObject hitObject = grappleHit.collider.gameObject;
-
-            // Check if we can grapple to this target
             bool canCreateAnchors = currentConfig.mechanicsConfig.createsAnchors;
             currentGrappleAnchor = GrappleAnchorSystem.GetOrCreateAnchor(
                 hitObject,
@@ -351,12 +362,12 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
                 canCreateAnchors
             );
 
+            // Escape if the object does not have a grapple anchor (means we couldn't create one either)
             if (currentGrappleAnchor == null)
             {
                 // Grapple failed - either no anchor and can't create one,
                 // or anchor requires repositioning but grapple can't do it
                 Debug.Log("Grapple failed - insufficient anchor capability");
-
                 return;
             }
 
