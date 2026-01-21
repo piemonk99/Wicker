@@ -169,6 +169,17 @@ public class CharacterMovement : MonoBehaviour, ICharacterComponent
                 if (isDroppingDown && smoothDropdown && dropDownTimer <= 0f) { StopDropDown(); }
                 break;
 
+            // Climbing system:
+            // If ever up is held and we are in a trigger of the Climbable layer, we will start climbing.
+            // The main type of climbing I am concerned about right now is rope climbing, which will work using our grappling system. 
+            // I have a world rope system that creates a rope effect out of a sprite with a bunch of bones. These bones have the trigger colliders that make up the climbable.
+            // I need to figure out how to have the player able to climb up and down the rope effectively while sticking to it, even when the rope may be swinging -
+            //      the climb direction is not necessarily going to be just up and down, its going to be in the direction of 'up' as it pertains to where we are on the rope. "What's the direction between us and the next bone?"
+
+            // Climbing will only be exited when pressing the jump button. Up and down while climbing will make the player climb up and down.
+            case "up_held":
+                break;
+
             // Two-tier state management events - now handled by state manager
             case "movement_base_set":
                 stateManager.PushBaseState((MovementState)data);
