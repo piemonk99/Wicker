@@ -182,7 +182,7 @@ public class CharacterClimbing : MonoBehaviour, ICharacterComponent
 
         // Add a GrappleAnchor component
         GrappleAnchor grappleAnchor = anchor.AddComponent<GrappleAnchor>();
-        grappleAnchor.SetAsRopeAnchor(); // Mark it as a rope anchor
+        //grappleAnchor.SetAsRopeAnchor(); // Mark it as a rope anchor
 
         return anchor;
     }
