@@ -319,7 +319,7 @@ public class CharacterCore : MonoBehaviour
     }
 }
 
-// Base interface for all character systems - these listen for event calls from a charactercontroller and apply effects
+// Base interface for all character systems - these listen for event calls from a charactercontroller and apply effects, some of which may call events as well.
 public interface ICharacterComponent
 {
     void Initialize(CharacterCore character);

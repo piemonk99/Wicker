@@ -37,10 +37,10 @@ public class AudioManager : MonoBehaviour
 
     public event Action<SoundCategory> OnVolumeChanged;
 
-    // Single unified audio source pool
+    // Single unified audio source pool for all audio types (bgm, sfx, ambient)
     private Queue<AudioSource> audioSourcePool = new Queue<AudioSource>();
     private List<ActiveAudioSource> activeSources = new List<ActiveAudioSource>();
-    private int poolSize = 15; // Increased for BGM + SFX needs
+    private int poolSize = 20;
 
     private Dictionary<string, SoundNode> nodePathCache = new Dictionary<string, SoundNode>();
 
@@ -48,7 +48,7 @@ public class AudioManager : MonoBehaviour
     {
         public AudioSource source;
         public SoundCategory category;
-        public float baseVolume; // For volume updates
+        public float baseVolume;
 
         public ActiveAudioSource(AudioSource source, SoundCategory category, float baseVolume)
         {
