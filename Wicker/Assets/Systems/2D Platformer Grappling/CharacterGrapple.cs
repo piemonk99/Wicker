@@ -320,14 +320,6 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
         {
             isDownHeld = false;
         }
-        else if (type == "rope_climb_grapple_start")
-        {
-            if (!isGrappling)
-            {
-                GameObject anchorObject = (GameObject)data;
-                StartGrappleAtPoint(anchorObject.transform.position, anchorObject);
-            }
-        }
     }
 
     //////////////////////// Grapple Lifecycle ////////////////////////
@@ -427,36 +419,6 @@ public class CharacterGrapple : MonoBehaviour, ICharacterComponent
             soundManager.PlayLaunchSound();
             soundManager.StartCreakSounds();
         }
-    }
-
-    // Add this to CharacterGrapple.cs in the public API section:
-
-    /// <summary>
-    /// Starts a grapple at a specific point (for rope climbing integration)
-    /// </summary>
-    public void StartGrappleAtPoint(Vector2 point, GameObject anchorObject, int initialReelDirection = 0)
-    {
-        if (currentConfig == null || isGrappling) return;
-
-        // Create a grapple anchor on the provided object
-        currentGrappleAnchor = GrappleAnchorSystem.GetOrCreateAnchor(
-            anchorObject,
-            point,
-            currentConfig.mechanicsConfig.createsAnchors
-        );
-
-        if (currentGrappleAnchor == null)
-        {
-            Debug.LogWarning("Failed to create grapple anchor for rope climbing");
-            return;
-        }
-
-        anchorTargetObject = anchorObject;
-
-        // Start the grapple normally
-        StartGrapple(initialReelDirection);
-
-        Debug.Log($"Rope climb grapple started at {point}");
     }
 
     private void StopGrapple()
